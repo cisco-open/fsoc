@@ -56,6 +56,8 @@ func getSolutionExtendCmd() *cobra.Command {
 		String("add-entity", "", "Add as a new entity type definition to this solution")
 	solutionExtendCmd.Flags().
 		String("add-metric", "", "Add as a new metric type definition to this solution")
+	solutionExtendCmd.Flags().
+		String("add-resourceMapping", "", "Add as a new metric type definition to this solution")
 
 	return solutionExtendCmd
 
@@ -84,6 +86,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
+		componentName = strings.ToLower(componentName)
 		output.PrintCmdStatus(fmt.Sprintf("Adding %s knowledge component to %s's solution package folder structure... \n", componentName, manifest.Name))
 		folderName := "knowledge"
 		fileName := fmt.Sprintf("%s.json", componentName)
@@ -96,6 +99,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 
 	if cmd.Flags().Changed("add-service") {
 		componentName, _ := cmd.Flags().GetString("add-service")
+		componentName = strings.ToLower(componentName)
 		output.PrintCmdStatus(fmt.Sprintf("Adding %s service component to %s's solution package folder structure... \n", componentName, manifest.Name))
 		folderName := "services"
 		fileName := fmt.Sprintf("%s.json", componentName)
@@ -115,116 +119,198 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 	}
 
 	if cmd.Flags().Changed("add-entity") {
-		folderName := "model"
-		var filePath string
-		// var entitiesDefFile *os.File
-
-		namespaceComponentDef := getComponentDef("fmm:namespace", manifest)
-		if namespaceComponentDef.Type == "" {
-			output.PrintCmdStatus(fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
-			appendFolder(folderName)
-			appendDependency("fmm", manifest)
-			namespaceCompDef := &ComponentDef{
-				Type:        "fmm:namespace",
-				ObjectsFile: "model/namespace.json",
-			}
-			manifest.Objects = append(manifest.Objects, *namespaceCompDef)
-			namespaceComp := getNamespaceComponent(manifest.Name)
-			createComponentFile(namespaceComp, folderName, "namespace.json")
-			createSolutionManifestFile(".", manifest)
-			output.PrintCmdStatus("Added model/namespace.json file to your solution \n")
-		}
-
-		entityComponentDef := getComponentDef("fmm:entity", manifest)
-		var entitiesArray []*FmmEntity
-		if entityComponentDef.Type == "" {
-			entityComponentDef = &ComponentDef{
-				Type:        "fmm:entity",
-				ObjectsFile: "model/entities.json",
-			}
-			manifest.Objects = append(manifest.Objects, *entityComponentDef)
-			filePath = entityComponentDef.ObjectsFile
-			createFile(filePath)
-			output.PrintCmdStatus("Added model/entities.json file to your solution \n")
-		} else {
-			filePath = entityComponentDef.ObjectsFile
-			entitiesDefFile := openFile(filePath)
-			defer entitiesDefFile.Close()
-
-			entitiesBytes, _ := io.ReadAll(entitiesDefFile)
-
-			err = json.Unmarshal(entitiesBytes, &entitiesArray)
-			if err != nil {
-				log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
-				return
-			}
-		}
-
 		componentName, _ := cmd.Flags().GetString("add-entity")
-		entityComp := getEntityComponent(componentName, manifest.Name)
-		entitiesArray = append(entitiesArray, entityComp)
-		splitPath := strings.Split(entityComponentDef.ObjectsFile, "/")
-		fileName := splitPath[len(splitPath)-1]
-		createComponentFile(entitiesArray, folderName, fileName)
-		output.PrintCmdStatus("Updating the manifest.json \n")
-		createSolutionManifestFile(".", manifest)
+		componentName = strings.ToLower(componentName)
+		folderName := "model"
+
+		addFmmEntity(manifest, folderName, componentName)
+	}
+
+	if cmd.Flags().Changed("add-resourceMapping") {
+		entityName, _ := cmd.Flags().GetString("add-resourceMapping")
+		entityName = strings.ToLower(entityName)
+		folderName := "model"
+
+		addFmmResourceMapping(manifest, folderName, entityName)
 	}
 
 	if cmd.Flags().Changed("add-metric") {
-		folderName := "model"
-		var filePath string
-		// var entitiesDefFile *os.File
-
-		namespaceComponentDef := getComponentDef("fmm:namespace", manifest)
-		if namespaceComponentDef.Type == "" {
-			output.PrintCmdStatus(fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
-			appendFolder(folderName)
-			appendDependency("fmm", manifest)
-			namespaceCompDef := &ComponentDef{
-				Type:        "fmm:namespace",
-				ObjectsFile: "model/namespace.json",
-			}
-			manifest.Objects = append(manifest.Objects, *namespaceCompDef)
-			namespaceComp := getNamespaceComponent(manifest.Name)
-			createComponentFile(namespaceComp, folderName, "namespace.json")
-			createSolutionManifestFile(".", manifest)
-			output.PrintCmdStatus("Added model/namespace.json file to your solution \n")
-		}
-
-		metricComponentDef := getComponentDef("fmm:metric", manifest)
-		var metricsArray []*FmmMetric
-		if metricComponentDef.Type == "" {
-			metricComponentDef = &ComponentDef{
-				Type:        "fmm:metric",
-				ObjectsFile: "model/metrics.json",
-			}
-			manifest.Objects = append(manifest.Objects, *metricComponentDef)
-			filePath = metricComponentDef.ObjectsFile
-			createFile(filePath)
-			output.PrintCmdStatus("Added model/metrics.json file to your solution \n")
-		} else {
-			filePath = metricComponentDef.ObjectsFile
-			metricsDefFile := openFile(filePath)
-			defer metricsDefFile.Close()
-
-			metricsBytes, _ := io.ReadAll(metricsDefFile)
-
-			err = json.Unmarshal(metricsBytes, &metricsArray)
-			if err != nil {
-				log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
-				return
-			}
-		}
-
 		componentName, _ := cmd.Flags().GetString("add-metric")
-		newMetricComp := getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name)
-		metricsArray = append(metricsArray, newMetricComp)
-		splitPath := strings.Split(metricComponentDef.ObjectsFile, "/")
-		fileName := splitPath[len(splitPath)-1]
-		createComponentFile(metricsArray, folderName, fileName)
-		output.PrintCmdStatus("Updating the manifest.json \n")
-		createSolutionManifestFile(".", manifest)
+		componentName = strings.ToLower(componentName)
+		folderName := "model"
+
+		addFmmMetric(manifest, folderName, componentName)
 	}
+}
+
+func addFmmMetric(manifest *Manifest, folderName, componentName string) {
+	var filePath string
+	checkCreateSolutionNamespace(manifest, folderName)
+
+	metricComponentDef := getComponentDef("fmm:metric", manifest)
+	var metricsArray []*FmmMetric
+	if metricComponentDef.Type == "" {
+		metricComponentDef = &ComponentDef{
+			Type:        "fmm:metric",
+			ObjectsFile: "model/metrics.json",
+		}
+		manifest.Objects = append(manifest.Objects, *metricComponentDef)
+		filePath = metricComponentDef.ObjectsFile
+		createFile(filePath)
+		output.PrintCmdStatus("Added model/metrics.json file to your solution \n")
+	} else {
+		// filePath = metricComponentDef.ObjectsFile
+		// metricsDefFile := openFile(filePath)
+		// defer metricsDefFile.Close()
+
+		// metricsBytes, _ := io.ReadAll(metricsDefFile)
+		metricsBytes := readComponentDef(metricComponentDef)
+		err := json.Unmarshal(metricsBytes, &metricsArray)
+		if err != nil {
+			log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
+			return
+		}
+	}
+
+	newMetricComp := getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name)
+	metricsArray = append(metricsArray, newMetricComp)
+	splitPath := strings.Split(metricComponentDef.ObjectsFile, "/")
+	fileName := splitPath[len(splitPath)-1]
+	createComponentFile(metricsArray, folderName, fileName)
+	output.PrintCmdStatus("Updating the manifest.json \n")
+	createSolutionManifestFile(".", manifest)
+
+}
+
+func addFmmResourceMapping(manifest *Manifest, folderName, entityName string) {
+	var filePath string
+	checkCreateSolutionNamespace(manifest, folderName)
+	resourceMapComponentDef := getComponentDef("fmm:resourceMapping", manifest)
+	var resourceMappingArray []*FmmResourceMapping
+	if resourceMapComponentDef.Type == "" {
+		resourceMapComponentDef = &ComponentDef{
+			Type:        "fmm:resourceMapping",
+			ObjectsFile: "model/resourceMappings.json",
+		}
+		manifest.Objects = append(manifest.Objects, *resourceMapComponentDef)
+		filePath = resourceMapComponentDef.ObjectsFile
+		createFile(filePath)
+		output.PrintCmdStatus("Added model/resourceMappings.json file to your solution \n")
+	} else {
+		componentDefBytes := readComponentDef(resourceMapComponentDef)
+		err := json.Unmarshal(componentDefBytes, &resourceMappingArray)
+		if err != nil {
+			log.Errorf("Can't generate an array of resource mapping definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
+			return
+		}
+	}
+
+	resourceMapComp := getResourceMap(entityName, manifest)
+	resourceMappingArray = append(resourceMappingArray, resourceMapComp)
+	splitPath := strings.Split(resourceMapComponentDef.ObjectsFile, "/")
+	fileName := splitPath[len(splitPath)-1]
+	createComponentFile(resourceMappingArray, folderName, fileName)
+	output.PrintCmdStatus("Updating the manifest.json \n")
+	createSolutionManifestFile(".", manifest)
+}
+
+func addFmmEntity(manifest *Manifest, folderName, componentName string) {
+	var filePath string
+	checkCreateSolutionNamespace(manifest, folderName)
+
+	entityComponentDef := getComponentDef("fmm:entity", manifest)
+	var entitiesArray []*FmmEntity
+	if entityComponentDef.Type == "" {
+		entityComponentDef = &ComponentDef{
+			Type:        "fmm:entity",
+			ObjectsFile: "model/entities.json",
+		}
+		manifest.Objects = append(manifest.Objects, *entityComponentDef)
+		filePath = entityComponentDef.ObjectsFile
+		createFile(filePath)
+		output.PrintCmdStatus("Added model/entities.json file to your solution \n")
+	} else {
+		// filePath = entityComponentDef.ObjectsFile
+		// entitiesDefFile := openFile(filePath)
+		// defer entitiesDefFile.Close()
+
+		// entitiesBytes, _ := io.ReadAll(entitiesDefFile)
+
+		entitiesBytes := readComponentDef(entityComponentDef)
+
+		err := json.Unmarshal(entitiesBytes, &entitiesArray)
+		if err != nil {
+			log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
+			return
+		}
+	}
+
+	entityComp := getEntityComponent(componentName, manifest.Name)
+	entitiesArray = append(entitiesArray, entityComp)
+	splitPath := strings.Split(entityComponentDef.ObjectsFile, "/")
+	fileName := splitPath[len(splitPath)-1]
+	createComponentFile(entitiesArray, folderName, fileName)
+	output.PrintCmdStatus("Updating the manifest.json \n")
+	createSolutionManifestFile(".", manifest)
+}
+
+func getResourceMap(entityName string, manifest *Manifest) *FmmResourceMapping {
+	hasEntity := false
+	entityComponentDef := getComponentDef("fmm:entity", manifest)
+	var entitiesArray []*FmmEntity
+	var newResoureMapping *FmmResourceMapping
+	entityBytes := readComponentDef(entityComponentDef)
+	err := json.Unmarshal(entityBytes, &entitiesArray)
+	if err != nil {
+		log.Errorf("Can't generate an array of %s type definition objects from the %s file.", entityComponentDef.Type, entityComponentDef.ObjectsFile)
+		return nil
+	}
+	for _, entity := range entitiesArray {
+		if entity.Name == entityName {
+			hasEntity = true
+			namespace := entity.Namespace
+			name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
+			entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
+			scopeFilterFields := make([]string, 0)
+			attributeMaps := make(FmmNameMappings, 0)
+			displayName := fmt.Sprintf("Resource mapping configuration for the %s entity", entityType)
+			fmmTypeDef := &FmmTypeDef{
+				Namespace:   namespace,
+				Kind:        "resourceMapping",
+				Name:        name,
+				DisplayName: displayName,
+			}
+			for _, requiredField := range entity.AttributeDefinitions.Required {
+				scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, requiredField)
+				scopeFilterFields = append(scopeFilterFields, scopeForField)
+				attributeMaps[requiredField] = scopeForField
+			}
+
+			scopeFilter := fmt.Sprintf("containsAll(resourceAttributes, %s)", getStringfiedArray(scopeFilterFields))
+			newResoureMapping = &FmmResourceMapping{
+				FmmTypeDef:            fmmTypeDef,
+				EntityType:            entityType,
+				ScopeFilter:           scopeFilter,
+				AttributeNameMappings: attributeMaps,
+			}
+		}
+	}
+
+	if !hasEntity {
+		message := fmt.Sprintf("A fmm:resourceMapping was not created! Could not find an fmm:entity named %s in this solution", entityName)
+		output.PrintCmdStatus(message)
+	}
+	return newResoureMapping
+}
+
+func readComponentDef(componentDef *ComponentDef) []byte {
+	filePath := componentDef.ObjectsFile
+	componentDefFile := openFile(filePath)
+	defer componentDefFile.Close()
+
+	componentDefBytes, _ := io.ReadAll(componentDefFile)
+
+	return componentDefBytes
 }
 
 func appendDependency(solutionName string, manifest *Manifest) {
@@ -265,7 +351,7 @@ func getNamespaceComponent(solutionName string) *FmmNamespace {
 func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 	emptyStringArray := make([]string, 0)
 	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
-	emptyAssociationTypes := &FmmAssociationTypesTypeDef{}
+	// emptyAssociationTypes := &FmmAssociationTypesTypeDef{}
 
 	emptyAttributeArray["name"] = &FmmAttributeTypeDef{
 		Type:        "string",
@@ -274,7 +360,12 @@ func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 
 	namespaceAssign := &FmmNamespaceAssignTypeDef{
 		Name:    solutionName,
-		Version: "1.0",
+		Version: 1,
+	}
+
+	lifecycleConfig := &FmmLifecycleConfigTypeDef{
+		PurgeTtlInMinutes:     4200,
+		RetentionTtlInMinutes: 1440,
 	}
 
 	fmmTypeDef := &FmmTypeDef{
@@ -292,11 +383,9 @@ func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 	}
 
 	entityComponentDef := &FmmEntity{
-		FmmTypeDef:           fmmTypeDef,
-		MetricTypes:          emptyStringArray,
-		EventTypes:           emptyStringArray,
-		AttributeDefinitions: attributesDefinition,
-		AssociationTypes:     emptyAssociationTypes,
+		FmmTypeDef:            fmmTypeDef,
+		LifecyleConfiguration: lifecycleConfig,
+		AttributeDefinitions:  attributesDefinition,
 	}
 
 	return entityComponentDef
@@ -305,7 +394,7 @@ func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 func getMetricComponent(metricName string, contentType FmmMetricContentType, category FmmMetricCategory, metricType FmmMetricType, solutionName string) *FmmMetric {
 	namespaceAssign := &FmmNamespaceAssignTypeDef{
 		Name:    solutionName,
-		Version: "1.0",
+		Version: 1,
 	}
 
 	fmmTypeDef := &FmmTypeDef{
@@ -370,4 +459,29 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 	}
 
 	return knowledgeComponent
+}
+
+func checkCreateSolutionNamespace(manifest *Manifest, folderName string) {
+	namespaceComponentDef := getComponentDef("fmm:namespace", manifest)
+	if namespaceComponentDef.Type == "" {
+		output.PrintCmdStatus(fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
+		appendFolder(folderName)
+		appendDependency("fmm", manifest)
+		namespaceCompDef := &ComponentDef{
+			Type:        "fmm:namespace",
+			ObjectsFile: "model/namespace.json",
+		}
+		manifest.Objects = append(manifest.Objects, *namespaceCompDef)
+		namespaceComp := getNamespaceComponent(manifest.Name)
+		createComponentFile(namespaceComp, folderName, "namespace.json")
+		createSolutionManifestFile(".", manifest)
+		output.PrintCmdStatus("Added model/namespace.json file to your solution \n")
+	}
+}
+
+func getStringfiedArray(array []string) string {
+	initialFormat := fmt.Sprintf("%q", array)
+	tokenized := strings.Split(initialFormat, " ")
+	prettyArrayString := strings.Replace(strings.Join(tokenized, ", "), "\"", "'", -1)
+	return prettyArrayString
 }

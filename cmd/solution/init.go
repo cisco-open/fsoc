@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -64,7 +65,7 @@ func getInitSolutionCmd() *cobra.Command {
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
 
 	solutionName, _ := cmd.Flags().GetString("name")
-
+	solutionName = strings.ToLower(solutionName)
 	output.PrintCmdStatus(fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
