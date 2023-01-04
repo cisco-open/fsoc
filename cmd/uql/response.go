@@ -25,9 +25,9 @@ import (
 
 // Response represents a parsed UQL response body
 type Response struct {
-	model    *Model
-	dataSets map[string]*DataSet
-	errors   []*Error
+	model       *Model
+	mainDataSet *DataSet
+	errors      []*Error
 }
 
 func (resp *Response) Model() *Model {
@@ -35,11 +35,7 @@ func (resp *Response) Model() *Model {
 }
 
 func (resp *Response) Main() *DataSet {
-	return resp.dataSets["d:main"]
-}
-
-func (resp *Response) DataSet(ref DataSetRef) *DataSet {
-	return resp.dataSets[ref.Dataset]
+	return resp.mainDataSet
 }
 
 func (resp *Response) HasErrors() bool {
@@ -65,12 +61,38 @@ type ModelField struct {
 	Model *Model `json:"model"`
 }
 
+type Complex interface {
+	Model() *Model
+	Values() [][]any
+}
+
 // DataSet holds the result data along with its name, structure (Model) and metadata
 type DataSet struct {
-	Name     string
-	Model    *Model
-	Metadata map[string]any
-	Values   [][]any
+	Name      string
+	DataModel *Model
+	Metadata  map[string]any
+	Data      [][]any
+}
+
+func (d DataSet) Model() *Model {
+	return d.DataModel
+}
+
+func (d DataSet) Values() [][]any {
+	return d.Data
+}
+
+type ComplexData struct {
+	DataModel *Model
+	Data      [][]any
+}
+
+func (c ComplexData) Model() *Model {
+	return c.DataModel
+}
+
+func (c ComplexData) Values() [][]any {
+	return c.Data
 }
 
 // DataSetRef is a reference to another data set within the Response

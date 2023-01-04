@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests that a proper server response is correctly deserialized into an Response struct
+// Tests that a proper server response is correctly deserialized into a Response struct
 func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	// given
 	// language=json
@@ -80,17 +80,10 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 
 	check.EqualValues(mainModel, response.Model(), "main model not parsed correctly")
 
-	mainDataSet := &DataSet{
-		Name:   "d:main",
-		Model:  mainModel,
-		Values: [][]any{{748, DataSetRef{Dataset: "d:events-1", JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]"}}},
-	}
-	check.EqualValues(mainDataSet, response.Main(), "main data set not parsed correctly")
-
 	eventsDataSet := &DataSet{
-		Name:  "d:events-1",
-		Model: eventModel,
-		Values: [][]any{
+		Name:      "d:events-1",
+		DataModel: eventModel,
+		Data: [][]any{
 			{
 				time.Date(2022, time.December, 5, 7, 30, 56, 0, time.UTC),
 				"2022-12-05T07:30:56 DEBUG LogExample [main] This is a Debug message",
@@ -106,8 +99,12 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 		},
 	}
 
-	responseEvents := response.DataSet(response.Main().Values[0][1].(DataSetRef))
-	check.EqualValues(eventsDataSet.Name, responseEvents.Name, "events data set not parsed correctly")
+	mainDataSet := &DataSet{
+		Name:      "d:main",
+		DataModel: mainModel,
+		Data:      [][]any{{748, eventsDataSet}},
+	}
+	check.EqualValues(mainDataSet, response.Main(), "Data not parsed correctly")
 }
 
 func TestExecuteUqlQuery_Errors(t *testing.T) {
@@ -205,7 +202,7 @@ func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
 			check.NoError(err, "parsing of response failed when it should not")
 
 			// then
-			check.EqualValues(c.Value, response.Main().Values[0][0], "")
+			check.EqualValues(c.Value, response.Main().Values()[0][0], "")
 		})
 	}
 }
@@ -248,9 +245,9 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		check.NoError(err, "parsing of response failed when it should not")
 
 		// then
-		inlinedComplexValue := response.Main().Values[0][0].([][]any)
-		check.EqualValues("inline", inlinedComplexValue[0][0], "inlined complex value not parsed correctly")
-		check.EqualValues(456, inlinedComplexValue[0][1], "inlined complex value not parsed correctly")
+		inlinedComplexValue := response.Main().Values()[0][0].(ComplexData)
+		check.EqualValues("inline", inlinedComplexValue.Values()[0][0], "inlined complex value not parsed correctly")
+		check.EqualValues(456, inlinedComplexValue.Values()[0][1], "inlined complex value not parsed correctly")
 	})
 
 	t.Run("referenced", func(t *testing.T) {
@@ -298,10 +295,10 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		check.NoError(err, "parsing of response failed when it should not")
 
 		// then
-		subRef := response.Main().Values[0][0].(DataSetRef)
-		check.EqualValues(DataSetRef{JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:sub-1')]", Dataset: "d:sub-1"}, subRef, "inlined complex value not parsed correctly")
-		check.EqualValues("referenced", response.DataSet(subRef).Values[0][0], "referenced complex value not parsed properly")
-		check.EqualValues(789, response.DataSet(subRef).Values[0][1], "referenced complex value not parsed properly")
+		referencedDataset := response.Main().Values()[0][0].(*DataSet)
+		check.EqualValues("d:sub-1", referencedDataset.Name, "referenced dataset name not parsed properly")
+		check.EqualValues("referenced", referencedDataset.Values()[0][0], "referenced complex value not parsed properly")
+		check.EqualValues(789, referencedDataset.Values()[0][1], "referenced complex value not parsed properly")
 	})
 }
 

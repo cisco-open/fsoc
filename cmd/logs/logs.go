@@ -129,7 +129,7 @@ func fetchLogs(cmd *cobra.Command, args []string) error {
 		return uql.Errors(resp.Errors())
 	}
 
-	values := resp.DataSet(resp.Main().Values[0][0].(uql.DataSetRef)).Values
+	values := resp.Main().Values()[0][0].(*uql.DataSet).Values()
 	for i := len(values) - 1; i >= 0; i-- {
 		printRow(values[i], formatter)
 	}

@@ -90,7 +90,7 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 	}
 
 	var model *Model
-	var dataSets []*DataSet
+	var dataSets = make(map[string]*DataSet)
 	var errorSets []*Error
 	var modelIndex map[string]*Model
 
@@ -113,18 +113,18 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 			if err != nil {
 				return nil, err
 			}
-			dataSets = append(dataSets, &DataSet{
-				Name:     dataset.Dataset,
-				Model:    dataSetModel,
-				Metadata: dataset.Metadata,
-				Values:   values,
-			})
+			dataSets[dataset.Dataset] = &DataSet{
+				Name:      dataset.Dataset,
+				DataModel: dataSetModel,
+				Metadata:  dataset.Metadata,
+				Data:      values,
+			}
 		case "error":
 			errorSets = append(errorSets, dataset.Error)
 		}
 	}
 
-	return &Response{model: model, dataSets: createDataSetIndex(dataSets), errors: errorSets}, nil
+	return &Response{model: model, mainDataSet: resolveRefs(dataSets["d:main"], dataSets), errors: errorSets}, nil
 }
 
 func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
@@ -190,7 +190,10 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 					if err != nil {
 						return nil, err
 					}
-					row = append(row, processedValues)
+					row = append(row, ComplexData{
+						DataModel: field.Model,
+						Data:      processedValues,
+					})
 				default: // unknown types
 					value, err := stringDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
@@ -203,14 +206,6 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 		processedData = append(processedData, row)
 	}
 	return processedData, nil
-}
-
-func createDataSetIndex(dataSets []*DataSet) map[string]*DataSet {
-	var index = make(map[string]*DataSet)
-	for _, dataSet := range dataSets {
-		index[dataSet.Name] = dataSet
-	}
-	return index
 }
 
 func createModelIndex(model *Model) map[string]*Model {
@@ -226,4 +221,20 @@ func appendModelToIndex(model *Model, index map[string]*Model) {
 			appendModelToIndex(field.Model, index)
 		}
 	}
+}
+
+func resolveRefs(dataSet *DataSet, dataSets map[string]*DataSet) *DataSet {
+	if dataSet == nil {
+		return nil
+	}
+	for r, row := range dataSet.Data {
+		for c, val := range row {
+			switch ref := val.(type) {
+			case DataSetRef:
+				referenced := resolveRefs(dataSets[ref.Dataset], dataSets)
+				dataSet.Data[r][c] = referenced
+			}
+		}
+	}
+	return dataSet
 }
