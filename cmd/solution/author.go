@@ -32,21 +32,33 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/output"
 )
 
 const (
-	callbackUrl  = "http://localhost:3101/solution"
-	localUiUrl   = "http://localhost:3000/dev/authoring"
-	templatePath = "/objects/template/"
+	callbackUrl       = "http://localhost:3101/solution"
+	localUiUrl        = "http://localhost:3000/dev/authoring"
+	authoringToolPath = "/ui/dev/authoring"
+	templateType      = "dashui:template"
+	manifestFname     = "manifest.json"
 )
 
-type item struct {
+// templateServer provides the http server of the solution's templates
+type templateServer struct {
+	Fs            afero.Fs
+	Name          string
+	TemplatePath  string
+	TerminateChan chan bool
+	server        *http.Server
+}
+
+type apiItem struct {
 	Name string `json:"name"`
 }
 
-type itemList struct {
-	Items    []item `json:"items"`
-	NumItems int    `json:"total"`
+type apiItemList struct {
+	Items    []apiItem `json:"items"`
+	NumItems int       `json:"total"`
 }
 
 var authorCmd = &cobra.Command{
@@ -74,27 +86,18 @@ func authorRunWrapper(cmd *cobra.Command, args []string) {
 }
 
 func authorRun(cfg *config.Context, dir string, local bool) error {
-	// Check to make sure that the current directory is valid
-	solutionDirectory, err := filepath.Abs(dir)
-	if err != nil {
-		return err
-	}
-	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), solutionDirectory)
-	solutionName, err := getSolutionName(fileSystem)
-	if err != nil {
-		return err
-	}
-	terminateServer := make(chan bool)
-	// If the directory is valid start the callback server
-	callbackServer, err := startCallbackServerForUIAuthor(fileSystem, terminateServer)
-	if err != nil {
-		return fmt.Errorf("Could not start a local http server for auth: %v", err.Error())
-	}
+	// create a template server object & start serving
+	tServer := newTemplateServer(dir)
 
+	// start the callback server
+	err := tServer.Start()
+	if err != nil {
+		return fmt.Errorf("Could not start a local http server for auth: %v", err)
+	}
 	defer func() {
-		err := callbackServer.Close()
+		err := tServer.Stop()
 		if err != nil {
-			log.Errorf("Failed to automatically close the callback callbackServer: %v", err.Error())
+			log.Errorf("Failed to automatically close the callback server: %v", err)
 		}
 	}()
 
@@ -111,84 +114,132 @@ func authorRun(cfg *config.Context, dir string, local bool) error {
 		browserUrl = &url.URL{
 			Scheme: "https",
 			Host:   cfg.Server,
-			Path:   "/ui/dev/authoring",
+			Path:   authoringToolPath,
 		}
 	}
 	queryParams := url.Values{
 		"url":      {callbackUrl},
-		"solution": {solutionName},
+		"solution": {tServer.Name},
 	}
 	browserUrl.RawQuery = queryParams.Encode()
 
 	// inform about required feature flag
 	// TODO: remove when the feature flag is no longer needed
-	log.Warnf("Note that this function requires UI feature flag ENABLE_FSOC_INTEGRATION_WITH_AUTHORING to be enabled")
+	log.Warnf("Note that this function requires the following UI feature flags to be enabled:\n" +
+		"\t- SHOW_TEMPLATE_AUTHORING\n" +
+		"\t- ENABLE_FSOC_INTEGRATION_WITH_AUTHORING")
 
 	// Open Browser at the authoring tool
-	if err = openBrowser(browserUrl.String(), terminateServer); err != nil {
-		log.Errorf("Failed to automatically launch browser: %v", err.Error())
+	if err = openBrowser(browserUrl.String()); err != nil {
+		log.Errorf("Failed to automatically launch browser: %v. Please try opening a browser at %q", err, browserUrl.String())
+		// fall through
 	}
-	terminate := <-terminateServer
-	fmt.Printf("Terminate callbackServer: %s", strconv.FormatBool(terminate))
+
+	// wait for termination
+	terminate := <-tServer.TerminateChan
+	output.PrintCmdStatus(fmt.Sprintf("Terminating callback server: %s\n", strconv.FormatBool(terminate)))
 	return nil
 }
 
-func startCallbackServerForUIAuthor(fileSystem afero.Fs, terminateServer chan bool) (*http.Server, error) {
-	urlStruct, err := url.Parse(callbackUrl)
+func newTemplateServer(dir string) *templateServer {
+	// check direcory and create a confined file system
+	solutionDirectory, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse callback URL %q: %v", callbackUrl, err)
+		log.Fatalf("Invalid solution directory path: %v", err)
+	}
+	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), solutionDirectory)
+
+	// read solution manifest
+	fileContents, err := afero.ReadFile(fileSystem, manifestFname)
+	if err != nil {
+		log.Fatalf("No manifest file in this directory: %v. Use `solution init` or `solution fork` to create.", err)
+	}
+	var manifest Manifest
+	err = json.Unmarshal(fileContents, &manifest)
+	if err != nil {
+		log.Fatalf("Failed to parse solution manifest: %v", err)
+	}
+	if manifest.Name == "" {
+		log.Fatal("Solution name is not missing (or empty) in the manifest; a valid name is required")
 	}
 
-	server := &http.Server{
+	// obtain template path (for now, fsoc supports only a single object dir)
+	templatePath, err := getTemplatePath(&manifest)
+	if err != nil {
+		log.Fatalf("Failed to obtain template path: %v", err)
+	}
+	exists, err := afero.DirExists(fileSystem, templatePath)
+	if err != nil || !exists {
+		log.Fatalf("Could not find %q directory specified in the manifest: %v", templatePath, err.Error())
+	}
+
+	// create a termination signal channel
+	terminateServer := make(chan bool)
+
+	return &templateServer{
+		Fs:            fileSystem,
+		Name:          manifest.Name,
+		TemplatePath:  templatePath + "/",
+		TerminateChan: terminateServer,
+	}
+}
+
+func (t *templateServer) Start() error {
+	urlStruct, err := url.Parse(callbackUrl)
+	if err != nil {
+		return fmt.Errorf("Failed to parse callback URL %q: %v", callbackUrl, err)
+	}
+
+	t.server = &http.Server{
 		Addr: urlStruct.Host,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callbackHandlerAuthorUI(terminateServer, w, r, fileSystem)
+			t.callbackHandler(w, r)
 		}),
 	}
 	go func() {
-		log.Infof("Starting the auth http server on %v", server.Addr)
-		err := server.ListenAndServe()
+		log.Infof("Starting the auth http server on %v", t.server.Addr)
+		err := t.server.ListenAndServe()
 		if err != nil && err.Error() != "http: Server closed" {
-			log.Errorf("Failed to start auth http server on %v: %v", server.Addr, err)
+			log.Errorf("Failed to start auth http server on %v: %v", t.server.Addr, err)
 		}
 	}()
-	return server, nil
+	return nil
 }
 
-/*
- * Reads the manifest file and extracts the solution name
- * fileContent should be the bytestream generated from the manifest file
- */
-func getSolutionFromManifest(fileContent []byte) (string, error) {
-	var manifest Manifest
-	err := json.Unmarshal(fileContent, &manifest)
-	if err != nil {
-		log.Errorf("Failed to parse solution manifest: %v", err.Error())
-		return "", err
+func (t *templateServer) Stop() error {
+	if t.server != nil {
+		err := t.server.Close()
+		if err != nil {
+			err = fmt.Errorf("failed to stop http server: %v", err)
+			return err
+		}
 	}
-	return manifest.Name, nil
+	return nil
 }
 
-func callbackHandlerAuthorUI(terminateServer chan bool, w http.ResponseWriter, r *http.Request, fs afero.Fs) {
-	// If terminate is set to true then the terminateServer channel will close and the server will terminate
+func (t *templateServer) callbackHandler(w http.ResponseWriter, r *http.Request) {
+	// add CORS headers
 	enableCors(&w)
-	terminate := false
-	//Check URI for malformations
-	uri, err := checkURI(w, r)
-	if err != nil {
-		terminate = true
-		log.Errorf("Error occurred processing request: %v", err)
-	}
 
-	// Log the incoming request
+	// if terminate is set to true then the terminateServer channel will close and the server will terminate
+	terminate := false
+
+	// log the incoming request
 	log.WithFields(log.Fields{
 		"Type": r.Method,
-		"URI":  uri.RequestURI(),
+		"URI":  r.RequestURI,
 	}).Info("Request Received")
-	log.Info(uri.RequestURI())
-	log.Info(r.Method)
 
-	// Check the method of the incoming request
+	// check URI for malformations
+	uri, err := checkURI(w, r)
+	if err != nil {
+		log.Errorf("Invalid request URI: %v", err)
+		// nb: error written to w by checkURI
+		return
+	}
+
+	// process request by method
+	err = nil
 	switch r.Method {
 	case "PUT":
 		if uri.RequestURI() == "/solution/close" {
@@ -196,7 +247,7 @@ func callbackHandlerAuthorUI(terminateServer chan bool, w http.ResponseWriter, r
 			log.Info("Closing callback server")
 			fmt.Fprint(w, "Successfully closed the server")
 		} else if strings.HasPrefix(uri.RequestURI(), "/solution/templates") && len(uri.RequestURI()) > len("/solution/templates") {
-			err = updateTemplate(w, r, fs, uri)
+			err = t.updateTemplate(w, r, uri)
 		} else {
 			log.Errorf("This URI is not recognized, please check the path")
 			fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -204,64 +255,74 @@ func callbackHandlerAuthorUI(terminateServer chan bool, w http.ResponseWriter, r
 	case "GET":
 		w.Header().Set("Content-Type", "application/json")
 		if uri.RequestURI() == "/solution/templates" {
-			err = returnTemplateList(w, r, fs)
+			err = t.returnTemplateList(w, r)
 		} else if uri.RequestURI() == "/ping" {
-			fmt.Fprint(w, "Server is up at "+callbackUrl)
+			fmt.Fprintf(w, "Server is up at %q", callbackUrl)
 		} else if strings.HasPrefix(uri.RequestURI(), "/solution/templates") && len(uri.RequestURI()) > len("/solution/templates") {
-			err = returnTemplate(w, r, fs, uri)
+			err = t.readTemplate(w, r, uri)
 		} else {
 			log.Errorf("This URI is not recognized, please check the path")
 			fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		}
 	case "DELETE":
 		if strings.HasPrefix(uri.RequestURI(), "/solution/templates") && len(uri.RequestURI()) > len("/solution/templates") {
-			err = deleteTemplateFile(w, r, fs, uri)
+			err = t.deleteTemplateFile(w, r, uri)
 		} else {
 			log.Errorf("This URI is not recognized, please check the Method")
 			fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		}
 	case "OPTION":
+		log.Error("Method OPTION is not supported")
+		fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	default:
-		log.Errorf("This method is not recognized, please check the path")
-		fmt.Fprint(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		log.Errorf("Method %v is not recognized, please check the path", r.Method)
+		fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 	if err != nil {
 		log.Errorf("Error while parsing request: %v", err.Error())
 		fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 	if terminate {
-		terminateServer <- terminate
+		t.TerminateChan <- terminate
 	}
 }
 
-func returnTemplate(w http.ResponseWriter, r *http.Request, fs afero.Fs, uri *url.URL) error {
+func (t *templateServer) readTemplate(w http.ResponseWriter, r *http.Request, uri *url.URL) error {
 	URIParts := strings.Split(uri.RequestURI(), "/")
-	file, err := afero.ReadFile(fs, templatePath+URIParts[len(URIParts)-1])
-	log.Info("Getting file at " + templatePath + URIParts[len(URIParts)-1])
+	file, err := afero.ReadFile(t.Fs, t.TemplatePath+URIParts[len(URIParts)-1])
+	log.Info("Getting file at " + t.TemplatePath + URIParts[len(URIParts)-1])
 	if err != nil {
 		log.Errorf("No such template file in this directory: %v", err.Error())
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return err
 	} else {
+		// temporary support for content-type
+		if strings.HasSuffix(URIParts[len(URIParts)-1], ".html") {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		}
+
+		// send file contents
 		fmt.Fprint(w, string(file))
 		return nil
 	}
 }
 
-func returnTemplateList(w http.ResponseWriter, r *http.Request, fs afero.Fs) error {
-	files, err := afero.ReadDir(fs, templatePath)
+func (t *templateServer) returnTemplateList(w http.ResponseWriter, r *http.Request) error {
+	files, err := afero.ReadDir(t.Fs, t.TemplatePath)
 	if err != nil {
 		log.Errorf("Cannot read the files: %v", err.Error())
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return err
 	}
-	var itemsList itemList
-	itemArray := make([]item, 0)
+
+	var itemsList apiItemList
+	itemArray := make([]apiItem, 0)
 	for i := 0; i < len(files); i++ {
-		var item item
+		var item apiItem
 		item.Name = files[i].Name()
 		itemArray = append(itemArray, item)
 	}
+
 	itemsList.Items = itemArray
 	itemsList.NumItems = len(files)
 	jsonOutput, err := json.Marshal(&itemsList)
@@ -270,30 +331,31 @@ func returnTemplateList(w http.ResponseWriter, r *http.Request, fs afero.Fs) err
 		return err
 	}
 	fmt.Fprint(w, string(jsonOutput))
+
 	return nil
 }
 
-func updateTemplate(w http.ResponseWriter, r *http.Request, fs afero.Fs, uri *url.URL) error {
+func (t *templateServer) updateTemplate(w http.ResponseWriter, r *http.Request, uri *url.URL) error {
 	//var body string
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Errorf("Cannot read request body: %v", err.Error())
 	}
 	URIParts := strings.Split(uri.RequestURI(), "/")
-	err = afero.WriteFile(fs, templatePath+URIParts[len(URIParts)-1], b, 0644)
+	err = afero.WriteFile(t.Fs, t.TemplatePath+URIParts[len(URIParts)-1], b, 0644)
 	if err != nil {
 		log.Errorf("Error writing to this file: %v", err.Error())
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return err
 	} else {
-		fmt.Fprint(w, "Successfully wrote to "+templatePath+URIParts[len(URIParts)-1])
+		fmt.Fprint(w, "Successfully wrote to "+t.TemplatePath+URIParts[len(URIParts)-1])
 		return nil
 	}
 }
 
-func deleteTemplateFile(w http.ResponseWriter, r *http.Request, fs afero.Fs, uri *url.URL) error {
+func (t *templateServer) deleteTemplateFile(w http.ResponseWriter, r *http.Request, uri *url.URL) error {
 	URIParts := strings.Split(uri.RequestURI(), "/")
-	err := fs.Remove(templatePath + URIParts[len(URIParts)-1])
+	err := t.Fs.Remove(t.TemplatePath + URIParts[len(URIParts)-1])
 	if err != nil {
 		log.Errorf("Error in deleting file: %v", err.Error())
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -325,7 +387,7 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS, DELETE")
 }
 
-func openBrowser(url string, terminateServer chan bool) error {
+func openBrowser(url string) error {
 	// redirect browser's package stdout to a pipe, saving the original stdout
 	orig := browser.Stdout
 	r, w, _ := os.Pipe()
@@ -359,21 +421,39 @@ func openBrowser(url string, terminateServer chan bool) error {
 	return browserErr
 }
 
-func getSolutionName(fileSystem afero.Fs) (string, error) {
-	fileContents, err := afero.ReadFile(fileSystem, "./manifest.json")
-	if err != nil {
-		log.Errorf("No manifest file in this directory: %v", err.Error())
-		return "", err
+func getTemplatePath(manifest *Manifest) (string, error) {
+	// locate the one and only one template directory
+	var templatePath string
+	numTemplateObjects := 0
+	for _, obj := range manifest.Objects {
+		if obj.Type == templateType {
+			numTemplateObjects += 1
+			if obj.ObjectsDir != "" && templatePath == "" {
+				templatePath = obj.ObjectsDir
+			}
+		}
 	}
-	exists, err := afero.DirExists(fileSystem, templatePath)
-	if err != nil || !exists {
-		log.Errorf("No "+templatePath+" directory: %v", err.Error())
-		return "", err
+
+	// report error
+	switch numTemplateObjects {
+	case 0:
+		return "", fmt.Errorf("No template object (type %q) found in the manifest. Use `solution extend --add-dash-ui` to add.", templateType)
+	case 1:
+		break
+	default:
+		return "", fmt.Errorf("Multiple template objects not supported by fsoc; use exactly one object of type objectDir")
 	}
-	solutionName, err := getSolutionFromManifest(fileContents)
-	if err != nil {
-		log.Errorf("Cannot get solution name for callback_url, check manifest file: %v", err.Error())
-		return "", err
+	if templatePath == "" {
+		return "", fmt.Errorf("No template object directory found; fsoc supports only a template object with objectsDir")
 	}
-	return solutionName, nil
+
+	// check format
+	if strings.HasPrefix(templatePath, "/") {
+		return "", fmt.Errorf("Template path %q cannot start with \"/\"", templatePath)
+	}
+	if strings.HasSuffix(templatePath, "/") {
+		return "", fmt.Errorf("Template path %q cannot end with \"/\"", templatePath)
+	}
+
+	return templatePath, nil
 }

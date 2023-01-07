@@ -31,6 +31,7 @@ type Manifest struct {
 type ComponentDef struct {
 	Type        string `json:"type,omitempty"`
 	ObjectsFile string `json:"objectsFile,omitempty"`
+	ObjectsDir  string `json:"objectsDir,omitempty"`
 }
 
 type ServiceDef struct {
