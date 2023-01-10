@@ -148,7 +148,7 @@ func TestExecuteUqlQuery_Errors(t *testing.T) {
 	check.EqualValues(&Error{Type: "internal-server-error", Title: "downstream failure", Detail: "service not available"}, response.Errors()[0], "errors do not match")
 }
 
-func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
+func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 	// given
 	serverResponseTemplate := template.Must(template.New("response-template").Parse(`[
 	  {
@@ -182,11 +182,19 @@ func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
 		{Alias: "double-as-number", Type: "number", Value: 45.47},
 		{Alias: "long", Type: "long", Value: 10000},
 		{Alias: "double", Type: "double", Value: 10.01},
-		{Alias: "string", Type: "string", Value: "service", Formatted: "\"service\""},
+		{Alias: "string", Type: "string", Value: "service", Formatted: `"service"`},
 		{Alias: "boolean", Type: "boolean", Value: true},
-		{Alias: "timestamp", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: "\"2022-12-05T00:30:00Z\""},
-		{Alias: "timestamp-iso8601", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 0, 0, 0, time.UTC), Formatted: "\"2022-12-05\""},
-		{Alias: "unknown", Type: "unknown", Value: "unknown", Formatted: "\"unknown\""},
+		{Alias: "timestamp", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: `"2022-12-05T00:30:00Z"`},
+		{Alias: "timestamp-iso8601", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 0, 0, 0, time.UTC), Formatted: `"2022-12-05"`},
+		{Alias: "unknown", Type: "unknown", Value: "unknown", Formatted: `"unknown"`},
+		{Alias: "int-as-object", Type: "object", Value: 123},
+		{Alias: "double-as-object", Type: "object", Value: 45.47},
+		{Alias: "boolean-as-object", Type: "object", Value: true},
+		{Alias: "string-as-object", Type: "object", Value: "service", Formatted: `"service"`},
+		{Alias: "timestamp-as-object", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: `"2022-12-05T00:30:00Z"`},
+		{Alias: "json-array", Type: "json", Value: `{"answer":42}`, Formatted: `{ "answer": 42 }`},
+		{Alias: "json-object", Type: "json", Value: `[1,2,"Fizz"]`, Formatted: `[ 1, 2, "Fizz" ]`},
+		{Alias: "csv", Type: "csv", Value: "foo,bar", Formatted: `"foo,bar"`},
 	}
 
 	for _, c := range cases {

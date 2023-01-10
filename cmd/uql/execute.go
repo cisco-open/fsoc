@@ -163,7 +163,7 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 						return nil, err
 					}
 					row = append(row, value)
-				case "string":
+				case "string", "csv":
 					value, err := stringDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
@@ -195,8 +195,20 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 						DataModel: field.Model,
 						Data:      processedValues,
 					})
+				case "object": // unknown, mixed types
+					value, err := objectDeserializer(values[rowIndex][columnIndex])
+					if err != nil {
+						return nil, err
+					}
+					row = append(row, value)
+				case "json": // unknown json
+					value, err := jsonValueDeserializer(values[rowIndex][columnIndex])
+					if err != nil {
+						return nil, err
+					}
+					row = append(row, value)
 				default: // unknown types
-					value, err := stringDeserializer(values[rowIndex][columnIndex])
+					value, err := objectDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
 					}

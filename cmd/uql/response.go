@@ -127,7 +127,7 @@ func Errors(errors []*Error) error {
 }
 
 type DataType interface {
-	int | float64 | string | DataSetRef | bool | time.Time
+	int | float64 | string | DataSetRef | bool | time.Time | any
 }
 
 type valueDeserializer[T DataType] func(json.RawMessage) (T, error)
@@ -174,5 +174,20 @@ var (
 			return value, err
 		}
 		return value, nil
+	}
+	objectDeserializer valueDeserializer[any] = func(raw json.RawMessage) (any, error) {
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return value, err
+		}
+		return value, nil
+	}
+	jsonValueDeserializer valueDeserializer[string] = func(raw json.RawMessage) (string, error) {
+		var value string
+		var bytes, err = json.Marshal(&raw)
+		if err != nil {
+			return value, err
+		}
+		return string(bytes), nil
 	}
 )
