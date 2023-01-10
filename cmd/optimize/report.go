@@ -62,7 +62,7 @@ func workloadReport(cmd *cobra.Command, args []string) error {
 	var workloadId *string
 	if byType == "id" {
 		if strings.Contains(targetWorkload, "k8s:deployment") {
-			formattedWorkload := uql.FormatAppDIdentifier(targetWorkload)
+			formattedWorkload := formatAppDIdentifier(targetWorkload)
 			workloadId = &formattedWorkload
 		} else {
 			workloadId = &targetWorkload
@@ -85,11 +85,11 @@ func getWorkloadId(workloadName string) (*string, error) {
 	// UQL query to retrieve ID via workload.name attribute
 	queryStr := fmt.Sprintf("SINCE -7d FETCH id FROM entities(k8s:workload)[attributes(k8s.workload.name) = '%s']", workloadName)
 
-	data, err := uql.GatherUql(queryStr)
+	response, err := uql.ExecuteQuery(&uql.Query{Str: queryStr}, uql.ApiVersion1)
 	if err != nil {
 		return nil, err
 	}
-	workloadIds := flattenString(data)
+	workloadIds := columnValues(response.Main(), 0)
 
 	// Check if either none or multiple workload IDs found
 	if len(workloadIds) < 1 {
@@ -100,20 +100,23 @@ func getWorkloadId(workloadName string) (*string, error) {
 		log.Warnf("Retrieving report for first workload ID in list: %v", workloadIds[0])
 	}
 
-	workloadId := uql.FormatAppDIdentifier(workloadIds[0])
+	workloadId := formatAppDIdentifier(workloadIds[0])
 	return &workloadId, nil
 }
 
-func flattenString(arr uql.UQEData) (res []string) {
-
-	for _, x := range arr {
-		for _, y := range x {
-			str, ok := y.(string)
-			if !ok {
-				continue
-			}
-			res = append(res, str)
+func columnValues(dataset *uql.DataSet, colIdx int) (res []string) {
+	for _, row := range dataset.Values() {
+		val, ok := row[colIdx].(string)
+		if !ok {
+			continue
 		}
+		res = append(res, val)
 	}
 	return res
+}
+
+func formatAppDIdentifier(s string) (res string) {
+	split := strings.Split(s, ":")
+	identifier := split[len(split)-1]
+	return identifier
 }

@@ -148,6 +148,7 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 							return nil, err
 						}
 						row = append(row, value)
+						continue
 					}
 					row = append(row, value)
 				case "long":

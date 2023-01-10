@@ -16,33 +16,36 @@ package uql
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/apex/log"
-	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
-
-	"github.com/cisco-open/fsoc/output"
 )
+
+var outputFlag string
 
 // uqlCmd represents the uql command
 var uqlCmd = &cobra.Command{
 	Use:   "uql",
 	Short: "Perform UQL query",
-	Long: `Perform UQL query of MELT data for a tenant. By default (without a subcommand), parsed data
-results from UQE will be returned. Raw queries are supported with full JSON output via 
-the query subcommand. Utility queries and other output formats can be supported in the future.`,
+	Long: `Perform UQL query of MELT data for a tenant.
+Parsed response data are displayed in a table.
+Other output formats can be supported in the future.`,
 	Example: `# Get parsed results
-  fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
-
-# Get raw UQL results
-  fsoc uql query "FETCH id, type, attributes FROM entities(k8s:workload)"`,
+  fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"`,
 	Args:             cobra.ExactArgs(1),
-	Run:              uqlQuery,
+	RunE:             uqlQuery,
 	TraverseChildren: true,
 }
 
+type format int
+
+const (
+	table format = iota
+)
+
 func init() {
-	uqlCmd.PersistentFlags().StringP("output", "o", "json", "Output format (human*, json, yaml)")
+	uqlCmd.Flags().StringVarP(&outputFlag, "output", "o", "table", "Output format (table)")
 
 }
 
@@ -50,45 +53,57 @@ func NewSubCmd() *cobra.Command {
 	return uqlCmd
 }
 
-func uqlQuery(cmd *cobra.Command, args []string) {
-	log.WithFields(log.Fields{"command": cmd.Name(), "args": args[0]}).Info("UQL command")
+func uqlQuery(cmd *cobra.Command, args []string) error {
+	log.WithFields(log.Fields{"command": cmd.Name(), "args": args[0]}).Info("Performing UQL query")
 
+	output, err := outputFormat(outputFlag)
+	if err != nil {
+		return err
+	}
 	queryStr := args[0]
-	data, err := GatherUql(queryStr)
+	response, err := runQuery(queryStr)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	output.PrintCmdOutput(cmd, data) // TODO if possible: create a human-readable output (table)
+	err = printResponse(response, output)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func GatherUql(queryStr string) (UQEData, error) {
-	// Call UQE and parse to only return result data
-	resp, err := sendQuery(queryStr)
-	if err != nil {
-		return nil, fmt.Errorf("Query failed: %v", err)
+func outputFormat(output string) (format, error) {
+	switch strings.ToLower(output) {
+	case "table":
+		return table, nil
+	default:
+		return -1, fmt.Errorf(
+			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [table]",
+			output,
+		)
 	}
-	results := []DataResponse{}
-	var data []UQEData
+}
 
-	// convert from map to struct
-	err = mapstructure.Decode(resp, &results)
+func runQuery(query string) (*Response, error) {
+	log.Info("fetch data")
+
+	resp, err := ExecuteQuery(&Query{Str: query}, ApiVersion1)
 	if err != nil {
-		return nil, fmt.Errorf("UQL parsing failed: %v (hint: use a raw query to see the query response)", err)
+		return nil, err
 	}
-	// only collect data
-	for _, r := range results {
-		if r.Type == "data" {
-			data = append(data, r.Data)
-		}
+
+	if resp.HasErrors() {
+		return nil, Errors(resp.Errors())
 	}
-	// convert to [][]interface{}
-	var flattenedRes UQEData
-	for _, res := range data {
-		resArr := flattenUQEData(res)
-		if resArr != nil {
-			flattenedRes = append(flattenedRes, resArr)
-		}
+
+	return resp, nil
+}
+
+func printResponse(response *Response, output format) error {
+	switch output {
+	case table:
+		t := MakeFlatTable(response)
+		fmt.Println(t.Render())
 	}
-	return flattenedRes, nil
+	return nil
 }
