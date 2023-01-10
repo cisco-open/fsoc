@@ -54,6 +54,7 @@ See <docs url>`,
 	objStoreCmd.AddCommand(getCreateObjectCmd())
 	objStoreCmd.AddCommand(getUpdateObjectCmd())
 	objStoreCmd.AddCommand(getDeleteObjectCmd())
+	objStoreCmd.AddCommand(getCreatePatchObjectCmd())
 
 	return objStoreCmd
 }
