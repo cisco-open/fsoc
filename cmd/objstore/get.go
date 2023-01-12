@@ -133,7 +133,11 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	var layerType string = string(ltFlag)
 	layerID, _ := cmd.Flags().GetString("layer-id")
 	if layerID == "" {
-		layerID = getCorrectLayerID(layerType, fqtn)
+		if layerType == "SOLUTION" {
+			return fmt.Errorf("Error: for GET requests made to the SOLUTION layer, please manually supply the layerId flag")
+		} else {
+			layerID = getCorrectLayerID(layerType, fqtn)
+		}
 	}
 
 	headers := map[string]string{
