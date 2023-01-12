@@ -37,6 +37,10 @@ var solutionStatusCmd = &cobra.Command{
 	},
 	Args:             cobra.ExactArgs(0),
 	TraverseChildren: true,
+	Annotations: map[string]string{
+		output.TableFieldsAnnotation:  "name:.data.solutionName, version:.data.solutionVersion, installTime:.data.installTime, successful:.data.isSuccessful",
+		output.DetailFieldsAnnotation: "name:.data.solutionName, version:.data.solutionVersion, installTime:.data.installTime, successful:.data.isSuccessful",
+	},
 }
 
 func getSolutionStatusCmd() *cobra.Command {
