@@ -51,23 +51,29 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error getting current directory: %v", currentDirectory)
 	}
 
-	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
+	fileSystemRoot := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
 
-	if manifestExists(fileSystem) {
+	if solutionNameFolderInvalid(fileSystemRoot, forkName) {
+		log.Fatalf(fmt.Sprintf("A non empty folder with the name %s already exists", forkName))
+	}
+
+	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory+"/"+forkName)
+
+	if manifestExists(fileSystem, forkName) {
 		log.Fatalf("There is already a manifest file in this folder")
 	}
 
 	downloadSolutionZip(solutionName, stage, forkName)
-	err = extractZip(fileSystem, solutionName)
+	err = extractZip(fileSystemRoot, fileSystem, solutionName)
 	if err != nil {
 		log.Fatalf("Failed to copy files from the zip file to current directory: %v", err)
 	}
 
 	editManifest(fileSystem, forkName)
 
-	err = fileSystem.Remove("./" + solutionName + ".zip")
+	err = fileSystemRoot.Remove("./" + solutionName + ".zip")
 	if err != nil {
-		log.Fatalf("Failed to zip file in current directory: %v", err)
+		log.Fatalf("Failed to remove zip file in current directory: %v", err)
 	}
 
 	message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
@@ -75,20 +81,38 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 
 }
 
-func manifestExists(fileSystem afero.Fs) bool {
-	exists, err := afero.Exists(fileSystem, "manifest.json")
+func solutionNameFolderInvalid(fileSystem afero.Fs, forkName string) bool {
+	exists, _ := afero.DirExists(fileSystem, forkName)
+	if exists {
+		empty, _ := afero.IsEmpty(fileSystem, forkName)
+		return !empty
+	} else {
+		err := fileSystem.Mkdir(forkName, os.ModeDir)
+		if err != nil {
+			log.Fatalf("Failed to create folder in this directory")
+		}
+		err = os.Chmod(forkName, 0700)
+		if err != nil {
+			log.Fatalf("Failed to set permission on folder")
+		}
+	}
+	return false
+}
+
+func manifestExists(fileSystem afero.Fs, forkName string) bool {
+	exists, err := afero.Exists(fileSystem, forkName+"/manifest.json")
 	if err != nil {
 		log.Fatalf("Failed to read filesystem for manifest: %v", err)
 	}
 	return exists
 }
 
-func extractZip(fileSystem afero.Fs, solutionName string) error {
-	zipFile, err := fileSystem.OpenFile("./"+solutionName+".zip", os.O_RDONLY, os.FileMode(0644))
+func extractZip(rootFileSystem afero.Fs, fileSystem afero.Fs, solutionName string) error {
+	zipFile, err := rootFileSystem.OpenFile("./"+solutionName+".zip", os.O_RDONLY, os.FileMode(0644))
 	if err != nil {
 		log.Fatalf("Error opening zip file: %v", err)
 	}
-	fileInfo, _ := fileSystem.Stat("./" + solutionName + ".zip")
+	fileInfo, _ := rootFileSystem.Stat("./" + solutionName + ".zip")
 	reader, _ := zip.NewReader(zipFile, fileInfo.Size())
 	zipFileSystem := zipfs.New(reader)
 	err = copyFolderToLocal(zipFileSystem, fileSystem, "./"+solutionName)
@@ -155,7 +179,8 @@ func copyFolderToLocal(zipFileSystem afero.Fs, localFileSystem afero.Fs, subDire
 			if err != nil {
 				return err
 			}
-			err = os.Chmod(localLoc, 0700)
+			println(localLoc)
+			err = localFileSystem.Chmod(localLoc, 0700)
 			if err != nil {
 				return err
 			}
