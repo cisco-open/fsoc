@@ -82,20 +82,20 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filterQuery))
 
 	if statusTypeToFetch == "upload" {
-		output.PrintCmdStatus("Solution Upload Status: \n\n")
+		output.PrintCmdStatus(cmd, "Solution Upload Status: \n\n")
 		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionReleaseUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus("\n\n")
+		output.PrintCmdStatus(cmd, "\n\n")
 	} else if statusTypeToFetch == "install" {
-		output.PrintCmdStatus("Solution Installation Status: \n\n")
+		output.PrintCmdStatus(cmd, "Solution Installation Status: \n\n")
 		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionInstallUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus("\n\n")
+		output.PrintCmdStatus(cmd, "\n\n")
 	} else {
-		output.PrintCmdStatus("Solution Upload Status: \n\n")
+		output.PrintCmdStatus(cmd, "Solution Upload Status: \n\n")
 		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionReleaseUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus("\n\n")
-		output.PrintCmdStatus("Solution Installation Status: \n\n")
+		output.PrintCmdStatus(cmd, "\n\n")
+		output.PrintCmdStatus(cmd, "Solution Installation Status: \n\n")
 		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionInstallUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus("\n\n")
+		output.PrintCmdStatus(cmd, "\n\n")
 	}
 
 	return nil

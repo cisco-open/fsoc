@@ -112,11 +112,11 @@ func updateObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus((fmt.Sprintf("Replacing object %s with the new definition from %s \n", objId, objJsonFilePath)))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing object %s with the new definition from %s \n", objId, objJsonFilePath))
 	err = api.JSONPut(objectUrl, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
 		log.Errorf("Solution command failed: %v", err.Error())
 		return
 	}
-	output.PrintCmdStatus("Object replacement was done successfully!\n")
+	output.PrintCmdStatus(cmd, "Object replacement was done successfully!\n")
 }

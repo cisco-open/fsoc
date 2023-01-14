@@ -90,11 +90,11 @@ func deleteObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus((fmt.Sprintf("Deleting object %s of type  %s \n", objId, objType)))
+	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting object %s of type  %s \n", objId, objType)))
 	err = api.JSONDelete(objectUrl, &res, &api.Options{Headers: headers})
 	if err != nil {
 		log.Errorf("Solution command failed: %v", err.Error())
 		return
 	}
-	output.PrintCmdStatus("Object was successfully deleted!\n")
+	output.PrintCmdStatus(cmd, "Object was successfully deleted!\n")
 }

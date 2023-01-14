@@ -118,7 +118,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	} else {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
 func getSolutionValidationErrorsString(total int, errors Errors) string {

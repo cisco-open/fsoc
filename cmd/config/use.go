@@ -53,5 +53,5 @@ func configUseContext(cmd *cobra.Command, args []string) {
 	}
 
 	updateConfigFile(map[string]interface{}{"current_context": newContext})
-	output.PrintCmdOutput(cmd, fmt.Sprintf(`Switched to context "%s"\n`, newContext))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Switched to context \"%s\"\n", newContext))
 }

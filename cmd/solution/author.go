@@ -79,13 +79,13 @@ func authorRunWrapper(cmd *cobra.Command, args []string) {
 	cfg := config.GetCurrentContext()
 	local, _ := cmd.Flags().GetBool("local")
 	dir, _ := cmd.Flags().GetString("directory")
-	err := authorRun(cfg, dir, local)
+	err := authorRun(cmd, cfg, dir, local)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func authorRun(cfg *config.Context, dir string, local bool) error {
+func authorRun(cmd *cobra.Command, cfg *config.Context, dir string, local bool) error {
 	// create a template server object & start serving
 	tServer := newTemplateServer(dir)
 
@@ -137,7 +137,7 @@ func authorRun(cfg *config.Context, dir string, local bool) error {
 
 	// wait for termination
 	terminate := <-tServer.TerminateChan
-	output.PrintCmdStatus(fmt.Sprintf("Terminating callback server: %s\n", strconv.FormatBool(terminate)))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Terminating callback server: %s\n", strconv.FormatBool(terminate)))
 	return nil
 }
 

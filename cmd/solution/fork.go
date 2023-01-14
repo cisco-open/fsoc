@@ -63,7 +63,7 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("There is already a manifest file in this folder")
 	}
 
-	downloadSolutionZip(solutionName, stage, forkName)
+	downloadSolutionZip(cmd, solutionName, stage, forkName)
 	err = extractZip(fileSystemRoot, fileSystem, solutionName)
 	if err != nil {
 		log.Fatalf("Failed to copy files from the zip file to current directory: %v", err)
@@ -77,7 +77,7 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	}
 
 	message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 
 }
 
@@ -140,7 +140,7 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 	}
 }
 
-func downloadSolutionZip(solutionName string, stage string, forkName string) {
+func downloadSolutionZip(cmd *cobra.Command, solutionName string, stage string, forkName string) {
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
 	var message string
 
@@ -155,10 +155,10 @@ func downloadSolutionZip(solutionName string, stage string, forkName string) {
 	}
 
 	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in the this directory.\r\n", solutionName)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 
 	message = fmt.Sprintf("Changing solution name in manifest to %s.\r\n", forkName)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
 func copyFolderToLocal(zipFileSystem afero.Fs, localFileSystem afero.Fs, subDirectory string) error {

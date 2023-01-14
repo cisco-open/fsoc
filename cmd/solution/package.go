@@ -66,19 +66,19 @@ func packageSolution(cmd *cobra.Command, args []string) {
 		"solution-package": solutionPackagePath,
 	}).Info(message)
 
-	output.PrintCmdStatus(message)
-	solutionArchive := generateZip(solutionPackagePath)
+	output.PrintCmdStatus(cmd, message)
+	solutionArchive := generateZip(cmd, solutionPackagePath)
 	solutionArchive.Close()
 
 	message = fmt.Sprintf("Solution %s - %s bundle is ready. \n", manifest.Name, manifest.SolutionVersion)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
-func generateZip(sltnPackagePath string) *os.File {
+func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	splitPath := strings.Split(sltnPackagePath, "/")
 	solutionName := splitPath[len(splitPath)-1]
 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
-	output.PrintCmdStatus(fmt.Sprintf("Creating %s archive... \n", archiveFileName))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating %s archive... \n", archiveFileName))
 	archive, err := os.Create(archiveFileName)
 	if err != nil {
 		panic(err)

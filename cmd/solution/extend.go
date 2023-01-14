@@ -80,17 +80,16 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 
 	err = json.Unmarshal(manifestBytes, &manifest)
 	if err != nil {
-		output.PrintCmdStatus("Can't generate a manifest objects from the manifest.json, make sure your manifest.json file is correct.")
-		return
+		log.Fatalf("Failed to parse solution manifest: %v", err)
 	}
 
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
 		componentName = strings.ToLower(componentName)
-		output.PrintCmdStatus(fmt.Sprintf("Adding %s knowledge component to %s's solution package folder structure... \n", componentName, manifest.Name))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution package folder structure... \n", componentName, manifest.Name))
 		folderName := "knowledge"
 		fileName := fmt.Sprintf("%s.json", componentName)
-		output.PrintCmdStatus(fmt.Sprintf("Creating the %s file\n", fileName))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
 
 		knowledgeComp := getKnowledgeComponent(componentName)
@@ -100,10 +99,10 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-service") {
 		componentName, _ := cmd.Flags().GetString("add-service")
 		componentName = strings.ToLower(componentName)
-		output.PrintCmdStatus(fmt.Sprintf("Adding %s service component to %s's solution package folder structure... \n", componentName, manifest.Name))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s service component to %s's solution package folder structure... \n", componentName, manifest.Name))
 		folderName := "services"
 		fileName := fmt.Sprintf("%s.json", componentName)
-		output.PrintCmdStatus(fmt.Sprintf("Creating the %s file\n", fileName))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 
 		appendDependency("zodiac", manifest)
 
@@ -123,7 +122,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		componentName = strings.ToLower(componentName)
 		folderName := "model"
 
-		addFmmEntity(manifest, folderName, componentName)
+		addFmmEntity(cmd, manifest, folderName, componentName)
 	}
 
 	if cmd.Flags().Changed("add-resourceMapping") {
@@ -131,7 +130,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		entityName = strings.ToLower(entityName)
 		folderName := "model"
 
-		addFmmResourceMapping(manifest, folderName, entityName)
+		addFmmResourceMapping(cmd, manifest, folderName, entityName)
 	}
 
 	if cmd.Flags().Changed("add-metric") {
@@ -139,13 +138,13 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		componentName = strings.ToLower(componentName)
 		folderName := "model"
 
-		addFmmMetric(manifest, folderName, componentName)
+		addFmmMetric(cmd, manifest, folderName, componentName)
 	}
 }
 
-func addFmmMetric(manifest *Manifest, folderName, componentName string) {
+func addFmmMetric(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
 	var filePath string
-	checkCreateSolutionNamespace(manifest, folderName)
+	checkCreateSolutionNamespace(cmd, manifest, folderName)
 
 	metricComponentDef := getComponentDef("fmm:metric", manifest)
 	var metricsArray []*FmmMetric
@@ -157,7 +156,7 @@ func addFmmMetric(manifest *Manifest, folderName, componentName string) {
 		manifest.Objects = append(manifest.Objects, *metricComponentDef)
 		filePath = metricComponentDef.ObjectsFile
 		createFile(filePath)
-		output.PrintCmdStatus("Added model/metrics.json file to your solution \n")
+		output.PrintCmdStatus(cmd, "Added model/metrics.json file to your solution \n")
 	} else {
 		// filePath = metricComponentDef.ObjectsFile
 		// metricsDefFile := openFile(filePath)
@@ -177,14 +176,14 @@ func addFmmMetric(manifest *Manifest, folderName, componentName string) {
 	splitPath := strings.Split(metricComponentDef.ObjectsFile, "/")
 	fileName := splitPath[len(splitPath)-1]
 	createComponentFile(metricsArray, folderName, fileName)
-	output.PrintCmdStatus("Updating the manifest.json \n")
+	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
 	createSolutionManifestFile(".", manifest)
 
 }
 
-func addFmmResourceMapping(manifest *Manifest, folderName, entityName string) {
+func addFmmResourceMapping(cmd *cobra.Command, manifest *Manifest, folderName, entityName string) {
 	var filePath string
-	checkCreateSolutionNamespace(manifest, folderName)
+	checkCreateSolutionNamespace(cmd, manifest, folderName)
 	resourceMapComponentDef := getComponentDef("fmm:resourceMapping", manifest)
 	var resourceMappingArray []*FmmResourceMapping
 	if resourceMapComponentDef.Type == "" {
@@ -195,7 +194,7 @@ func addFmmResourceMapping(manifest *Manifest, folderName, entityName string) {
 		manifest.Objects = append(manifest.Objects, *resourceMapComponentDef)
 		filePath = resourceMapComponentDef.ObjectsFile
 		createFile(filePath)
-		output.PrintCmdStatus("Added model/resourceMappings.json file to your solution \n")
+		output.PrintCmdStatus(cmd, "Added model/resourceMappings.json file to your solution \n")
 	} else {
 		componentDefBytes := readComponentDef(resourceMapComponentDef)
 		err := json.Unmarshal(componentDefBytes, &resourceMappingArray)
@@ -205,18 +204,18 @@ func addFmmResourceMapping(manifest *Manifest, folderName, entityName string) {
 		}
 	}
 
-	resourceMapComp := getResourceMap(entityName, manifest)
+	resourceMapComp := getResourceMap(cmd, entityName, manifest)
 	resourceMappingArray = append(resourceMappingArray, resourceMapComp)
 	splitPath := strings.Split(resourceMapComponentDef.ObjectsFile, "/")
 	fileName := splitPath[len(splitPath)-1]
 	createComponentFile(resourceMappingArray, folderName, fileName)
-	output.PrintCmdStatus("Updating the manifest.json \n")
+	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
 	createSolutionManifestFile(".", manifest)
 }
 
-func addFmmEntity(manifest *Manifest, folderName, componentName string) {
+func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
 	var filePath string
-	checkCreateSolutionNamespace(manifest, folderName)
+	checkCreateSolutionNamespace(cmd, manifest, folderName)
 
 	entityComponentDef := getComponentDef("fmm:entity", manifest)
 	var entitiesArray []*FmmEntity
@@ -228,7 +227,7 @@ func addFmmEntity(manifest *Manifest, folderName, componentName string) {
 		manifest.Objects = append(manifest.Objects, *entityComponentDef)
 		filePath = entityComponentDef.ObjectsFile
 		createFile(filePath)
-		output.PrintCmdStatus("Added model/entities.json file to your solution \n")
+		output.PrintCmdStatus(cmd, "Added model/entities.json file to your solution \n")
 	} else {
 		// filePath = entityComponentDef.ObjectsFile
 		// entitiesDefFile := openFile(filePath)
@@ -250,11 +249,11 @@ func addFmmEntity(manifest *Manifest, folderName, componentName string) {
 	splitPath := strings.Split(entityComponentDef.ObjectsFile, "/")
 	fileName := splitPath[len(splitPath)-1]
 	createComponentFile(entitiesArray, folderName, fileName)
-	output.PrintCmdStatus("Updating the manifest.json \n")
+	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
 	createSolutionManifestFile(".", manifest)
 }
 
-func getResourceMap(entityName string, manifest *Manifest) *FmmResourceMapping {
+func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
 	hasEntity := false
 	entityComponentDef := getComponentDef("fmm:entity", manifest)
 	var entitiesArray []*FmmEntity
@@ -298,7 +297,7 @@ func getResourceMap(entityName string, manifest *Manifest) *FmmResourceMapping {
 
 	if !hasEntity {
 		message := fmt.Sprintf("A fmm:resourceMapping was not created! Could not find an fmm:entity named %s in this solution", entityName)
-		output.PrintCmdStatus(message)
+		output.PrintCmdStatus(cmd, message)
 	}
 	return newResoureMapping
 }
@@ -461,10 +460,10 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 	return knowledgeComponent
 }
 
-func checkCreateSolutionNamespace(manifest *Manifest, folderName string) {
+func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
 	namespaceComponentDef := getComponentDef("fmm:namespace", manifest)
 	if namespaceComponentDef.Type == "" {
-		output.PrintCmdStatus(fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
 		appendFolder(folderName)
 		appendDependency("fmm", manifest)
 		namespaceCompDef := &ComponentDef{
@@ -475,7 +474,7 @@ func checkCreateSolutionNamespace(manifest *Manifest, folderName string) {
 		namespaceComp := getNamespaceComponent(manifest.Name)
 		createComponentFile(namespaceComp, folderName, "namespace.json")
 		createSolutionManifestFile(".", manifest)
-		output.PrintCmdStatus("Added model/namespace.json file to your solution \n")
+		output.PrintCmdStatus(cmd, "Added model/namespace.json file to your solution \n")
 	}
 }
 

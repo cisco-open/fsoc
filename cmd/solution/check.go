@@ -49,7 +49,7 @@ func checkSolution(cmd *cobra.Command, args []string) {
 
 	err = json.Unmarshal(manifestBytes, &manifest)
 	if err != nil {
-		output.PrintCmdStatus("Can't generate a manifest objects from the manifest.json, make sure your manifest.json file is correct.")
+		output.PrintCmdStatus(cmd, "Can't generate a manifest objects from the manifest.json, make sure your manifest.json file is correct.")
 		return
 	}
 
@@ -63,12 +63,12 @@ func checkSolution(cmd *cobra.Command, args []string) {
 		if namespace == "fmm" {
 			if cmd.Flags().Changed("entities") {
 				if typeName == "entity" || typeName == "resourceMapping" || typeName == "associationDeclaration" || typeName == "associationDerivation" {
-					checkComponentDef(objDef, cfg)
+					checkComponentDef(cmd, objDef, cfg)
 				}
 			}
 			if cmd.Flags().Changed("metrics") {
 				if typeName == "metric" || typeName == "metricMapping" || typeName == "metricAggregation" {
-					checkComponentDef(objDef, cfg)
+					checkComponentDef(cmd, objDef, cfg)
 				}
 			}
 		}
@@ -89,7 +89,7 @@ func Fetch(path string, httpOptions *api.Options) map[string]interface{} {
 	return res
 }
 
-func checkComponentDef(compDef ComponentDef, cfg *config.Context) {
+func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Context) {
 	layerID := cfg.Tenant
 
 	headers := map[string]string{
@@ -128,27 +128,27 @@ func checkComponentDef(compDef ComponentDef, cfg *config.Context) {
 				log.Errorf("Couldn't marshal json object to []byte: %v", err)
 			}
 			documentLoader := gojsonschema.NewStringLoader(string(jsonObject))
-			validate(schemaLoader, documentLoader, compDef)
+			validate(cmd, schemaLoader, documentLoader, compDef)
 		}
 	} else {
 		documentLoader := gojsonschema.NewStringLoader(string(compDefBytes))
-		validate(schemaLoader, documentLoader, compDef)
+		validate(cmd, schemaLoader, documentLoader, compDef)
 	}
 
 }
 
-func validate(schemaLoader, documentLoader gojsonschema.JSONLoader, compDef ComponentDef) {
+func validate(cmd *cobra.Command, schemaLoader, documentLoader gojsonschema.JSONLoader, compDef ComponentDef) {
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	if result.Valid() {
-		output.PrintCmdStatus(fmt.Sprintf("The components defined in the file %s are valid definitions of type %s \n", compDef.ObjectsFile, compDef.Type))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %s are valid definitions of type %s \n", compDef.ObjectsFile, compDef.Type))
 	} else {
-		output.PrintCmdStatus(fmt.Sprintf("The components defined in the file %s are invalid definitions of type %s ! \n", compDef.ObjectsFile, compDef.Type))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %s are invalid definitions of type %s ! \n", compDef.ObjectsFile, compDef.Type))
 		for _, desc := range result.Errors() {
-			output.PrintCmdStatus(fmt.Sprintf("- %s\n", desc))
+			output.PrintCmdStatus(cmd, fmt.Sprintf("- %s\n", desc))
 		}
 	}
 }
