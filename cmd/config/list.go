@@ -35,7 +35,7 @@ func newCmdConfigList() *cobra.Command {
 }
 
 var headers = []string{
-	"Use", "Name", "Auth Method", "Server", "Credentials",
+	"Use", "Name", "Auth Method", "Server", "User",
 }
 
 func configListContexts(cmd *cobra.Command, args []string) error {
@@ -53,15 +53,15 @@ func configListContexts(cmd *cobra.Command, args []string) error {
 	for _, c := range cfg.Contexts {
 		current := ""
 		if c.Name == activeProfile {
-			current = "Active"
-		} else if c.Name == cfg.CurrentContext {
 			current = "Current"
+		} else if c.Name == cfg.CurrentContext {
+			current = "Default"
 		}
-		credentials := c.SecretFile
-		if credentials == "" && c.CsvFile != "" {
-			credentials = c.CsvFile
-		}
-		contexts = append(contexts, []string{current, c.Name, c.AuthMethod, c.Server, credentials})
+		// credentials := c.SecretFile
+		// if credentials == "" && c.CsvFile != "" {
+		// 	credentials = c.CsvFile
+		// }
+		contexts = append(contexts, []string{current, c.Name, c.AuthMethod, c.Server, c.User})
 	}
 
 	output.PrintCmdOutputCustom(cmd, cfg, &output.Table{

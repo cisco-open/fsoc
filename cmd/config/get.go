@@ -77,6 +77,7 @@ func configGetContext(cmd *cobra.Command, args []string) error {
 	appendIfPresent("Auth Method", ctx.AuthMethod)
 	appendIfPresent("Server", ctx.Server)
 	appendIfPresent("Tenant", ctx.Tenant)
+	appendIfPresent("User ID", ctx.User)
 	appendIfPresent("Token", ctx.Token)
 	appendIfPresent("Refresh Token", ctx.RefreshToken)
 	appendIfPresent("Secret File", ctx.SecretFile)
