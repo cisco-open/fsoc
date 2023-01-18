@@ -20,17 +20,22 @@ import (
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	fsoc "github.com/cisco-open/fsoc/output"
 )
 
 var outputFlag string
+var rawFlag bool
 
 // uqlCmd represents the uql command
 var uqlCmd = &cobra.Command{
 	Use:   "uql",
 	Short: "Perform UQL query",
 	Long: `Perform UQL query of MELT data for a tenant.
-Parsed response data are displayed in a table.
-Other output formats can be supported in the future.`,
+Parsed response data are displayed in a table by default.
+Available output formats: table, json.
+If the "raw" flag is provided, the actual response from the backend API is displayed instead.`,
 	Example: `# Get parsed results
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"`,
 	Args:             cobra.ExactArgs(1),
@@ -42,11 +47,24 @@ type format int
 
 const (
 	table format = iota
+	auto
+	raw
+	detail
+	jsonFormat
 )
 
 func init() {
-	uqlCmd.Flags().StringVarP(&outputFlag, "output", "o", "table", "Output format (table)")
-
+	uqlCmd.Flags().StringVarP(&outputFlag, "output", "o", "table", "overridden")
+	uqlCmd.Flags().BoolVar(&rawFlag, "raw", false, "Display actual response from the backend. Cannot be used together with the output flag.")
+	uqlCmd.MarkFlagsMutuallyExclusive("output", "raw")
+	uqlCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		changeFlagUsage(cmd.Parent())
+		cmd.Parent().HelpFunc()(cmd, args)
+	})
+	uqlCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		changeFlagUsage(cmd.Parent())
+		return cmd.Parent().UsageFunc()(cmd)
+	})
 }
 
 func NewSubCmd() *cobra.Command {
@@ -56,7 +74,7 @@ func NewSubCmd() *cobra.Command {
 func uqlQuery(cmd *cobra.Command, args []string) error {
 	log.WithFields(log.Fields{"command": cmd.Name(), "args": args[0]}).Info("Performing UQL query")
 
-	output, err := outputFormat(outputFlag)
+	output, err := outputFormat(outputFlag, rawFlag)
 	if err != nil {
 		return err
 	}
@@ -65,20 +83,25 @@ func uqlQuery(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	err = printResponse(response, output)
+	err = printResponse(cmd, response, output)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func outputFormat(output string) (format, error) {
+func outputFormat(output string, useRaw bool) (format, error) {
+	if useRaw {
+		return raw, nil
+	}
 	switch strings.ToLower(output) {
-	case "table":
+	case "table", "auto":
 		return table, nil
+	case "json":
+		return jsonFormat, nil
 	default:
 		return -1, fmt.Errorf(
-			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [table]",
+			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [auto, table, json]",
 			output,
 		)
 	}
@@ -99,11 +122,27 @@ func runQuery(query string) (*Response, error) {
 	return resp, nil
 }
 
-func printResponse(response *Response, output format) error {
+func printResponse(cmd *cobra.Command, response *Response, output format) error {
 	switch output {
 	case table:
-		t := MakeFlatTable(response)
-		fmt.Println(t.Render())
+		t := makeFlatTable(response)
+		fsoc.PrintCmdOutput(cmd, t.Render())
+	case jsonFormat:
+		json, err := transformForJsonOutput(response)
+		if err != nil {
+			return err
+		}
+		return fsoc.PrintJson(cmd, json)
+	case raw:
+		fsoc.PrintCmdOutput(cmd, string(*response.raw))
 	}
 	return nil
+}
+
+func changeFlagUsage(cmd *cobra.Command) {
+	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		if flag.Name == "output" {
+			flag.Usage = "output format (auto, table)"
+		}
+	})
 }

@@ -33,10 +33,10 @@ type localBackend struct {
 	client   *http.Client
 }
 
-func (b *localBackend) Execute(query *Query, apiVersion ApiVersion) (rawResponse, error) {
+func (b *localBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
 	request, err := http.NewRequest("POST", b.baseUrl+"/monitoring/"+string(apiVersion)+"/query/execute", bytes.NewBufferString(query.Str))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
+		return parsedResponse{}, errors.Wrap(err, "failed to create http request")
 	}
 	request.Header.Add("content-type", "text/plain")
 	request.Header.Add("accept", "application/json")
@@ -44,20 +44,20 @@ func (b *localBackend) Execute(query *Query, apiVersion ApiVersion) (rawResponse
 	return b.sendRequest(request)
 }
 
-func (b *localBackend) Continue(link *Link) (rawResponse, error) {
+func (b *localBackend) Continue(link *Link) (parsedResponse, error) {
 	request, err := http.NewRequest("GET", b.baseUrl+link.Href, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
+		return parsedResponse{}, errors.Wrap(err, "failed to create http request")
 	}
 	request.Header.Add("accept", "application/json")
 	request.Header.Add("appd-tid", b.tenantId)
 	return b.sendRequest(request)
 }
 
-func (b *localBackend) sendRequest(req *http.Request) (rawResponse, error) {
+func (b *localBackend) sendRequest(req *http.Request) (parsedResponse, error) {
 	response, err := b.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "http request failed")
+		return parsedResponse{}, errors.Wrap(err, "http request failed")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
@@ -67,15 +67,19 @@ func (b *localBackend) sendRequest(req *http.Request) (rawResponse, error) {
 	var responseBody []byte
 	responseBody, err = io.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read response body")
+		return parsedResponse{}, errors.Wrap(err, "failed to read response body")
 	}
 	if response.StatusCode != 200 {
-		return nil, errors.Wrap(err, fmt.Sprintf("error response body: %q", string(responseBody)))
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("error response body: %q", string(responseBody)))
 	}
-	var rawResponse rawResponse
-	err = json.Unmarshal(responseBody, &rawResponse)
+	var chunks []parsedChunk
+	err = json.Unmarshal(responseBody, &chunks)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal response")
+		return parsedResponse{}, errors.Wrap(err, "failed to unmarshal response")
 	}
-	return rawResponse, nil
+	var rawJson = json.RawMessage(responseBody)
+	return parsedResponse{
+		chunks:  chunks,
+		rawJson: &rawJson,
+	}, nil
 }

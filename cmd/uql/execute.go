@@ -37,10 +37,13 @@ type Query struct {
 	Str string `json:"query"`
 }
 
-type rawResponse []rawChunk
+type parsedResponse struct {
+	chunks  []parsedChunk
+	rawJson *json.RawMessage
+}
 
-// rawChunk is a union of all fields on all UQL response dataset types
-type rawChunk struct {
+// parsedChunk is a union of all fields on all UQL response dataset types
+type parsedChunk struct {
 	Type     string              `json:"type"`
 	Model    json.RawMessage     `json:"model"`
 	Metadata map[string]any      `json:"metadata"`
@@ -60,33 +63,49 @@ type modelRef struct {
 }
 
 type uqlService interface {
-	Execute(query *Query, apiVersion ApiVersion) (rawResponse, error)
-	Continue(link *Link) (rawResponse, error)
+	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
+	Continue(link *Link) (parsedResponse, error)
 }
 
 type defaultBackend struct {
 }
 
-func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (rawResponse, error) {
+func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
 
-	var response rawResponse
-	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &response, nil)
+	var rawJson json.RawMessage
+	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
 	}
-	return response, nil
+	var chunks []parsedChunk
+	err = json.Unmarshal(rawJson, &chunks)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for UQL Query: '%s'", query.Str))
+	}
+	return parsedResponse{
+		chunks:  chunks,
+		rawJson: &rawJson,
+	}, nil
 }
 
-func (b defaultBackend) Continue(link *Link) (rawResponse, error) {
+func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
 
-	var response rawResponse
-	err := api.JSONGet(link.Href, &response, nil)
+	var rawJson json.RawMessage
+	err := api.JSONGet(link.Href, &rawJson, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
 	}
-	return response, nil
+	var chunks []parsedChunk
+	err = json.Unmarshal(rawJson, &chunks)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for link: '%s'", link.Href))
+	}
+	return parsedResponse{
+		chunks:  chunks,
+		rawJson: &rawJson,
+	}, nil
 }
 
 var backend uqlService = &defaultBackend{}
@@ -150,13 +169,13 @@ func extractLink(dataSet *DataSet, rel string) *Link {
 	return &link
 }
 
-func processResponse(response rawResponse) (*Response, error) {
+func processResponse(response parsedResponse) (*Response, error) {
 	var model *Model
 	var dataSets = make(map[string]*DataSet)
 	var errorSets []*Error
 	var modelIndex map[string]*Model
 
-	for _, dataset := range response {
+	for _, dataset := range response.chunks {
 		switch dataset.Type {
 		case "model":
 			err := json.Unmarshal(dataset.Model, &model)
@@ -187,7 +206,13 @@ func processResponse(response rawResponse) (*Response, error) {
 		}
 	}
 
-	return &Response{model: model, mainDataSet: resolveRefs(dataSets["d:main"], dataSets), errors: errorSets}, nil
+	resp := &Response{
+		model:       model,
+		mainDataSet: resolveRefs(dataSets["d:main"], dataSets),
+		errors:      errorSets,
+		raw:         response.rawJson,
+	}
+	return resp, nil
 }
 
 func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
@@ -259,19 +284,19 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 						Data:      processedValues,
 					})
 				case "object": // unknown, mixed types
-					value, err := objectDeserializer(values[rowIndex][columnIndex])
+					value, err := jsonScalarDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
 					}
 					row = append(row, value)
 				case "json": // unknown json
-					value, err := jsonValueDeserializer(values[rowIndex][columnIndex])
+					value, err := jsonObjectDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
 					}
 					row = append(row, value)
 				default: // unknown types
-					value, err := objectDeserializer(values[rowIndex][columnIndex])
+					value, err := jsonScalarDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
 					}

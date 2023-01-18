@@ -28,8 +28,8 @@ const (
 	headerSeparator string = "="
 )
 
-// FlatTable is transformed complex UQL response as a single table.
-type FlatTable struct {
+// flatTable is transformed complex UQL response as a single table.
+type flatTable struct {
 	header  genericCell
 	content genericCell
 }
@@ -90,8 +90,8 @@ type headerCell struct {
 	maxWidths   []int
 }
 
-// MakeFlatTable builds the table representation from parsed UQL response.
-func MakeFlatTable(response *Response) FlatTable {
+// makeFlatTable builds the table representation from parsed UQL response.
+func makeFlatTable(response *Response) flatTable {
 	content := makeCell(response.Main(), response.Model())
 	header := makeHeaderCell(response.Model())
 
@@ -109,14 +109,14 @@ func MakeFlatTable(response *Response) FlatTable {
 		unifiedWidths[i] = max(mainWidths[i], headerWidths[i])
 	}
 	content.inflateWidths(unifiedWidths)
-	return FlatTable{
+	return flatTable{
 		header:  header,
 		content: content,
 	}
 }
 
-// Render prepares string representation of the FlatTable.
-func (t *FlatTable) Render() string {
+// Render prepares string representation of the flatTable.
+func (t *flatTable) Render() string {
 	return lipgloss.JoinVertical(lipgloss.Left, t.header.render(), t.header.renderBottomBorder(), t.content.render())
 }
 
@@ -587,18 +587,6 @@ func replaceTabs(text string) string {
 	// go-runewidth reports tab control characters as zero length. Table cell widths are therefore wrongly calculated.
 	tabWidth := 4
 	return strings.ReplaceAll(text, "\t", strings.Repeat(" ", tabWidth))
-}
-
-// complexIsEmpty checks presence of any data in complex data structures.
-func complexIsEmpty(data Complex) bool {
-	switch typed := data.(type) {
-	case *DataSet:
-		// without pointer cast we cannot compare interface with nil.
-		return typed == nil || len(typed.Values()) == 0
-	case ComplexData:
-		return len(typed.Values()) == 0
-	}
-	panic("Unexpected type implementing Complex type. This is a bug")
 }
 
 func max(a int, b int) int {

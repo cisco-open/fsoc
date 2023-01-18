@@ -79,6 +79,7 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	mainModel := model("m:main", numberField("count"), timeSeriesField("events(logs:generic_record)", eventModel, &Hint{Kind: "event", Type: "logs:generic_record"}))
 
 	check.EqualValues(mainModel, response.Model(), "main model not parsed correctly")
+	check.EqualValues(serverResponse, response.Raw())
 
 	eventsDataSet := &DataSet{
 		Name:      "d:events-1",
@@ -179,6 +180,7 @@ func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 		Formatted string
 	}
 
+	// Please note: When changed, please also change TestTransformForJsonOutput_DataTypes in json_test.go
 	cases := []params{
 		{Alias: "int-as-number", Type: "number", Value: 123},
 		{Alias: "double-as-number", Type: "number", Value: 45.47},
@@ -193,10 +195,11 @@ func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 		{Alias: "double-as-object", Type: "object", Value: 45.47},
 		{Alias: "boolean-as-object", Type: "object", Value: true},
 		{Alias: "string-as-object", Type: "object", Value: "service", Formatted: `"service"`},
-		{Alias: "timestamp-as-object", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: `"2022-12-05T00:30:00Z"`},
-		{Alias: "json-array", Type: "json", Value: `{"answer":42}`, Formatted: `{ "answer": 42 }`},
-		{Alias: "json-object", Type: "json", Value: `[1,2,"Fizz"]`, Formatted: `[ 1, 2, "Fizz" ]`},
+		{Alias: "timestamp-as-object", Type: "object", Value: `2022-12-05T00:30:00Z`, Formatted: `"2022-12-05T00:30:00Z"`},
+		{Alias: "json-object", Type: "json", Value: jsonObject(`{ "answer": 42 }`), Formatted: `{ "answer": 42 }`},
+		{Alias: "json-array", Type: "json", Value: jsonObject(`[ 1, 2, "Fizz" ]`), Formatted: `[ 1, 2, "Fizz" ]`},
 		{Alias: "csv", Type: "csv", Value: "foo,bar", Formatted: `"foo,bar"`},
+		{Alias: "duration", Type: "duration", Value: "PT0.000515106S", Formatted: `"PT0.000515106S"`},
 	}
 
 	for _, c := range cases {
@@ -386,17 +389,17 @@ func TestContinueQuery_HappyDay(t *testing.T) {
 	assert.Nil(t, err)
 
 	_, err = continueUqlQuery(initialResponse.Main().Values()[0][0].(*DataSet), "follow", &mockUqlService{
-		executeBehavior: func(query *Query, version ApiVersion) (rawResponse, error) {
+		executeBehavior: func(query *Query, version ApiVersion) (parsedResponse, error) {
 			t.Fail()
-			return rawResponse{}, nil
+			return parsedResponse{}, nil
 		},
-		continueBehavior: func(link *Link) (rawResponse, error) {
+		continueBehavior: func(link *Link) (parsedResponse, error) {
 			assert.Equal(
 				t,
 				"/monitoring/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOam5ydHZhTUJJekNpbHNiMmR6TFRRM1lUQXhaR1k1TFRVMFlUQXRORGN5WWkwNU5tSTRMVGRqT0dZMk5HVmlOMk5pWmhBQ0dNN0doWjRHSVAvLy8vOFAiLAogICJxdWVyeSIgOiAiRkVUQ0ggZXZlbnRzKGxvZ3M6Z2VuZXJpY19yZWNvcmQpIHsgdGltZXN0YW1wLCByYXcsIGF0dHJpYnV0ZXMoc2V2ZXJpdHkpLCBlbnRpdHlJZCwgc3BhbklkLCB0cmFjZUlkIH0gTElNSVRTIGV2ZW50cy5jb3VudCg1MCkgT1JERVIgZXZlbnRzLmFzYygpIFVOVElMIG5vdygpIFNJTkNFIDIwMjMtMDEtMTNUMTM6NTc6MjAuNDcyWiIKfQ%3D%3D",
 				link.Href,
 			)
-			return rawResponse{}, nil
+			return parsedResponse{}, nil
 		},
 	})
 
@@ -405,15 +408,15 @@ func TestContinueQuery_HappyDay(t *testing.T) {
 }
 
 type mockUqlService struct {
-	executeBehavior  func(query *Query, version ApiVersion) (rawResponse, error)
-	continueBehavior func(link *Link) (rawResponse, error)
+	executeBehavior  func(query *Query, version ApiVersion) (parsedResponse, error)
+	continueBehavior func(link *Link) (parsedResponse, error)
 }
 
-func (s *mockUqlService) Execute(query *Query, apiVersion ApiVersion) (rawResponse, error) {
+func (s *mockUqlService) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
 	return s.executeBehavior(query, apiVersion)
 }
 
-func (s *mockUqlService) Continue(link *Link) (rawResponse, error) {
+func (s *mockUqlService) Continue(link *Link) (parsedResponse, error) {
 	return s.continueBehavior(link)
 }
 
@@ -423,15 +426,19 @@ func emptyResponse() uqlService {
 
 func mockExecuteResponse(response string) uqlService {
 	return &mockUqlService{
-		executeBehavior: func(query *Query, version ApiVersion) (rawResponse, error) {
-			var resp rawResponse
-			err := json.Unmarshal([]byte(response), &resp)
+		executeBehavior: func(query *Query, version ApiVersion) (parsedResponse, error) {
+			rawJson := json.RawMessage(response)
+			var chunks []parsedChunk
+			err := json.Unmarshal(rawJson, &chunks)
 			if err != nil {
-				return nil, err
+				return parsedResponse{}, err
 			}
-			return resp, nil
+			return parsedResponse{
+				chunks:  chunks,
+				rawJson: &rawJson,
+			}, nil
 		},
-		continueBehavior: func(link *Link) (rawResponse, error) {
+		continueBehavior: func(link *Link) (parsedResponse, error) {
 			panic("continue response not mocked")
 		},
 	}

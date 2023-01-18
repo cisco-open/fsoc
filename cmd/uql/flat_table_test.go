@@ -40,7 +40,7 @@ func TestFlatTable_SimplestTable(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then
@@ -92,7 +92,7 @@ func TestFlatTable_MultilineCell(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then
@@ -172,7 +172,7 @@ func TestFlatTable_LongColumnNameExpandsChildren(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then
@@ -216,7 +216,7 @@ func TestFlatTable_EmptyAtomicCell(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then
@@ -282,7 +282,7 @@ func TestFlatTable_EmptyMissingSubTable(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then
@@ -392,7 +392,7 @@ func TestFlatTable_ComplexFlatTable(t *testing.T) {
 	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
-	table := MakeFlatTable(response)
+	table := makeFlatTable(response)
 	rendered := table.Render()
 
 	// Then

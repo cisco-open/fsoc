@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/relvacode/iso8601"
 )
 
@@ -28,7 +29,22 @@ type Response struct {
 	model       *Model
 	mainDataSet *DataSet
 	errors      []*Error
+	raw         *json.RawMessage
 }
+
+// jsonObject is either a JSON object or an array received as in the UQL API response
+type jsonObject json.RawMessage
+
+func (u jsonObject) String() string {
+	return string(u)
+}
+
+func (u jsonObject) MarshalJSON() ([]byte, error) {
+	return u, nil
+}
+
+// jsonScalar is a single simple value from a field of a JSON object
+type jsonScalar any
 
 func (resp *Response) Model() *Model {
 	return resp.model
@@ -44,6 +60,14 @@ func (resp *Response) HasErrors() bool {
 
 func (resp *Response) Errors() []*Error {
 	return resp.errors
+}
+
+func (resp *Response) Raw() string {
+	data, err := resp.raw.MarshalJSON()
+	if err != nil {
+		panic(errors.Wrap(err, "Failed to serialize data into JSON format that were already parsed from a JSON:"))
+	}
+	return string(data)
 }
 
 // Model represents the structure of the response data
@@ -132,7 +156,7 @@ func Errors(errors []*Error) error {
 }
 
 type DataType interface {
-	int | float64 | string | DataSetRef | bool | time.Time | any
+	int | float64 | string | DataSetRef | bool | time.Time | jsonScalar | jsonObject
 }
 
 type valueDeserializer[T DataType] func(json.RawMessage) (T, error)
@@ -180,19 +204,41 @@ var (
 		}
 		return value, nil
 	}
-	objectDeserializer valueDeserializer[any] = func(raw json.RawMessage) (any, error) {
+	jsonScalarDeserializer valueDeserializer[jsonScalar] = func(raw json.RawMessage) (jsonScalar, error) {
 		var value any
 		if err := json.Unmarshal(raw, &value); err != nil {
-			return value, err
+			return nil, err
 		}
 		return value, nil
 	}
-	jsonValueDeserializer valueDeserializer[string] = func(raw json.RawMessage) (string, error) {
-		var value string
-		var bytes, err = json.Marshal(&raw)
-		if err != nil {
-			return value, err
-		}
-		return string(bytes), nil
+	jsonObjectDeserializer valueDeserializer[jsonObject] = func(raw json.RawMessage) (jsonObject, error) {
+		return jsonObject(raw), nil
 	}
 )
+
+// complexIsEmpty checks presence of any data in complex data structures.
+func complexIsEmpty(data Complex) bool {
+	if complexIsNil(data) {
+		return true
+	}
+	// without pointer cast we cannot compare interface with nil.
+	switch typed := data.(type) {
+	case *DataSet:
+		return len(typed.Values()) == 0
+	case ComplexData:
+		return len(typed.Values()) == 0
+	}
+	panic("Unexpected type implementing Complex type. This is a bug")
+}
+
+// complexIsNil checks if the complex interface is nil or empty value.
+func complexIsNil(data Complex) bool {
+	// without pointer cast we cannot compare interface with nil.
+	switch typed := data.(type) {
+	case *DataSet:
+		return typed == nil
+	case ComplexData:
+		return typed.Values() == nil
+	}
+	panic("Unexpected type implementing Complex type. This is a bug")
+}
