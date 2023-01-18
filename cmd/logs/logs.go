@@ -143,7 +143,7 @@ func fetchLogs(cmd *cobra.Command, args []string) error {
 
 	resp, err := queryLogs(query)
 	if err != nil {
-		return err
+		log.Fatal(err.Error())
 	}
 
 	printLogs(resp, formatter, cmd)
@@ -172,13 +172,14 @@ func followLogs(initialResponse *uql.Response, formatter rowFormatter, limit int
 			return nil
 		case followResult := <-eventResults:
 			if followResult.err != nil {
-				return followResult.err
+				log.Fatal(followResult.err.Error())
 			}
 
 			go func() {
 				resp, err := followDataSet(followResult.data)
 				if err != nil {
 					eventResults <- eventResult{err: err}
+					return
 				}
 
 				printLogs(resp, formatter, p)
