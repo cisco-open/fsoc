@@ -1,0 +1,44 @@
+# GoRelease Build Configuration
+# Refer https://goreleaser.com/customization/templates template variables.
+# Refer https://goreleaser.com/customization/ for the fields.
+project_name: fsoc
+dist: builds
+builds:
+- id: fsoc-binaries
+  goos:
+  - darwin
+  - linux
+  - windows
+  goarch:
+  - amd64
+  - arm64
+  ignore:
+  - goos: windows
+    goarch: arm64
+  binary: fsoc-{{.Os}}-{{.Arch}}
+  no_unique_dist_dir: true
+  ldflags:
+  - -s
+  - -w
+  - -X {{ .Env.VERSION_PKG_PATH }}.defVersion={{ .Env.BUILD_NUMBER }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defGitHash={{ .Env.GIT_HASH }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defGitBranch={{ .Env.GIT_BRANCH }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defBuildHost={{ .Env.BUILD_HOST }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defGitDirty={{ .Env.GIT_DIRTY }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defGitTimestamp={{ .Env.GIT_TIMESTAMP }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defBuildTimestamp={{ .Env.BUILD_TIMESTAMP }}
+  flags:
+  - -trimpath
+  env:
+  - CGO_ENABLED=0
+
+archives:
+- id: fsoc-archives
+  name_template: 'fsoc_{{ .Os }}_{{ .Arch }}'
+  format: zip
+  builds:
+  - fsoc-binaries
+  files:
+  - LICENSE
+  - README.md
+  - CONTRIBUTING.md

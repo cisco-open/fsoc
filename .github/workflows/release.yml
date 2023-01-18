@@ -1,0 +1,39 @@
+name: Release fsoc binaries
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-20.04
+
+    permissions:
+      id-token: write
+      packages: write
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18'
+          check-latest: true
+
+      - name: Install tools
+        run: make install-tools
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v3
+        with:
+          version: latest
+          args: release --rm-dist --timeout 5m
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_PKG_PATH: github.com/cisco-open/fsoc/cmd/version

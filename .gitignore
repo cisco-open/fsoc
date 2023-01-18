@@ -1,0 +1,44 @@
+# executable from local "go build"
+fsoc
+fsoc.exe
+
+# executables from Makefile build (installed tools)
+bin/
+
+# goreleaser files
+dist/
+builds/
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory (make crosscompile)
+build
+
+.idea
+
+.trunk
+
+# .vscode configs
+.vscode/
+
+# --- General golang ignores
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+coverage.txt
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+.DS_Store
