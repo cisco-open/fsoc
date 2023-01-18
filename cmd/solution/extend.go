@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/apex/log"
@@ -91,6 +92,11 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		fileName := fmt.Sprintf("%s.json", componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
+		bytes, _ := json.Marshal(manifest)
+		err := os.WriteFile("./manifest.json", bytes, 0644)
+		if err != nil {
+			log.Fatalf("Failed to update manifest.json file to reflect new knowledge type: %v", err)
+		}
 
 		knowledgeComp := getKnowledgeComponent(componentName)
 		createComponentFile(knowledgeComp, folderName, fileName)
@@ -112,6 +118,11 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		}
 
 		manifest.Objects = append(manifest.Objects, *serviceComponentDef)
+		bytes, _ := json.Marshal(manifest)
+		err := os.WriteFile("./manifest.json", bytes, 0644)
+		if err != nil {
+			log.Fatalf("Failed to update manifest.json file to reflect new service component: %v", err)
+		}
 
 		serviceComp := getServiceComponent(componentName)
 		createComponentFile(serviceComp, folderName, fileName)
