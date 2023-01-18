@@ -59,20 +59,41 @@ type modelRef struct {
 	Model    string `json:"$model"`
 }
 
-type uqlService func(query *Query, url string) (rawResponse, error)
+type uqlService interface {
+	Execute(query *Query, apiVersion ApiVersion) (rawResponse, error)
+	Continue(link *Link) (rawResponse, error)
+}
+
+type defaultBackend struct {
+}
+
+func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (rawResponse, error) {
+	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
+
+	var response rawResponse
+	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &response, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
+	}
+	return response, nil
+}
+
+func (b defaultBackend) Continue(link *Link) (rawResponse, error) {
+	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
+
+	var response rawResponse
+	err := api.JSONGet(link.Href, &response, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
+	}
+	return response, nil
+}
+
+var backend uqlService = &defaultBackend{}
 
 // ExecuteQuery sends an execute request to the UQL service
 func ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
-
-	return executeUqlQuery(query, apiVersion, func(query *Query, url string) (rawResponse, error) {
-		var response rawResponse
-		err := api.JSONPost(url, query, &response, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
-		}
-		return response, nil
-	})
+	return executeUqlQuery(query, apiVersion, backend)
 }
 
 func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*Response, error) {
@@ -84,11 +105,52 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 		return nil, fmt.Errorf("uql API version missing")
 	}
 
-	response, err := backend(query, "/monitoring/"+string(apiVersion)+"/query/execute")
+	response, err := backend.Execute(query, apiVersion)
 	if err != nil {
 		return nil, err
 	}
 
+	return processResponse(response)
+}
+
+// ContinueQuery sends a continue request to the UQL service
+func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
+	return continueUqlQuery(dataSet, rel, backend)
+}
+
+func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {
+	link := extractLink(dataSet, rel)
+
+	if link == nil {
+		return nil, fmt.Errorf("link with rel '%s' not found in dataset", rel)
+	}
+
+	response, err := backend.Continue(link)
+	if err != nil {
+		return nil, err
+	}
+
+	return processResponse(response)
+}
+
+func extractLink(dataSet *DataSet, rel string) *Link {
+	if dataSet == nil {
+		return nil
+	}
+
+	if len(dataSet.Links) == 0 {
+		return nil
+	}
+
+	link, ok := dataSet.Links[rel]
+	if !ok {
+		return nil
+	}
+
+	return &link
+}
+
+func processResponse(response rawResponse) (*Response, error) {
 	var model *Model
 	var dataSets = make(map[string]*DataSet)
 	var errorSets []*Error
@@ -97,19 +159,19 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 	for _, dataset := range response {
 		switch dataset.Type {
 		case "model":
-			err = json.Unmarshal(dataset.Model, &model)
+			err := json.Unmarshal(dataset.Model, &model)
 			if err != nil {
 				return nil, err
 			}
 			modelIndex = createModelIndex(model)
 		case "data":
 			var modelRef modelRef
-			err = json.Unmarshal(dataset.Model, &modelRef)
+			err := json.Unmarshal(dataset.Model, &modelRef)
 			if err != nil {
 				return nil, err
 			}
 			var dataSetModel = modelIndex[modelRef.Model]
-			var values, err = processValues(dataset.Data, dataSetModel)
+			values, err := processValues(dataset.Data, dataSetModel)
 			if err != nil {
 				return nil, err
 			}
@@ -118,6 +180,7 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 				DataModel: dataSetModel,
 				Metadata:  dataset.Metadata,
 				Data:      values,
+				Links:     parseLinks(dataset.Links),
 			}
 		case "error":
 			errorSets = append(errorSets, dataset.Error)
@@ -219,6 +282,14 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 		processedData = append(processedData, row)
 	}
 	return processedData, nil
+}
+
+func parseLinks(rawLinks map[string]rawLink) map[string]Link {
+	links := make(map[string]Link)
+	for key, value := range rawLinks {
+		links[key] = Link(value)
+	}
+	return links
 }
 
 func createModelIndex(model *Model) map[string]*Model {

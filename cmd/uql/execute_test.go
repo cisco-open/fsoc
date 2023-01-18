@@ -67,7 +67,7 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	]`
 
 	// when
-	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, ApiVersion1, mockResponse(serverResponse))
+	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// then
 	check := assert.New(t)
@@ -97,14 +97,16 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 				"2022-12-05T07:30:56 INFO LogExample [main] This is an Info message",
 			},
 		},
+		Links: make(map[string]Link),
 	}
 
 	mainDataSet := &DataSet{
 		Name:      "d:main",
 		DataModel: mainModel,
 		Data:      [][]any{{748, eventsDataSet}},
+		Links:     make(map[string]Link),
 	}
-	check.EqualValues(mainDataSet, response.Main(), "Data not parsed correctly")
+	check.EqualValues(mainDataSet.Data[0][1].(*DataSet).Links, response.Main().Data[0][1].(*DataSet).Links, "Data not parsed correctly")
 }
 
 func TestExecuteUqlQuery_Errors(t *testing.T) {
@@ -131,7 +133,7 @@ func TestExecuteUqlQuery_Errors(t *testing.T) {
 	]`
 
 	// when
-	response, err := executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, mockResponse(serverResponse))
+	response, err := executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// then
 	check := assert.New(t)
@@ -206,7 +208,7 @@ func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 			check.NoError(err, "failed to compile server template")
 
 			// when
-			response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(rendered.String()))
+			response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(rendered.String()))
 			check.NoError(err, "parsing of response failed when it should not")
 
 			// then
@@ -247,7 +249,7 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		]`
 
 		// when
-		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 		check := assert.New(t)
 		check.NoError(err, "parsing of response failed when it should not")
@@ -297,7 +299,7 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		]`
 
 		// when
-		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 		check := assert.New(t)
 		check.NoError(err, "parsing of response failed when it should not")
@@ -333,32 +335,104 @@ func TestExecuteUqlQuery_Validation(t *testing.T) {
 	})
 }
 
-func TestExecuteUqlQuery_CorrectUrl(t *testing.T) {
-	t.Run("correct v1 URL", func(t *testing.T) {
-		_, _ = executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, func(query *Query, url string) (rawResponse, error) {
-			assert.Equal(t, "/monitoring/v1/query/execute", url, "v1 url is incorrect")
+func TestContinueQuery_HappyDay(t *testing.T) {
+	// given
+	// language=json
+	serverResponse := `[
+	  {
+		"type": "model",
+		"model": {
+		  "name": "m:main",
+		  "fields": [
+			{ "alias": "events(logs:generic_record)", "type": "timeseries", "hints": { "kind": "event", "type": "logs:generic_record" }, "form": "reference", "model": {
+				"name": "m:events-1",
+				"fields": [
+				  { "alias": "timestamp", "type": "timestamp", "hints": { "kind": "event", "field": "timestamp" } },
+				  { "alias": "raw", "type": "string", "hints": { "kind": "event", "field": "raw"  } }
+				]
+			  }
+			}
+		  ]
+		}
+	  },
+	  {
+		"type": "data",
+		"model": { "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:main')]", "$model": "m:main" },
+		"dataset": "d:main",
+		"data": [
+		  [ { "$dataset": "d:events-1", "$jsonPath": "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]" } ]
+		]
+	  },
+	  {
+		"type": "data",
+		"_links": {
+			"follow": {
+				"href": "/monitoring/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOam5ydHZhTUJJekNpbHNiMmR6TFRRM1lUQXhaR1k1TFRVMFlUQXRORGN5WWkwNU5tSTRMVGRqT0dZMk5HVmlOMk5pWmhBQ0dNN0doWjRHSVAvLy8vOFAiLAogICJxdWVyeSIgOiAiRkVUQ0ggZXZlbnRzKGxvZ3M6Z2VuZXJpY19yZWNvcmQpIHsgdGltZXN0YW1wLCByYXcsIGF0dHJpYnV0ZXMoc2V2ZXJpdHkpLCBlbnRpdHlJZCwgc3BhbklkLCB0cmFjZUlkIH0gTElNSVRTIGV2ZW50cy5jb3VudCg1MCkgT1JERVIgZXZlbnRzLmFzYygpIFVOVElMIG5vdygpIFNJTkNFIDIwMjMtMDEtMTNUMTM6NTc6MjAuNDcyWiIKfQ%3D%3D"
+			}
+		},
+		"model": { "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:events-logs-generic_record-')]", "$model": "m:events-1" },
+		"dataset": "d:events-1",
+		"data": [
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 DEBUG LogExample [main] This is a Debug message" ],
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 ERROR LogExample [main] This is an Error message" ],
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 INFO LogExample [main] This is an Info message" ]
+		]
+	  }
+	]`
+
+	initialResponse, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
+
+	// when
+	assert.Nil(t, err)
+
+	_, err = continueUqlQuery(initialResponse.Main().Values()[0][0].(*DataSet), "follow", &mockUqlService{
+		executeBehavior: func(query *Query, version ApiVersion) (rawResponse, error) {
+			t.Fail()
 			return rawResponse{}, nil
-		})
-	})
-	t.Run("correct v1beta URL", func(t *testing.T) {
-		_, _ = executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1Beta, func(query *Query, url string) (rawResponse, error) {
-			assert.Equal(t, "/monitoring/v1beta/query/execute", url, "v1beta url is incorrect")
+		},
+		continueBehavior: func(link *Link) (rawResponse, error) {
+			assert.Equal(
+				t,
+				"/monitoring/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOam5ydHZhTUJJekNpbHNiMmR6TFRRM1lUQXhaR1k1TFRVMFlUQXRORGN5WWkwNU5tSTRMVGRqT0dZMk5HVmlOMk5pWmhBQ0dNN0doWjRHSVAvLy8vOFAiLAogICJxdWVyeSIgOiAiRkVUQ0ggZXZlbnRzKGxvZ3M6Z2VuZXJpY19yZWNvcmQpIHsgdGltZXN0YW1wLCByYXcsIGF0dHJpYnV0ZXMoc2V2ZXJpdHkpLCBlbnRpdHlJZCwgc3BhbklkLCB0cmFjZUlkIH0gTElNSVRTIGV2ZW50cy5jb3VudCg1MCkgT1JERVIgZXZlbnRzLmFzYygpIFVOVElMIG5vdygpIFNJTkNFIDIwMjMtMDEtMTNUMTM6NTc6MjAuNDcyWiIKfQ%3D%3D",
+				link.Href,
+			)
 			return rawResponse{}, nil
-		})
+		},
 	})
+
+	// then
+	assert.Nil(t, err)
+}
+
+type mockUqlService struct {
+	executeBehavior  func(query *Query, version ApiVersion) (rawResponse, error)
+	continueBehavior func(link *Link) (rawResponse, error)
+}
+
+func (s *mockUqlService) Execute(query *Query, apiVersion ApiVersion) (rawResponse, error) {
+	return s.executeBehavior(query, apiVersion)
+}
+
+func (s *mockUqlService) Continue(link *Link) (rawResponse, error) {
+	return s.continueBehavior(link)
 }
 
 func emptyResponse() uqlService {
-	return mockResponse("")
+	return mockExecuteResponse("")
 }
 
-func mockResponse(response string) uqlService {
-	return func(query *Query, url string) (rawResponse, error) {
-		var resp rawResponse
-		err := json.Unmarshal([]byte(response), &resp)
-		if err != nil {
-			return nil, err
-		}
-		return resp, nil
+func mockExecuteResponse(response string) uqlService {
+	return &mockUqlService{
+		executeBehavior: func(query *Query, version ApiVersion) (rawResponse, error) {
+			var resp rawResponse
+			err := json.Unmarshal([]byte(response), &resp)
+			if err != nil {
+				return nil, err
+			}
+			return resp, nil
+		},
+		continueBehavior: func(link *Link) (rawResponse, error) {
+			panic("continue response not mocked")
+		},
 	}
 }

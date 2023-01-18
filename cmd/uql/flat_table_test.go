@@ -37,7 +37,7 @@ func TestFlatTable_SimplestTable(t *testing.T) {
     "data": [ [ "apm:database_backend:neDQyzHIO1eOsm0KOvoIYw" ], [ "apm:database_backend:t2G6nwAeP0i/GmbCxAgqxg" ], [ "azure:vm:j5HZ2VavNMi0YmllL0oHNg" ] ]
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)
@@ -89,7 +89,7 @@ func TestFlatTable_MultilineCell(t *testing.T) {
       ] ]
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)
@@ -169,7 +169,7 @@ func TestFlatTable_LongColumnNameExpandsChildren(t *testing.T) {
     "data": [ [ "alerting", [ [ 0.3, 1000 ] ] ] ]
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)
@@ -213,7 +213,7 @@ func TestFlatTable_EmptyAtomicCell(t *testing.T) {
     ]
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)
@@ -279,7 +279,7 @@ func TestFlatTable_EmptyMissingSubTable(t *testing.T) {
     "data": []
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)
@@ -389,7 +389,7 @@ func TestFlatTable_ComplexFlatTable(t *testing.T) {
     ]
   }
 ]`
-	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+	response, _ := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// When
 	table := MakeFlatTable(response)

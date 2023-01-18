@@ -72,6 +72,7 @@ type DataSet struct {
 	DataModel *Model
 	Metadata  map[string]any
 	Data      [][]any
+	Links     map[string]Link
 }
 
 func (d DataSet) Model() *Model {
@@ -80,6 +81,10 @@ func (d DataSet) Model() *Model {
 
 func (d DataSet) Values() [][]any {
 	return d.Data
+}
+
+type Link struct {
+	Href string
 }
 
 type ComplexData struct {
