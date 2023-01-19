@@ -18,12 +18,30 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
-	"github.com/cisco-open/fsoc/cmdkit"
 	"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 )
+
+type StatusData struct {
+	InstallTime       string `json:"installTime,omitempty"`
+	InstallMessage    string `json:"installMessage,omitempty"`
+	SuccessfulInstall bool   `json:"isSuccessful,omitempty"`
+	SolutionName      string `json:"solutionName,omitempty"`
+	SolutionVersion   string `json:"solutionVersion,omitempty"`
+}
+
+type StatusItem struct {
+	StatusData StatusData `json:"data"`
+	CreatedAt  string     `json:"createdAt"`
+}
+
+type ResponseBlob struct {
+	Items []StatusItem `json:"items"`
+}
 
 var solutionStatusCmd = &cobra.Command{
 	Use:   "status [flags]",
@@ -37,10 +55,6 @@ var solutionStatusCmd = &cobra.Command{
 	},
 	Args:             cobra.ExactArgs(0),
 	TraverseChildren: true,
-	Annotations: map[string]string{
-		output.TableFieldsAnnotation:  "name:.data.solutionName, version:.data.solutionVersion, installTime:.data.installTime, successful:.data.isSuccessful",
-		output.DetailFieldsAnnotation: "name:.data.solutionName, version:.data.solutionVersion, installTime:.data.installTime, successful:.data.isSuccessful",
-	},
 }
 
 func getSolutionStatusCmd() *cobra.Command {
@@ -53,6 +67,63 @@ func getSolutionStatusCmd() *cobra.Command {
 		String("status-type", "", "The status type that you want to see.  This can be one of [upload, install, all] and will default to all if not specified")
 
 	return solutionStatusCmd
+}
+
+func getObject(url string, headers map[string]string) StatusItem {
+	var res ResponseBlob
+	var emptyData StatusItem
+
+	err := api.HTTPGet(url, &res, &api.Options{Headers: headers})
+
+	if err != nil {
+		log.Fatalf("Issue fetching install/upload object: %v", err)
+	}
+
+	if len(res.Items) > 0 {
+		return res.Items[0]
+	} else {
+		return emptyData
+	}
+}
+
+func fetchValuesAndPrint(operation string, query string, requestHeaders map[string]string, cmd *cobra.Command) {
+	uploadStatusItem := getObject(fmt.Sprintf(getSolutionReleaseUrl(), query), requestHeaders)
+	installStatusItem := getObject(fmt.Sprintf(getSolutionInstallUrl(), query), requestHeaders)
+
+	installStatusData := installStatusItem.StatusData
+	uploadStatusData := uploadStatusItem.StatusData
+	uploadStatusTimestamp := uploadStatusItem.CreatedAt
+
+	headers := []string{"Solution Name"}
+	values := []string{uploadStatusData.SolutionName}
+
+	appendValue := func(header, value string) {
+		headers = append(headers, header)
+		values = append(values, value)
+	}
+
+	if operation == "upload" {
+		appendValue("Solution Upload Version", uploadStatusData.SolutionVersion)
+		appendValue("Upload Timestamp", uploadStatusTimestamp)
+	} else if operation == "install" {
+		appendValue("Solution Install Version", installStatusData.SolutionVersion)
+		appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
+		appendValue("Solution Install Time", installStatusData.InstallTime)
+		appendValue("Solution Install Message", installStatusData.InstallMessage)
+	} else {
+		appendValue("Solution Upload Version", uploadStatusData.SolutionVersion)
+		appendValue("Upload Timestamp", uploadStatusTimestamp)
+		appendValue("Solution Install Version", installStatusData.SolutionVersion)
+		appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
+		appendValue("Solution Install Time", installStatusData.InstallTime)
+		appendValue("Solution Install Message", installStatusData.InstallMessage)
+	}
+
+	output.PrintCmdOutputCustom(cmd, installStatusData, &output.Table{
+		Headers: headers,
+		Lines:   [][]string{values},
+		Detail:  true,
+	})
 }
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {
@@ -81,22 +152,7 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 
 	query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filterQuery))
 
-	if statusTypeToFetch == "upload" {
-		output.PrintCmdStatus(cmd, "Solution Upload Status: \n\n")
-		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionReleaseUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus(cmd, "\n\n")
-	} else if statusTypeToFetch == "install" {
-		output.PrintCmdStatus(cmd, "Solution Installation Status: \n\n")
-		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionInstallUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus(cmd, "\n\n")
-	} else {
-		output.PrintCmdStatus(cmd, "Solution Upload Status: \n\n")
-		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionReleaseUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus(cmd, "\n\n")
-		output.PrintCmdStatus(cmd, "Solution Installation Status: \n\n")
-		cmdkit.FetchAndPrint(cmd, fmt.Sprintf(getSolutionInstallUrl(), query), &cmdkit.FetchAndPrintOptions{Headers: headers})
-		output.PrintCmdStatus(cmd, "\n\n")
-	}
+	fetchValuesAndPrint(statusTypeToFetch, query, headers, cmd)
 
 	return nil
 }
