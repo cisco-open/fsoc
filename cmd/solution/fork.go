@@ -130,6 +130,11 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 	if err != nil {
 		log.Errorf("Failed to parse solution manifest: %v", err)
 	}
+
+	err = refactorSolution(fileSystem, &manifest, forkName)
+	if err != nil {
+		log.Errorf("Failed to refactor component definition files within the solution: %v", err)
+	}
 	manifest.Name = forkName
 
 	b, _ := json.Marshal(manifest)
@@ -213,4 +218,44 @@ func copyFile(zipFileSystem afero.Fs, localFileSystem afero.Fs, zipLoc string, l
 func convertZipLocToLocalLoc(zipLoc string) string {
 	secondSlashIndex := strings.Index(zipLoc[2:], "/")
 	return zipLoc[secondSlashIndex+3:]
+}
+
+func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) error {
+	objDefs := manifest.Objects
+	var err error
+	for _, objDef := range objDefs {
+		if objDef.ObjectsFile != "" {
+			err = replaceStringInFile(fileSystem, objDef.ObjectsFile, manifest.Name, forkName)
+		} else {
+			wkDir, _ := os.Getwd()
+			dirPath := fmt.Sprintf("%s/%s/%s", wkDir, forkName, objDef.ObjectsDir)
+			err = filepath.Walk(dirPath,
+				func(path string, info os.FileInfo, err error) error {
+					// if err != nil {
+					// 	return err
+					// }
+					if !info.IsDir() {
+						removeStr := fmt.Sprintf("%s/%s/", wkDir, forkName)
+						filePath := strings.ReplaceAll(path, removeStr, "")
+						err = replaceStringInFile(fileSystem, filePath, manifest.Name, forkName)
+					}
+					return err
+				})
+		}
+	}
+	return err
+}
+
+func replaceStringInFile(fileSystem afero.Fs, filePath string, searchValue string, replaceValue string) error {
+	data, err := afero.ReadFile(fileSystem, filePath)
+	if err != nil {
+		return err
+	}
+	newFileContent := string(data)
+	newFileContent = strings.ReplaceAll(newFileContent, searchValue, replaceValue)
+	err = afero.WriteFile(fileSystem, filePath, []byte(newFileContent), os.FileMode(os.O_RDWR))
+	if err != nil {
+		return err
+	}
+	return nil
 }
