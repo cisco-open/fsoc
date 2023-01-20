@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // jsonResult is a representation of the UQL response that could be directly serialized to JSON.
@@ -47,6 +48,26 @@ type wrappedScalar struct {
 
 func (s wrappedScalar) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Value)
+}
+
+func (s wrappedScalar) MarshalYAML() (interface{}, error) {
+	node := yaml.Node{}
+	switch s.Value.(type) {
+	// We can't let yaml.Node.Encode try to encode strings, because it treats them as a whole documents.
+	// We are only considering scalars. If a string, for example, starts with a tab, the Encode will fail.
+	case string:
+		node = yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: s.Value.(string),
+			Tag:   "!!str",
+		}
+	default:
+		err := node.Encode(s.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return node, nil
 }
 
 type jsonDataType int
@@ -152,7 +173,7 @@ func transformModel(fields []ModelField) (any, reflect.Type) {
 	structFields := make([]reflect.StructField, len(fields))
 	values := make([]any, len(fields))
 	for i, field := range fields {
-		tag := fmt.Sprintf("json:\"%s\"", field.Alias)
+		tag := serializationTags(field.Alias)
 		var jsonType reflect.Type
 		if field.Model != nil {
 			model, typ := transformModel(field.Model.Fields)
@@ -198,7 +219,7 @@ func makeFieldMapper(field ModelField) fieldMapper {
 }
 
 func makeSimpleFieldMapper(model ModelField) fieldMapper {
-	tag := fmt.Sprintf("json:\"%s\"", model.Alias)
+	tag := serializationTags(model.Alias)
 	structField := reflect.StructField{
 		Name: fieldIdentifier(model.Alias),
 		Type: reflect.TypeOf(wrappedScalar{}),
@@ -235,7 +256,7 @@ func makeArrayMapper(alias string, fieldMappers []fieldMapper) fieldMapper {
 		rowType:       rowType,
 		columnMappers: fieldMappers,
 	}
-	tag := fmt.Sprintf("json:\"%s\"", alias)
+	tag := serializationTags(alias)
 	arrayField := reflect.StructField{
 		Name: fieldIdentifier(alias),
 		Type: arrayType,
@@ -292,6 +313,7 @@ func arraySetter(receiver reflect.Value, value any) {
 		}
 		receiver.Set(reflect.Append(receiver, asValues...))
 	}
+
 }
 
 // value and receiver type must be of type wrappedScalar
@@ -301,4 +323,8 @@ func wrappedScalarSetter(receiver reflect.Value, value any) {
 
 func fieldIdentifier(alias string) string {
 	return "Exported_" + hex.EncodeToString([]byte(alias))
+}
+
+func serializationTags(alias string) string {
+	return fmt.Sprintf("json:\"%s\" yaml:\"%s\"", alias, alias)
 }

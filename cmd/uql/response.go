@@ -22,6 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/relvacode/iso8601"
+	"gopkg.in/yaml.v3"
 )
 
 // Response represents a parsed UQL response body
@@ -35,12 +36,33 @@ type Response struct {
 // jsonObject is either a JSON object or an array received as in the UQL API response
 type jsonObject json.RawMessage
 
-func (u jsonObject) String() string {
-	return string(u)
+func (o jsonObject) String() string {
+	return string(o)
 }
 
-func (u jsonObject) MarshalJSON() ([]byte, error) {
-	return u, nil
+func (o jsonObject) MarshalJSON() ([]byte, error) {
+	return o, nil
+}
+
+func (o jsonObject) MarshalYAML() (interface{}, error) {
+	var deserialized any
+	asMap := make(map[string]any)
+	err := json.Unmarshal(o, &asMap)
+	deserialized = asMap
+	if err != nil {
+		asArray := make([]any, 0)
+		err = json.Unmarshal(o, &asArray)
+		deserialized = asArray
+	}
+	if err != nil {
+		return nil, err
+	}
+	node := yaml.Node{}
+	err = node.Encode(deserialized)
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 // jsonScalar is a single simple value from a field of a JSON object

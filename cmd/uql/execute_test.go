@@ -200,6 +200,9 @@ func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 		{Alias: "json-array", Type: "json", Value: jsonObject(`[ 1, 2, "Fizz" ]`), Formatted: `[ 1, 2, "Fizz" ]`},
 		{Alias: "csv", Type: "csv", Value: "foo,bar", Formatted: `"foo,bar"`},
 		{Alias: "duration", Type: "duration", Value: "PT0.000515106S", Formatted: `"PT0.000515106S"`},
+		{Alias: "string-tab", Type: "string", Value: "\tinvalid yaml document", Formatted: `"\tinvalid yaml document"`},
+		{Alias: "string-colon", Type: "string", Value: "io.SenderException: Failed.", Formatted: `"io.SenderException: Failed."`},
+		{Alias: "string-multiline", Type: "string", Value: "line1\nline2", Formatted: `"line1\nline2"`},
 	}
 
 	for _, c := range cases {

@@ -28,13 +28,17 @@ import (
 var outputFlag string
 var rawFlag bool
 
+const (
+	availableFormats string = "auto, table, json, yaml"
+)
+
 // uqlCmd represents the uql command
 var uqlCmd = &cobra.Command{
 	Use:   "uql",
 	Short: "Perform UQL query",
 	Long: `Perform UQL query of MELT data for a tenant.
 Parsed response data are displayed in a table by default.
-Available output formats: table, json.
+Available output formats: ` + availableFormats + `.
 If the "raw" flag is provided, the actual response from the backend API is displayed instead.`,
 	Example: `# Get parsed results
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"`,
@@ -51,6 +55,7 @@ const (
 	raw
 	detail
 	jsonFormat
+	yamlFormat
 )
 
 func init() {
@@ -99,6 +104,9 @@ func outputFormat(output string, useRaw bool) (format, error) {
 		return table, nil
 	case "json":
 		return jsonFormat, nil
+	case "yaml":
+		return yamlFormat, nil
+
 	default:
 		return -1, fmt.Errorf(
 			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [auto, table, json]",
@@ -126,13 +134,19 @@ func printResponse(cmd *cobra.Command, response *Response, output format) error 
 	switch output {
 	case table:
 		t := makeFlatTable(response)
-		fsoc.PrintCmdOutput(cmd, t.Render())
+		cmd.Println(t.Render())
 	case jsonFormat:
 		json, err := transformForJsonOutput(response)
 		if err != nil {
 			return err
 		}
 		return fsoc.PrintJson(cmd, json)
+	case yamlFormat:
+		json, err := transformForJsonOutput(response)
+		if err != nil {
+			return err
+		}
+		return fsoc.PrintYaml(cmd, json)
 	case raw:
 		fsoc.PrintCmdOutput(cmd, string(*response.raw))
 	}
@@ -142,7 +156,7 @@ func printResponse(cmd *cobra.Command, response *Response, output format) error 
 func changeFlagUsage(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "output" {
-			flag.Usage = "output format (auto, table)"
+			flag.Usage = fmt.Sprintf("output format (%s)", availableFormats)
 		}
 	})
 }
