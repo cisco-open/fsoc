@@ -1,11 +1,10 @@
 # fsoc - Cisco FSO Platform Developer's Control Tool
 
-<!-- [![Release](https://img.shields.io/github/release/cisco-open/fsoc.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cisco-open/fsoc?style=for-the-badge)](https://goreportcard.com/report/github.com/cisco-open/fsoc) -->
+[![Release](https://img.shields.io/github/release/cisco-open/fsoc.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cisco-open/fsoc?style=for-the-badge)](https://goreportcard.com/report/github.com/cisco-open/fsoc) 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
 [![stability-alpha](https://img.shields.io/badge/stability-alpha-f4d03f.svg?style=for-the-badge)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#alpha)
-<!--
-[![Github All Releases](https://img.shields.io/github/downloads/cisco-open/fsoc/total.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest) -->
+[![Github All Releases](https://img.shields.io/github/downloads/cisco-open/fsoc/total.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest) 
 
 
 The Cisco Full Stack Observability (FSO) Platform provides a set of core capabilities for developers to build full-stack 
