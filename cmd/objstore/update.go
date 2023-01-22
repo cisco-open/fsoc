@@ -30,7 +30,7 @@ import (
 var objStoreUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update an existent knowledge object",
-	Long: `This command allows the an existent knowledge object to be udpated according to the fields and values provided in a .json file.
+	Long: `This command allows the an existent knowledge object to be updated according to the fields and values provided in a .json file.
 
 	Usage:
 	fsoc objstore update --type=<fully-qualified-typename> 

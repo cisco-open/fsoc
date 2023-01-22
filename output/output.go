@@ -118,7 +118,7 @@ type Table struct {
 }
 
 // PrintCmdOutput displays the output of a command in the user-selected output format. If
-// a human display format is selected, PrintCmdOutput automatically converst the value
+// a human display format is selected, PrintCmdOutput automatically converts the value
 // to one of the supported formats (within limits); if it cannot be converted, YAML is displayed instead.
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
