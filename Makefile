@@ -12,6 +12,7 @@ export GIT_OUTPUT := $(shell git status --porcelain)
 export GIT_DIRTY  := $(if ${strip ${GIT_OUTPUT}},true,false)
 export GIT_TIMESTAMP := $(shell git show -s --format=%ct)
 export BUILD_TIMESTAMP := $(shell date +%s)
+export BUILD_IS_DEV ?= true
 
 export VERSION_PKG_PATH := github.com/cisco-open/fsoc/cmd/version
 export VERSION_INFO := \
@@ -28,7 +29,7 @@ PROD_BUILD_FLAGS := -ldflags='${VERSION_INFO} -X ${VERSION_PKG_PATH}.defIsDev=fa
 
 GO           := go
 SCRIPT_DIR ?= $(shell pwd)
-GOTEST_OPT := -v -p 1 -race -timeout 60s
+GOTEST_OPT := -p 1 -timeout 60s  # -race desired but requires CGO
 
 # choose files for formatting and other maintenance
 GOFILES=$(shell find . -name '*.go' ! -name '*mock.go')
@@ -48,16 +49,15 @@ GOCOVMERGE ?= $(GOBIN)/gocovmerge
 GOACC ?= $(GOBIN)/go-acc
 GOCOBERTURA ?= $(GOBIN)/gocover-cobertura
 
-help:
-	@grep -Eh '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
-
-
 dev-build: ## Build the project
-	@echo "Building ./fsoc ..."
+	@echo "Building ./fsoc"
 	${GO} build -a ${DEV_BUILD_FLAGS}
 
 dev-test: ## Test the project locally
-	${GO} test
+	${GO} test $(GOTEST_OPT) ./...
+
+help:
+	@grep -Eh '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 format:
 	@echo "formatting code..."
@@ -72,7 +72,7 @@ mod-update: ## Download all dependencies
 	${GO} mod download
 
 tidy: ## Tidy
-	@echo "tidy..."
+	@echo "tidying..."
 	${GO} mod tidy
 
 lint: install-tools ## Linting go source code
@@ -82,11 +82,15 @@ lint: install-tools ## Linting go source code
 go-impi: install-tools
 	@$(IMPI) --local github.com/cisco-open/fsoc --scheme stdThirdPartyLocal ./...
 
-#test:
-#	${GO} test $(GOTEST_OPT) ./...
-
-docs-generate: ## Run generate
-	@echo "WIP"
+print-version-info:
+	@echo "BUILD_NUMBER=${BUILD_NUMBER}"
+	@echo "BUILD_HOST=${BUILD_HOST}"
+	@echo "GIT_HASH=${GIT_HASH}"
+	@echo "GIT_BRANCH=${GIT_BRANCH}"
+	@echo "GIT_DIRTY=${GIT_DIRTY}"
+	@echo "GIT_TIMESTAMP=${GIT_TIMESTAMP}"
+	@echo "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}"
+	@echo "VERSION_PKG_PATH=${VERSION_PKG_PATH}"
 
 .PHONY: install-tools
 install-tools:

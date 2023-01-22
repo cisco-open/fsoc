@@ -20,10 +20,11 @@ builds:
   ldflags:
   - -s
   - -w
-  - -X {{ .Env.VERSION_PKG_PATH }}.defVersion={{ .Env.BUILD_NUMBER }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defVersion={{ .Version }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defGitHash={{ .Env.GIT_HASH }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defGitBranch={{ .Env.GIT_BRANCH }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defBuildHost={{ .Env.BUILD_HOST }}
+  - -X {{ .Env.VERSION_PKG_PATH }}.defIsDev={{ .Env.BUILD_IS_DEV }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defGitDirty={{ .Env.GIT_DIRTY }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defGitTimestamp={{ .Env.GIT_TIMESTAMP }}
   - -X {{ .Env.VERSION_PKG_PATH }}.defBuildTimestamp={{ .Env.BUILD_TIMESTAMP }}
@@ -34,11 +35,8 @@ builds:
 
 archives:
 - id: fsoc-archives
-  name_template: 'fsoc_{{ .Os }}_{{ .Arch }}'
-  format: zip
+  name_template: 'fsoc-{{ .Os }}-{{ .Arch }}'
+  format: binary
   builds:
   - fsoc-binaries
-  files:
-  - LICENSE
-  - README.md
-  - CONTRIBUTING.md
+  

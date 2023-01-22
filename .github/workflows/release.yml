@@ -29,6 +29,9 @@ jobs:
       - name: Install tools
         run: make install-tools
 
+      - name: Set version environment variables
+        run: make print-version-info >> $GITHUB_ENV
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3
         with:
@@ -36,4 +39,5 @@ jobs:
           args: release --rm-dist --timeout 5m
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION_PKG_PATH: github.com/cisco-open/fsoc/cmd/version
+          GIT_BRANCH: ${{ github.ref_name }}
+          BUILD_IS_DEV: 'false'
