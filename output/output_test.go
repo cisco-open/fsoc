@@ -68,7 +68,7 @@ func TestPrintSimple(t *testing.T) {
 func TestPrintCmdStatus(t *testing.T) {
 	// simple
 	outExpected := "test string"
-	outActual := test.CaptureConsoleOutput(func() { PrintCmdStatus("test string") }, t)
+	outActual := test.CaptureConsoleOutput(func() { PrintCmdStatus(nil, "test string") }, t)
 	require.Equal(t, outExpected, outActual)
 }
 

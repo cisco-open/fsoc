@@ -71,7 +71,7 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 	}
 
 	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in current directory.\r\n", solutionName)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
 func getSolutionDownloadUrl(solutionName string) string {

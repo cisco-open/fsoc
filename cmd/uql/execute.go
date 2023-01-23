@@ -37,10 +37,13 @@ type Query struct {
 	Str string `json:"query"`
 }
 
-type rawResponse []rawChunk
+type parsedResponse struct {
+	chunks  []parsedChunk
+	rawJson *json.RawMessage
+}
 
-// rawChunk is a union of all fields on all UQL response dataset types
-type rawChunk struct {
+// parsedChunk is a union of all fields on all UQL response dataset types
+type parsedChunk struct {
 	Type     string              `json:"type"`
 	Model    json.RawMessage     `json:"model"`
 	Metadata map[string]any      `json:"metadata"`
@@ -59,20 +62,57 @@ type modelRef struct {
 	Model    string `json:"$model"`
 }
 
-type uqlService func(query *Query, url string) (rawResponse, error)
+type uqlService interface {
+	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
+	Continue(link *Link) (parsedResponse, error)
+}
+
+type defaultBackend struct {
+}
+
+func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
+	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
+
+	var rawJson json.RawMessage
+	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, nil)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
+	}
+	var chunks []parsedChunk
+	err = json.Unmarshal(rawJson, &chunks)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for UQL Query: '%s'", query.Str))
+	}
+	return parsedResponse{
+		chunks:  chunks,
+		rawJson: &rawJson,
+	}, nil
+}
+
+func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
+	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
+
+	var rawJson json.RawMessage
+	err := api.JSONGet(link.Href, &rawJson, nil)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
+	}
+	var chunks []parsedChunk
+	err = json.Unmarshal(rawJson, &chunks)
+	if err != nil {
+		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for link: '%s'", link.Href))
+	}
+	return parsedResponse{
+		chunks:  chunks,
+		rawJson: &rawJson,
+	}, nil
+}
+
+var backend uqlService = &defaultBackend{}
 
 // ExecuteQuery sends an execute request to the UQL service
 func ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
-
-	return executeUqlQuery(query, apiVersion, func(query *Query, url string) (rawResponse, error) {
-		var response rawResponse
-		err := api.JSONPost(url, query, &response, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
-		}
-		return response, nil
-	})
+	return executeUqlQuery(query, apiVersion, backend)
 }
 
 func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*Response, error) {
@@ -84,47 +124,95 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 		return nil, fmt.Errorf("uql API version missing")
 	}
 
-	response, err := backend(query, "/monitoring/"+string(apiVersion)+"/query/execute")
+	response, err := backend.Execute(query, apiVersion)
 	if err != nil {
 		return nil, err
 	}
 
+	return processResponse(response)
+}
+
+// ContinueQuery sends a continue request to the UQL service
+func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
+	return continueUqlQuery(dataSet, rel, backend)
+}
+
+func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {
+	link := extractLink(dataSet, rel)
+
+	if link == nil {
+		return nil, fmt.Errorf("link with rel '%s' not found in dataset", rel)
+	}
+
+	response, err := backend.Continue(link)
+	if err != nil {
+		return nil, err
+	}
+
+	return processResponse(response)
+}
+
+func extractLink(dataSet *DataSet, rel string) *Link {
+	if dataSet == nil {
+		return nil
+	}
+
+	if len(dataSet.Links) == 0 {
+		return nil
+	}
+
+	link, ok := dataSet.Links[rel]
+	if !ok {
+		return nil
+	}
+
+	return &link
+}
+
+func processResponse(response parsedResponse) (*Response, error) {
 	var model *Model
-	var dataSets []*DataSet
+	var dataSets = make(map[string]*DataSet)
 	var errorSets []*Error
 	var modelIndex map[string]*Model
 
-	for _, dataset := range response {
+	for _, dataset := range response.chunks {
 		switch dataset.Type {
 		case "model":
-			err = json.Unmarshal(dataset.Model, &model)
+			err := json.Unmarshal(dataset.Model, &model)
 			if err != nil {
 				return nil, err
 			}
 			modelIndex = createModelIndex(model)
 		case "data":
 			var modelRef modelRef
-			err = json.Unmarshal(dataset.Model, &modelRef)
+			err := json.Unmarshal(dataset.Model, &modelRef)
 			if err != nil {
 				return nil, err
 			}
 			var dataSetModel = modelIndex[modelRef.Model]
-			var values, err = processValues(dataset.Data, dataSetModel)
+			values, err := processValues(dataset.Data, dataSetModel)
 			if err != nil {
 				return nil, err
 			}
-			dataSets = append(dataSets, &DataSet{
-				Name:     dataset.Dataset,
-				Model:    dataSetModel,
-				Metadata: dataset.Metadata,
-				Values:   values,
-			})
+			dataSets[dataset.Dataset] = &DataSet{
+				Name:      dataset.Dataset,
+				DataModel: dataSetModel,
+				Metadata:  dataset.Metadata,
+				Data:      values,
+				Links:     parseLinks(dataset.Links),
+			}
 		case "error":
 			errorSets = append(errorSets, dataset.Error)
 		}
 	}
 
-	return &Response{model: model, dataSets: createDataSetIndex(dataSets), errors: errorSets}, nil
+	resp := &Response{
+		model:       model,
+		mainDataSet: resolveRefs(dataSets["d:main"], dataSets),
+		errors:      errorSets,
+		raw:         response.rawJson,
+	}
+	return resp, nil
 }
 
 func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
@@ -148,6 +236,7 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 							return nil, err
 						}
 						row = append(row, value)
+						continue
 					}
 					row = append(row, value)
 				case "long":
@@ -162,7 +251,7 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 						return nil, err
 					}
 					row = append(row, value)
-				case "string":
+				case "string", "csv":
 					value, err := stringDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
@@ -190,9 +279,24 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 					if err != nil {
 						return nil, err
 					}
-					row = append(row, processedValues)
+					row = append(row, ComplexData{
+						DataModel: field.Model,
+						Data:      processedValues,
+					})
+				case "object": // unknown, mixed types
+					value, err := jsonScalarDeserializer(values[rowIndex][columnIndex])
+					if err != nil {
+						return nil, err
+					}
+					row = append(row, value)
+				case "json": // unknown json
+					value, err := jsonObjectDeserializer(values[rowIndex][columnIndex])
+					if err != nil {
+						return nil, err
+					}
+					row = append(row, value)
 				default: // unknown types
-					value, err := stringDeserializer(values[rowIndex][columnIndex])
+					value, err := jsonScalarDeserializer(values[rowIndex][columnIndex])
 					if err != nil {
 						return nil, err
 					}
@@ -205,12 +309,12 @@ func processValues(values [][]json.RawMessage, model *Model) ([][]any, error) {
 	return processedData, nil
 }
 
-func createDataSetIndex(dataSets []*DataSet) map[string]*DataSet {
-	var index = make(map[string]*DataSet)
-	for _, dataSet := range dataSets {
-		index[dataSet.Name] = dataSet
+func parseLinks(rawLinks map[string]rawLink) map[string]Link {
+	links := make(map[string]Link)
+	for key, value := range rawLinks {
+		links[key] = Link(value)
 	}
-	return index
+	return links
 }
 
 func createModelIndex(model *Model) map[string]*Model {
@@ -226,4 +330,20 @@ func appendModelToIndex(model *Model, index map[string]*Model) {
 			appendModelToIndex(field.Model, index)
 		}
 	}
+}
+
+func resolveRefs(dataSet *DataSet, dataSets map[string]*DataSet) *DataSet {
+	if dataSet == nil {
+		return nil
+	}
+	for r, row := range dataSet.Data {
+		for c, val := range row {
+			switch ref := val.(type) {
+			case DataSetRef:
+				referenced := resolveRefs(dataSets[ref.Dataset], dataSets)
+				dataSet.Data[r][c] = referenced
+			}
+		}
+	}
+	return dataSet
 }

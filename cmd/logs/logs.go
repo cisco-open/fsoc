@@ -16,8 +16,12 @@ package logs
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -78,6 +82,12 @@ Coloring output
 		RunE:             fetchLogs,
 		TraverseChildren: true,
 	}
+	// followSince controls from how far in the past to start following logs
+	followSince = "-2m"
+	// followCount controls the maximum number of log records to retrieve per request
+	followCount = 50
+	// followTimer controls the maximum delay between requests
+	followTimer = time.Second * 2
 )
 
 func NewSubCmd() *cobra.Command {
@@ -108,6 +118,17 @@ func fetchLogs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	follow, err := cmd.Flags().GetBool("follow")
+	if err != nil {
+		return err
+	}
+
+	if follow {
+		variables.Count = followCount
+		variables.Since = followSince
+		variables.Order = "asc"
+	}
+
 	query, err := renderTemplate(uqlQueryTemplate, variables)
 	if err != nil {
 		return err
@@ -120,21 +141,102 @@ func fetchLogs(cmd *cobra.Command, args []string) error {
 
 	query = prettifyUqlQuery(query)
 
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := queryLogs(query)
 	if err != nil {
-		return err
+		log.Fatal(err.Error())
 	}
 
-	if resp.HasErrors() {
-		return uql.Errors(resp.Errors())
-	}
+	printLogs(resp, formatter, cmd)
 
-	values := resp.DataSet(resp.Main().Values[0][0].(uql.DataSetRef)).Values
-	for i := len(values) - 1; i >= 0; i-- {
-		printRow(values[i], formatter)
+	if follow {
+		return followLogs(resp, formatter, variables.Count, cmd)
 	}
 
 	return nil
+}
+
+type eventResult struct {
+	data *uql.DataSet
+	err  error
+}
+
+func followLogs(initialResponse *uql.Response, formatter rowFormatter, limit int, p printer) error {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	eventResults := make(chan eventResult, 1)
+	eventResults <- eventResult{data: extractEventDataSet(initialResponse)}
+
+	for {
+		select {
+		case <-interrupt:
+			return nil
+		case followResult := <-eventResults:
+			if followResult.err != nil {
+				log.Fatal(followResult.err.Error())
+			}
+
+			go func() {
+				resp, err := followDataSet(followResult.data)
+				if err != nil {
+					eventResults <- eventResult{err: err}
+					return
+				}
+
+				printLogs(resp, formatter, p)
+
+				eventsDataSet := extractEventDataSet(resp)
+
+				if len(eventsDataSet.Data) == limit {
+					// send another request immediately
+					eventResults <- eventResult{data: eventsDataSet}
+				} else {
+					// wait a while since there probably is not enough data
+					go func() {
+						time.Sleep(followTimer)
+						eventResults <- eventResult{data: eventsDataSet}
+					}()
+				}
+			}()
+		}
+	}
+}
+
+func queryLogs(query string) (*uql.Response, error) {
+	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.HasErrors() {
+		return nil, uql.Errors(resp.Errors())
+	}
+
+	return resp, nil
+}
+
+func followDataSet(dataSet *uql.DataSet) (*uql.Response, error) {
+	resp, err := uql.ContinueQuery(dataSet, "follow")
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.HasErrors() {
+		return nil, uql.Errors(resp.Errors())
+	}
+
+	return resp, nil
+}
+
+func printLogs(resp *uql.Response, formatter rowFormatter, p printer) {
+	rawLogRecords := extractEventDataSet(resp).Values()
+
+	for i := len(rawLogRecords) - 1; i >= 0; i-- {
+		printRow(rawLogRecords[i], formatter, p)
+	}
+}
+
+func extractEventDataSet(resp *uql.Response) *uql.DataSet {
+	return resp.Main().Values()[0][0].(*uql.DataSet)
 }
 
 func resolveTemplateVariables(cmd *cobra.Command, args []string) (*templateVariables, error) {
@@ -167,6 +269,8 @@ func resolveTemplateVariables(cmd *cobra.Command, args []string) (*templateVaria
 		FromClause: resolveFromClause(fromValue),
 		RawFilter:  messageFilterValue,
 		Severities: findLowerOrEqualLevels(severityValue),
+		Since:      "-4h",
+		Order:      "desc",
 	}, nil
 }
 

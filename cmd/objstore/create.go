@@ -111,3 +111,76 @@ func insertObject(cmd *cobra.Command, args []string) {
 func getObjStoreObjectUrl() string {
 	return "objstore/v1beta/objects"
 }
+
+var objStoreInsertPatchedObjectCmd = &cobra.Command{
+	Use:   "create-patch",
+	Short: "Create a new patched object of a given type",
+	Long: `This command allows the creation of a new patched object of a given type in the Object Store.
+	A patched object inherits values from an object that exists at a higher layer and can also override mutable fields when needed.
+
+
+	Usage:
+	fsoc objstore create-patch --type<fully-qualified-typename> --object-file=<fully-qualified-path> --target-layer-type=<valid-layer-type> --parent-object-id=<valid-object-id>`,
+
+	Args:             cobra.ExactArgs(0),
+	Run:              insertPatchObject,
+	TraverseChildren: true,
+}
+
+func getCreatePatchObjectCmd() *cobra.Command {
+	objStoreInsertPatchedObjectCmd.Flags().
+		String("type", "", "The fully qualified type name of the object")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("type")
+
+	objStoreInsertPatchedObjectCmd.Flags().
+		String("parent-object-id", "", "The id of the parent object for which you want to create a patched object at a lower layer")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("parent-object-id")
+
+	objStoreInsertPatchedObjectCmd.Flags().
+		String("object-file", "", "The fully qualified path to the json file containing the object definition")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("objectFile")
+
+	objStoreInsertPatchedObjectCmd.Flags().
+		String("target-layer-type", "", "The layer-type at which the patch object will be created. For inheritance purposes, this should always be a `lower` layer than the parent object's layer")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-layer-type")
+
+	return objStoreInsertPatchedObjectCmd
+}
+
+func insertPatchObject(cmd *cobra.Command, args []string) {
+	objType, _ := cmd.Flags().GetString("type")
+	parentObjId, _ := cmd.Flags().GetString("parent-object-id")
+
+	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
+	objectFile, err := os.Open(objJsonFilePath)
+	if err != nil {
+		log.Errorf("Can't find the object definition file named %s", objJsonFilePath)
+		return
+	}
+	defer objectFile.Close()
+
+	objectBytes, _ := io.ReadAll(objectFile)
+	var objectStruct map[string]interface{}
+	err = json.Unmarshal(objectBytes, &objectStruct)
+	if err != nil {
+		log.Errorf("Can't generate a %s object from the %s file. Make sure the object definition has all the required fields and is valid according to the type definition.")
+		return
+	}
+
+	layerType, _ := cmd.Flags().GetString("target-layer-type")
+	layerID := getCorrectLayerID(layerType, objType)
+
+	headers := map[string]string{
+		"layer-type": layerType,
+		"layer-id":   layerID,
+	}
+
+	var res any
+	err = api.JSONPatch(getObjStoreObjectUrl()+"/"+objType+"/"+parentObjId, objectStruct, &res, &api.Options{Headers: headers})
+	if err != nil {
+		log.Errorf("Creating a patched object command failed: %v", err.Error())
+		return
+	} else {
+		log.Infof("Successfully created patched %s object at the %s layer", objType, layerType)
+	}
+}

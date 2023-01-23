@@ -44,7 +44,12 @@ var (
 
 type rowFormatter func(*row) (string, error)
 
-func printRow(rowValues []any, formatter rowFormatter) {
+type printer interface {
+	Println(v ...any)
+	Printf(format string, i ...any)
+}
+
+func printRow(rowValues []any, formatter rowFormatter, p printer) {
 	row := &row{
 		Timestamp: (rowValues[0]).(time.Time).Format(time.RFC3339),
 		Message:   rowValues[1],
@@ -55,9 +60,9 @@ func printRow(rowValues []any, formatter rowFormatter) {
 	}
 	formattedRow, err := formatter(row)
 	if err != nil {
-		fmt.Printf("cannot format: %s\n", row)
+		p.Printf("cannot format: %s\n", row)
 	}
-	fmt.Println(formattedRow)
+	p.Println(formattedRow)
 }
 
 func createRowFormatter(rowFormat string) (rowFormatter, error) {

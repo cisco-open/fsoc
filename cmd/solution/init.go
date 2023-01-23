@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -64,8 +65,8 @@ func getInitSolutionCmd() *cobra.Command {
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
 
 	solutionName, _ := cmd.Flags().GetString("name")
-
-	output.PrintCmdStatus(fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
+	solutionName = strings.ToLower(solutionName)
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
 		log.Errorf("Solution init failed - %v", err.Error())
@@ -74,7 +75,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	manifest := createInitialSolutionManifest(solutionName)
 
 	if cmd.Flags().Changed("include-service") {
-		output.PrintCmdStatus("Adding the service-component.json \n")
+		output.PrintCmdStatus(cmd, "Adding the service-component.json \n")
 		folderName := solutionName + "/services"
 		fileName := "service-component.json"
 
@@ -92,7 +93,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	}
 
 	if cmd.Flags().Changed("include-knowledge") {
-		output.PrintCmdStatus("Adding the knowledge-component.json \n")
+		output.PrintCmdStatus(cmd, "Adding the knowledge-component.json \n")
 		folderName := solutionName + "/knowledge"
 		fileName := "knowledge-component.json"
 		manifest.Types = append(manifest.Types, fmt.Sprintf("knowledge/%s", fileName))
@@ -101,7 +102,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 		createComponentFile(knowledgeComp, folderName, fileName)
 	}
 
-	output.PrintCmdStatus("Adding the manifest.json \n")
+	output.PrintCmdStatus(cmd, "Adding the manifest.json \n")
 	createSolutionManifestFile(solutionName, manifest)
 
 }

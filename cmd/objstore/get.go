@@ -131,17 +131,12 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	}
 
 	var layerType string = string(ltFlag)
-	layerID := getCorrectLayerID(layerType, fqtn)
-
+	layerID, _ := cmd.Flags().GetString("layer-id")
 	if layerID == "" {
-		if !cmd.Flags().Changed("layer-id") {
-			log.Error("Unable to set layer-id flag from given context. Please specify a unique layer-id value with the --layer-id flag")
-			return nil
-		}
-		layerID, err = cmd.Flags().GetString("layer-id")
-		if err != nil {
-			log.Errorf("error trying to get %q flag value: %w", "layer-id", err)
-			return nil
+		if layerType == "SOLUTION" {
+			return fmt.Errorf("Error: for GET requests made to the SOLUTION layer, please manually supply the layerId flag")
+		} else {
+			layerID = getCorrectLayerID(layerType, fqtn)
 		}
 	}
 

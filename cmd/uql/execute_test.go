@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests that a proper server response is correctly deserialized into an Response struct
+// Tests that a proper server response is correctly deserialized into a Response struct
 func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	// given
 	// language=json
@@ -67,7 +67,7 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	]`
 
 	// when
-	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, ApiVersion1, mockResponse(serverResponse))
+	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// then
 	check := assert.New(t)
@@ -79,18 +79,12 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	mainModel := model("m:main", numberField("count"), timeSeriesField("events(logs:generic_record)", eventModel, &Hint{Kind: "event", Type: "logs:generic_record"}))
 
 	check.EqualValues(mainModel, response.Model(), "main model not parsed correctly")
-
-	mainDataSet := &DataSet{
-		Name:   "d:main",
-		Model:  mainModel,
-		Values: [][]any{{748, DataSetRef{Dataset: "d:events-1", JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]"}}},
-	}
-	check.EqualValues(mainDataSet, response.Main(), "main data set not parsed correctly")
+	check.EqualValues(serverResponse, response.Raw())
 
 	eventsDataSet := &DataSet{
-		Name:  "d:events-1",
-		Model: eventModel,
-		Values: [][]any{
+		Name:      "d:events-1",
+		DataModel: eventModel,
+		Data: [][]any{
 			{
 				time.Date(2022, time.December, 5, 7, 30, 56, 0, time.UTC),
 				"2022-12-05T07:30:56 DEBUG LogExample [main] This is a Debug message",
@@ -104,10 +98,16 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 				"2022-12-05T07:30:56 INFO LogExample [main] This is an Info message",
 			},
 		},
+		Links: make(map[string]Link),
 	}
 
-	responseEvents := response.DataSet(response.Main().Values[0][1].(DataSetRef))
-	check.EqualValues(eventsDataSet.Name, responseEvents.Name, "events data set not parsed correctly")
+	mainDataSet := &DataSet{
+		Name:      "d:main",
+		DataModel: mainModel,
+		Data:      [][]any{{748, eventsDataSet}},
+		Links:     make(map[string]Link),
+	}
+	check.EqualValues(mainDataSet.Data[0][1].(*DataSet).Links, response.Main().Data[0][1].(*DataSet).Links, "Data not parsed correctly")
 }
 
 func TestExecuteUqlQuery_Errors(t *testing.T) {
@@ -134,7 +134,7 @@ func TestExecuteUqlQuery_Errors(t *testing.T) {
 	]`
 
 	// when
-	response, err := executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, mockResponse(serverResponse))
+	response, err := executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 	// then
 	check := assert.New(t)
@@ -151,7 +151,7 @@ func TestExecuteUqlQuery_Errors(t *testing.T) {
 	check.EqualValues(&Error{Type: "internal-server-error", Title: "downstream failure", Detail: "service not available"}, response.Errors()[0], "errors do not match")
 }
 
-func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
+func TestExecuteUqlQuery_DataTypes(t *testing.T) {
 	// given
 	serverResponseTemplate := template.Must(template.New("response-template").Parse(`[
 	  {
@@ -180,16 +180,29 @@ func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
 		Formatted string
 	}
 
+	// Please note: When changed, please also change TestTransformForJsonOutput_DataTypes in json_test.go
 	cases := []params{
 		{Alias: "int-as-number", Type: "number", Value: 123},
 		{Alias: "double-as-number", Type: "number", Value: 45.47},
 		{Alias: "long", Type: "long", Value: 10000},
 		{Alias: "double", Type: "double", Value: 10.01},
-		{Alias: "string", Type: "string", Value: "service", Formatted: "\"service\""},
+		{Alias: "string", Type: "string", Value: "service", Formatted: `"service"`},
 		{Alias: "boolean", Type: "boolean", Value: true},
-		{Alias: "timestamp", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: "\"2022-12-05T00:30:00Z\""},
-		{Alias: "timestamp-iso8601", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 0, 0, 0, time.UTC), Formatted: "\"2022-12-05\""},
-		{Alias: "unknown", Type: "unknown", Value: "unknown", Formatted: "\"unknown\""},
+		{Alias: "timestamp", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 30, 0, 0, time.UTC), Formatted: `"2022-12-05T00:30:00Z"`},
+		{Alias: "timestamp-iso8601", Type: "timestamp", Value: time.Date(2022, time.December, 5, 0, 0, 0, 0, time.UTC), Formatted: `"2022-12-05"`},
+		{Alias: "unknown", Type: "unknown", Value: "unknown", Formatted: `"unknown"`},
+		{Alias: "int-as-object", Type: "object", Value: 123},
+		{Alias: "double-as-object", Type: "object", Value: 45.47},
+		{Alias: "boolean-as-object", Type: "object", Value: true},
+		{Alias: "string-as-object", Type: "object", Value: "service", Formatted: `"service"`},
+		{Alias: "timestamp-as-object", Type: "object", Value: `2022-12-05T00:30:00Z`, Formatted: `"2022-12-05T00:30:00Z"`},
+		{Alias: "json-object", Type: "json", Value: jsonObject(`{ "answer": 42 }`), Formatted: `{ "answer": 42 }`},
+		{Alias: "json-array", Type: "json", Value: jsonObject(`[ 1, 2, "Fizz" ]`), Formatted: `[ 1, 2, "Fizz" ]`},
+		{Alias: "csv", Type: "csv", Value: "foo,bar", Formatted: `"foo,bar"`},
+		{Alias: "duration", Type: "duration", Value: "PT0.000515106S", Formatted: `"PT0.000515106S"`},
+		{Alias: "string-tab", Type: "string", Value: "\tinvalid yaml document", Formatted: `"\tinvalid yaml document"`},
+		{Alias: "string-colon", Type: "string", Value: "io.SenderException: Failed.", Formatted: `"io.SenderException: Failed."`},
+		{Alias: "string-multiline", Type: "string", Value: "line1\nline2", Formatted: `"line1\nline2"`},
 	}
 
 	for _, c := range cases {
@@ -201,11 +214,11 @@ func TestExecuteUqlQuery_SimpleDataTypes(t *testing.T) {
 			check.NoError(err, "failed to compile server template")
 
 			// when
-			response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(rendered.String()))
+			response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(rendered.String()))
 			check.NoError(err, "parsing of response failed when it should not")
 
 			// then
-			check.EqualValues(c.Value, response.Main().Values[0][0], "")
+			check.EqualValues(c.Value, response.Main().Values()[0][0], "")
 		})
 	}
 }
@@ -242,15 +255,15 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		]`
 
 		// when
-		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 		check := assert.New(t)
 		check.NoError(err, "parsing of response failed when it should not")
 
 		// then
-		inlinedComplexValue := response.Main().Values[0][0].([][]any)
-		check.EqualValues("inline", inlinedComplexValue[0][0], "inlined complex value not parsed correctly")
-		check.EqualValues(456, inlinedComplexValue[0][1], "inlined complex value not parsed correctly")
+		inlinedComplexValue := response.Main().Values()[0][0].(ComplexData)
+		check.EqualValues("inline", inlinedComplexValue.Values()[0][0], "inlined complex value not parsed correctly")
+		check.EqualValues(456, inlinedComplexValue.Values()[0][1], "inlined complex value not parsed correctly")
 	})
 
 	t.Run("referenced", func(t *testing.T) {
@@ -292,16 +305,16 @@ func TestExecuteUqlQuery_ComplexDataTypes(t *testing.T) {
 		]`
 
 		// when
-		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockResponse(serverResponse))
+		response, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
 
 		check := assert.New(t)
 		check.NoError(err, "parsing of response failed when it should not")
 
 		// then
-		subRef := response.Main().Values[0][0].(DataSetRef)
-		check.EqualValues(DataSetRef{JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:sub-1')]", Dataset: "d:sub-1"}, subRef, "inlined complex value not parsed correctly")
-		check.EqualValues("referenced", response.DataSet(subRef).Values[0][0], "referenced complex value not parsed properly")
-		check.EqualValues(789, response.DataSet(subRef).Values[0][1], "referenced complex value not parsed properly")
+		referencedDataset := response.Main().Values()[0][0].(*DataSet)
+		check.EqualValues("d:sub-1", referencedDataset.Name, "referenced dataset name not parsed properly")
+		check.EqualValues("referenced", referencedDataset.Values()[0][0], "referenced complex value not parsed properly")
+		check.EqualValues(789, referencedDataset.Values()[0][1], "referenced complex value not parsed properly")
 	})
 }
 
@@ -328,32 +341,108 @@ func TestExecuteUqlQuery_Validation(t *testing.T) {
 	})
 }
 
-func TestExecuteUqlQuery_CorrectUrl(t *testing.T) {
-	t.Run("correct v1 URL", func(t *testing.T) {
-		_, _ = executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1, func(query *Query, url string) (rawResponse, error) {
-			assert.Equal(t, "/monitoring/v1/query/execute", url, "v1 url is incorrect")
-			return rawResponse{}, nil
-		})
+func TestContinueQuery_HappyDay(t *testing.T) {
+	// given
+	// language=json
+	serverResponse := `[
+	  {
+		"type": "model",
+		"model": {
+		  "name": "m:main",
+		  "fields": [
+			{ "alias": "events(logs:generic_record)", "type": "timeseries", "hints": { "kind": "event", "type": "logs:generic_record" }, "form": "reference", "model": {
+				"name": "m:events-1",
+				"fields": [
+				  { "alias": "timestamp", "type": "timestamp", "hints": { "kind": "event", "field": "timestamp" } },
+				  { "alias": "raw", "type": "string", "hints": { "kind": "event", "field": "raw"  } }
+				]
+			  }
+			}
+		  ]
+		}
+	  },
+	  {
+		"type": "data",
+		"model": { "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:main')]", "$model": "m:main" },
+		"dataset": "d:main",
+		"data": [
+		  [ { "$dataset": "d:events-1", "$jsonPath": "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]" } ]
+		]
+	  },
+	  {
+		"type": "data",
+		"_links": {
+			"follow": {
+				"href": "/monitoring/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOam5ydHZhTUJJekNpbHNiMmR6TFRRM1lUQXhaR1k1TFRVMFlUQXRORGN5WWkwNU5tSTRMVGRqT0dZMk5HVmlOMk5pWmhBQ0dNN0doWjRHSVAvLy8vOFAiLAogICJxdWVyeSIgOiAiRkVUQ0ggZXZlbnRzKGxvZ3M6Z2VuZXJpY19yZWNvcmQpIHsgdGltZXN0YW1wLCByYXcsIGF0dHJpYnV0ZXMoc2V2ZXJpdHkpLCBlbnRpdHlJZCwgc3BhbklkLCB0cmFjZUlkIH0gTElNSVRTIGV2ZW50cy5jb3VudCg1MCkgT1JERVIgZXZlbnRzLmFzYygpIFVOVElMIG5vdygpIFNJTkNFIDIwMjMtMDEtMTNUMTM6NTc6MjAuNDcyWiIKfQ%3D%3D"
+			}
+		},
+		"model": { "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:events-logs-generic_record-')]", "$model": "m:events-1" },
+		"dataset": "d:events-1",
+		"data": [
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 DEBUG LogExample [main] This is a Debug message" ],
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 ERROR LogExample [main] This is an Error message" ],
+		  [ "2022-12-05T07:30:56Z", "2022-12-05T07:30:56 INFO LogExample [main] This is an Info message" ]
+		]
+	  }
+	]`
+
+	initialResponse, err := executeUqlQuery(&Query{"ignored"}, ApiVersion1, mockExecuteResponse(serverResponse))
+
+	// when
+	assert.Nil(t, err)
+
+	_, err = continueUqlQuery(initialResponse.Main().Values()[0][0].(*DataSet), "follow", &mockUqlService{
+		executeBehavior: func(query *Query, version ApiVersion) (parsedResponse, error) {
+			t.Fail()
+			return parsedResponse{}, nil
+		},
+		continueBehavior: func(link *Link) (parsedResponse, error) {
+			assert.Equal(
+				t,
+				"/monitoring/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOam5ydHZhTUJJekNpbHNiMmR6TFRRM1lUQXhaR1k1TFRVMFlUQXRORGN5WWkwNU5tSTRMVGRqT0dZMk5HVmlOMk5pWmhBQ0dNN0doWjRHSVAvLy8vOFAiLAogICJxdWVyeSIgOiAiRkVUQ0ggZXZlbnRzKGxvZ3M6Z2VuZXJpY19yZWNvcmQpIHsgdGltZXN0YW1wLCByYXcsIGF0dHJpYnV0ZXMoc2V2ZXJpdHkpLCBlbnRpdHlJZCwgc3BhbklkLCB0cmFjZUlkIH0gTElNSVRTIGV2ZW50cy5jb3VudCg1MCkgT1JERVIgZXZlbnRzLmFzYygpIFVOVElMIG5vdygpIFNJTkNFIDIwMjMtMDEtMTNUMTM6NTc6MjAuNDcyWiIKfQ%3D%3D",
+				link.Href,
+			)
+			return parsedResponse{}, nil
+		},
 	})
-	t.Run("correct v1beta URL", func(t *testing.T) {
-		_, _ = executeUqlQuery(&Query{"fetch count from entities"}, ApiVersion1Beta, func(query *Query, url string) (rawResponse, error) {
-			assert.Equal(t, "/monitoring/v1beta/query/execute", url, "v1beta url is incorrect")
-			return rawResponse{}, nil
-		})
-	})
+
+	// then
+	assert.Nil(t, err)
+}
+
+type mockUqlService struct {
+	executeBehavior  func(query *Query, version ApiVersion) (parsedResponse, error)
+	continueBehavior func(link *Link) (parsedResponse, error)
+}
+
+func (s *mockUqlService) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
+	return s.executeBehavior(query, apiVersion)
+}
+
+func (s *mockUqlService) Continue(link *Link) (parsedResponse, error) {
+	return s.continueBehavior(link)
 }
 
 func emptyResponse() uqlService {
-	return mockResponse("")
+	return mockExecuteResponse("")
 }
 
-func mockResponse(response string) uqlService {
-	return func(query *Query, url string) (rawResponse, error) {
-		var resp rawResponse
-		err := json.Unmarshal([]byte(response), &resp)
-		if err != nil {
-			return nil, err
-		}
-		return resp, nil
+func mockExecuteResponse(response string) uqlService {
+	return &mockUqlService{
+		executeBehavior: func(query *Query, version ApiVersion) (parsedResponse, error) {
+			rawJson := json.RawMessage(response)
+			var chunks []parsedChunk
+			err := json.Unmarshal(rawJson, &chunks)
+			if err != nil {
+				return parsedResponse{}, err
+			}
+			return parsedResponse{
+				chunks:  chunks,
+				rawJson: &rawJson,
+			}, nil
+		},
+		continueBehavior: func(link *Link) (parsedResponse, error) {
+			panic("continue response not mocked")
+		},
 	}
 }

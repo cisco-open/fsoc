@@ -19,6 +19,7 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -39,38 +40,71 @@ const (
 )
 
 type printRequest struct {
+	cmd         *cobra.Command
 	format      string
 	fields      string
 	annotations map[string]string
 }
 
+func print(cmd *cobra.Command, a ...any) {
+	if cmd != nil {
+		cmd.Print(a...)
+	} else {
+		fmt.Print(a...)
+	}
+}
+
+func println(cmd *cobra.Command, a ...any) {
+	if cmd != nil {
+		cmd.Println(a...)
+	} else {
+		fmt.Println(a...)
+	}
+}
+
+func printf(cmd *cobra.Command, format string, a ...any) {
+	if cmd != nil {
+		cmd.Printf(format, a...)
+	} else {
+		fmt.Printf(format, a...)
+	}
+}
+
+func GetOutWriter(cmd *cobra.Command) io.Writer {
+	if cmd != nil {
+		return cmd.OutOrStdout()
+	} else {
+		return os.Stdout
+	}
+}
+
 // PrintJson displays the output in prettified JSON
-func PrintJson(v any) error {
+func PrintJson(cmd *cobra.Command, v any) error {
 	data, err := json.MarshalIndent(v, "", "   ")
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%s\n", data)
+	println(cmd, string(data))
 	return nil
 }
 
 // PrintYaml displays the output in YAML
-func PrintYaml(v any) error {
+func PrintYaml(cmd *cobra.Command, v any) error {
 	data, err := yaml.Marshal(v)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%s", data)
+	print(cmd, string(data))
 	return nil
 }
 
 // PrintCmdStatus displays a single string message to the command output
 // Use this only for commands that don't display parseable data (e.g., "config set"),
 // for example, to confirm that the operation was completed
-func PrintCmdStatus(s string) {
-	fmt.Print(s)
+func PrintCmdStatus(cmd *cobra.Command, s string) {
+	print(cmd, s)
 }
 
 type Table struct {
@@ -84,7 +118,7 @@ type Table struct {
 }
 
 // PrintCmdOutput displays the output of a command in the user-selected output format. If
-// a human display format is selected, PrintCmdOutput automatically converst the value
+// a human display format is selected, PrintCmdOutput automatically converts the value
 // to one of the supported formats (within limits); if it cannot be converted, YAML is displayed instead.
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
@@ -111,7 +145,7 @@ func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table) {
 	//        - for human outputs only, get the fields spec from the command annotations (if set)
 	//        - for machine formats, don't filter by fields
 	fields, _ := cmd.Flags().GetString("fields") // since --fields doesn't have default, non-empty means explicitly set
-	pr := printRequest{format: format, fields: fields, annotations: cmd.Annotations}
+	pr := printRequest{cmd: cmd, format: format, fields: fields, annotations: cmd.Annotations}
 	printCmdOutputCustom(pr, v, table)
 }
 
@@ -154,12 +188,12 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	// print according to format and presence of table
 	switch pr.format {
 	case "json":
-		if err := PrintJson(v); err != nil {
+		if err := PrintJson(pr.cmd, v); err != nil {
 			log.Fatalf("Failed to convert output to JSON: %v (%+v)", err, v)
 		}
 		return
 	case "yaml":
-		if err := PrintYaml(v); err != nil {
+		if err := PrintYaml(pr.cmd, v); err != nil {
 			log.Fatalf("Failed to convert output to YAML: %v (%+v)", err, v)
 		}
 		return
@@ -167,7 +201,7 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 
 	// display simple values
 	if strVal, ok := v.(string); ok {
-		printSimple(strVal)
+		printSimple(pr.cmd, strVal)
 		return
 	}
 
@@ -185,7 +219,7 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 		table, err = createTable(v, pr.fields) // replaces the table
 		if err != nil {
 			log.Warnf("Failed to convert output data to a table: %v; reverting to YAML output", err)
-			if err := PrintYaml(v); err != nil {
+			if err := PrintYaml(pr.cmd, v); err != nil {
 				log.Fatalf("Failed to convert output to YAML: %v (%+v)", err, v)
 			}
 			return
@@ -194,9 +228,9 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 
 	// display table
 	if table.Detail || pr.format == "detail" {
-		printDetail(table)
+		printDetail(pr.cmd, table)
 	} else {
-		printTable(table)
+		printTable(pr.cmd, table)
 	}
 }
 
@@ -223,17 +257,17 @@ func buildLines(in any, builderFunc func(any) []string) ([][]string, bool) {
 // printSimple prints a simple value as a command output.
 // It should not be provided with complex values (slices, maps, structs, etc.), but
 // it will do its best to print those by letting Go's fmt handle those (but they will not be pretty)
-func printSimple(v any) {
-	fmt.Println(v)
+func printSimple(cmd *cobra.Command, v any) {
+	println(cmd, v)
 }
 
 // printTable prints a table, with header and one or more rows
-func printTable(t *Table) {
+func printTable(cmd *cobra.Command, t *Table) {
 	if t == nil {
-		printSimple("Nothing to display")
+		printSimple(cmd, "Nothing to display")
 		return
 	}
-	tw := tablewriter.NewWriter(os.Stdout)
+	tw := tablewriter.NewWriter(GetOutWriter(cmd))
 	tw.SetBorder(false)
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
@@ -247,9 +281,9 @@ func printTable(t *Table) {
 // While printDetail is mostly intended for a single-entry output (one map or struct, not a list)
 // if there are multiple entries in t.Lines, it prints each entry as a separate form,
 // separating each entry with a blank line
-func printDetail(t *Table) {
+func printDetail(cmd *cobra.Command, t *Table) {
 	if t == nil {
-		printSimple("Nothing to display")
+		printSimple(cmd, "Nothing to display")
 		return
 	}
 
@@ -264,10 +298,10 @@ func printDetail(t *Table) {
 	// display first row as entries
 	for _, entry := range t.Lines {
 		for i := range t.Headers {
-			fmt.Printf("%[1]*[2]s: %[3]v\n", labelWidth, t.Headers[i], entry[i])
+			printf(cmd, "%[1]*[2]s: %[3]v\n", labelWidth, t.Headers[i], entry[i])
 			//TODO: add support for multi-line values, see Jira ticket FSOC-23
 		}
-		fmt.Println()
+		println(cmd)
 	}
 }
 

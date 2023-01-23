@@ -52,7 +52,9 @@ func NewSubCmd() *cobra.Command {
 	solutionCmd.AddCommand(getAuthorCmd())
 	solutionCmd.AddCommand(getSolutionDownloadCmd())
 	solutionCmd.AddCommand(getSolutionValidateCmd())
-
+	solutionCmd.AddCommand(GetSolutionForkCommand())
+	solutionCmd.AddCommand(getSolutionCheckCmd())
+	solutionCmd.AddCommand(getSolutionStatusCmd())
 	solutionListCmd.Flags().StringP("output", "o", "", "Output format (human*, json, yaml)")
 
 	return solutionCmd

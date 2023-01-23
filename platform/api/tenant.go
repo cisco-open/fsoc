@@ -104,6 +104,9 @@ func computeResolverEndpoint(ctx *config.Context) (string, error) {
 	}
 
 	elements[0] = RESOLVER_HOST
+	// In case of production tenants, we need to manually insert "saas" into the url being calculated
+	// in order to determine the lookup url correctly
+	elements[1] = "saas"
 	uri.Host = strings.Join(elements, ".")
 	//TODO: enable for Go 1.19
 	// uri = uri.JoinPath("tenants", "lookup", ctx.Server)

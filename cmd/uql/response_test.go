@@ -24,25 +24,24 @@ import (
 // Tests whether the model of the main dataset is returned when calling Model()
 func TestUqlResponse_Model_HappyDay(t *testing.T) {
 	// given
+
 	eventModel := model("m:events-1", timestampField("timestamp"), stringField("raw"))
 	mainModel := model("m:main", longField("count"), timeSeriesField("events", eventModel, nil))
 
+	eventsDataSet := &DataSet{
+		Name:      "d:events-1",
+		DataModel: eventModel,
+		Data: [][]any{
+			{time.Time{}, "INFO hello world"},
+		},
+	}
 	response := Response{
 		model: mainModel,
-		dataSets: map[string]*DataSet{
-			"d:main": {
-				Name:  "d:main",
-				Model: mainModel,
-				Values: [][]any{
-					{10, DataSetRef{Dataset: "d:events-1", JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]"}},
-				},
-			},
-			"d:events-1": {
-				Name:  "d:events-1",
-				Model: eventModel,
-				Values: [][]any{
-					{time.Time{}, "INFO hello world"},
-				},
+		mainDataSet: &DataSet{
+			Name:      "d:main",
+			DataModel: mainModel,
+			Data: [][]any{
+				{10, eventsDataSet},
 			},
 		},
 	}
@@ -51,7 +50,7 @@ func TestUqlResponse_Model_HappyDay(t *testing.T) {
 	actualModel := response.Model()
 
 	// then
-	assert.Equal(t, response.dataSets["d:main"].Model, actualModel, "response.Model() does not return the main dataset model")
+	assert.Equal(t, response.Main().Model(), actualModel, "response.Model() does not return the main dataset model")
 }
 
 // Tests that that calling Model() works even if the response contains errors
@@ -59,8 +58,8 @@ func TestUqlResponse_Model_ErrorResponse(t *testing.T) {
 	// given
 	mainModel := model("m:main", longField("count"))
 	response := Response{
-		model:    mainModel,
-		dataSets: make(map[string]*DataSet),
+		model:       mainModel,
+		mainDataSet: nil,
 		errors: []*Error{
 			{Type: "does not matter", Title: "does not matter", Detail: "does not matter"},
 		},
@@ -78,41 +77,39 @@ func TestUqlResponse_Main(t *testing.T) {
 	// given
 	eventModel := model("m:events-1", timestampField("timestamp"), stringField("raw"))
 	mainModel := model("m:main", longField("count"), timeSeriesField("events", eventModel, nil))
+	eventDataSet := &DataSet{
+		Name:      "d:events-1",
+		DataModel: eventModel,
+		Data: [][]any{
+			{time.Time{}, "INFO hello world"},
+		},
+	}
 	mainDataSet := &DataSet{
-		Name:  "d:main",
-		Model: mainModel,
-		Values: [][]any{
-			{10, DataSetRef{Dataset: "d:events-1", JsonPath: "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]"}},
+		Name:      "d:main",
+		DataModel: mainModel,
+		Data: [][]any{
+			{10, eventDataSet},
 		},
 	}
 
 	response := Response{
-		model: mainModel,
-		dataSets: map[string]*DataSet{
-			"d:main": mainDataSet,
-			"d:events-1": {
-				Name:  "d:events-1",
-				Model: eventModel,
-				Values: [][]any{
-					{time.Time{}, "INFO hello world"},
-				},
-			},
-		},
+		model:       mainModel,
+		mainDataSet: mainDataSet,
 	}
 
 	// when
-	actualMainDataset := response.Main()
+	actualMainDataSet := response.Main()
 
 	// then
-	assert.Equal(t, mainDataSet, actualMainDataset, "response.Main() does not return the main dataset")
+	assert.Equal(t, mainDataSet, actualMainDataSet, "response.Main() does not return the main dataset")
 }
 
 // Tests that HasErrors() returns true if there are any errors
 func TestUqlResponse_HasErrors(t *testing.T) {
 	// given
 	response := Response{
-		model:    model("m:main", longField("count")),
-		dataSets: make(map[string]*DataSet),
+		model:       model("m:main", longField("count")),
+		mainDataSet: nil,
 		errors: []*Error{
 			{Type: "does not matter", Title: "does not matter", Detail: "does not matter"},
 		},

@@ -31,6 +31,7 @@ type Manifest struct {
 type ComponentDef struct {
 	Type        string `json:"type,omitempty"`
 	ObjectsFile string `json:"objectsFile,omitempty"`
+	ObjectsDir  string `json:"objectsDir,omitempty"`
 }
 
 type ServiceDef struct {
@@ -68,7 +69,7 @@ type FmmTypeDef struct {
 
 type FmmNamespaceAssignTypeDef struct {
 	Name    string `json:"name"`
-	Version string `json:"version"`
+	Version int    `json:"version"`
 }
 
 type FmmLifecycleConfigTypeDef struct {
@@ -98,12 +99,27 @@ type FmmAssociationTypesTypeDef struct {
 
 type FmmEntity struct {
 	*FmmTypeDef
-	LifecycleConfiguration FmmLifecycleConfigTypeDef       `json:"lifecycleConfiguration"`
-	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
-	MetricTypes            []string                        `json:"metricTypes"`
-	EventTypes             []string                        `json:"eventTypes"`
-	AssociationTypes       *FmmAssociationTypesTypeDef     `json:"associationTypes"`
+	AttributeDefinitions  *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
+	LifecyleConfiguration *FmmLifecycleConfigTypeDef      `json:"lifecycleConfiguration"`
+	MetricTypes           []string                        `json:"metricTypes,omitempty"`
+	EventTypes            []string                        `json:"eventTypes,omitempty"`
+	AssociationTypes      *FmmAssociationTypesTypeDef     `json:"associationTypes,omitempty"`
 }
+
+type FmmResourceMapping struct {
+	*FmmTypeDef
+	EntityType            string               `json:"entityType"`
+	ScopeFilter           string               `json:"scopeFilter"`
+	Mappings              []FmmMapAndTransform `json:"mappings,omitempty"`
+	AttributeNameMappings FmmNameMappings      `json:"attributeNameMappings,omitempty"`
+}
+
+type FmmMapAndTransform struct {
+	To   string `json:"to"`
+	From string `json:"from"`
+}
+
+type FmmNameMappings map[string]string
 
 type FmmNamespace struct {
 	Name string `json:"name"`

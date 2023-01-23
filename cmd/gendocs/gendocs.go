@@ -90,20 +90,20 @@ func genDocs(cmd *cobra.Command, args []string) {
 	}
 
 	// generate full docs, assumes gendocs is a direct child of the root cmd
-	output.PrintCmdStatus("Generating documentation\n")
+	output.PrintCmdStatus(cmd, "Generating documentation\n")
 	err = doc.GenMarkdownTree(cmd.Parent(), path)
 	if err != nil {
 		log.Fatalf("Error generating fsoc docs: %v", err)
 	}
 
 	// generate table of contents
-	output.PrintCmdStatus("Generating table of contents\n")
-	err = genTableOfContents(cmd.Parent(), path, fs)
+	output.PrintCmdStatus(cmd, "Generating table of contents\n")
+	err = genTableOfContents(cmd, path, fs)
 	if err != nil {
 		log.Fatalf("Error generating fsoc docs table of contents: %v", err)
 	}
 
-	output.PrintCmdStatus("Documentation generated successfully.\n")
+	output.PrintCmdStatus(cmd, "Documentation generated successfully.\n")
 }
 
 type tocEntry struct {
@@ -112,7 +112,10 @@ type tocEntry struct {
 	Items   []tocEntry `json:"items,omitempty"`
 }
 
-func genTableOfContents(root *cobra.Command, path string, fs *afero.Afero) error {
+func genTableOfContents(cmd *cobra.Command, path string, fs *afero.Afero) error {
+	// determine cobra root command
+	root := cmd.Parent() // gendocs is a top-level command, so its parent is the root
+
 	// generate TOC in memory
 	toc := tocEntry{Items: []tocEntry{*genTOCNode(root)}}
 
@@ -124,7 +127,7 @@ func genTableOfContents(root *cobra.Command, path string, fs *afero.Afero) error
 
 	// display TOC if verbose
 	if verbose, _ := root.Flags().GetBool("verbose"); verbose {
-		output.PrintCmdStatus(string(jsToc) + "\n")
+		output.PrintCmdStatus(cmd, string(jsToc)+"\n")
 	}
 
 	// write TOC to file (rw permissions & umask)

@@ -71,8 +71,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("stage") {
 		stage, _ = cmd.Flags().GetString("stage")
 		if stage != "STABLE" && stage != "TEST" {
-			log.Errorf("%s isn't a valid value for the --stage flag. Possible values are TEST or STABLE")
-			return
+			log.Fatalf("%s isn't a valid value for the --stage flag. Possible values are TEST or STABLE")
 		}
 		// message = fmt.Sprintf("Deploying solution %s - %s as %s version", manifest.Name, manifest.SolutionVersion, stage)
 	} else {
@@ -87,7 +86,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
-		log.Errorf("Failed to open file %s - %v", solutionArchivePath, err.Error())
+		log.Fatalf("Failed to open file %s - %v", solutionArchivePath, err.Error())
 	}
 	defer file.Close()
 
@@ -96,7 +95,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	fw, err := writer.CreateFormFile("file", solutionArchivePath)
 	if err != nil {
-		log.Errorf("Failed to create form file - %v", err.Error())
+		log.Fatalf("Failed to create form file - %v", err.Error())
 	}
 
 	_, err = io.Copy(fw, file)
@@ -114,17 +113,16 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	var res any
 
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 
 	err = api.HTTPPost(getSolutionPushUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
 
 	if err != nil {
-		log.Errorf("Solution command failed: %v", err.Error())
-		return
+		log.Fatalf("Solution command failed: %v", err.Error())
 	}
 	// message = fmt.Sprintf("Solution %s - %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
 	message = fmt.Sprintf("Solution bundle %s was successfully deployed.", solutionArchivePath)
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
 func getSolutionPushUrl() string {

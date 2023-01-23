@@ -89,7 +89,7 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 		message = fmt.Sprintf("Tenant %s has successfully unsubscribed from solution %s\n", layerID, solutionName)
 	}
 
-	output.PrintCmdStatus(message)
+	output.PrintCmdStatus(cmd, message)
 }
 
 func subscribeToSolution(cmd *cobra.Command, args []string) {

@@ -45,7 +45,7 @@ func displayVersion(cmd *cobra.Command) {
 	outfmt, _ := cmd.Flags().GetString("output")
 	detail, _ := cmd.Flags().GetBool("detail")
 	if !detail && (outfmt == "" || outfmt == "human") {
-		output.PrintCmdStatus(fmt.Sprintf("fsoc version %v\n", GetVersionShort()))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("fsoc version %v\n", GetVersionShort()))
 		return
 	}
 

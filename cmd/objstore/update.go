@@ -30,7 +30,7 @@ import (
 var objStoreUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update an existent knowledge object",
-	Long: `This command allows the an existent knowledge object to be udpated according to the fields and values provided in a .json file.
+	Long: `This command allows the an existent knowledge object to be updated according to the fields and values provided in a .json file.
 
 	Usage:
 	fsoc objstore update --type=<fully-qualified-typename> 
@@ -112,11 +112,11 @@ func updateObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus((fmt.Sprintf("Replacing object %s with the new definition from %s \n", objId, objJsonFilePath)))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing object %s with the new definition from %s \n", objId, objJsonFilePath))
 	err = api.JSONPut(objectUrl, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
 		log.Errorf("Solution command failed: %v", err.Error())
 		return
 	}
-	output.PrintCmdStatus("Object replacement was done successfully!\n")
+	output.PrintCmdStatus(cmd, "Object replacement was done successfully!\n")
 }

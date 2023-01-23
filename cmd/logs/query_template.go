@@ -25,9 +25,9 @@ const queryTemplate = `fetch events(logs:generic_record)
 {{if .HasPredicates}}[{{and .Predicates}}]{{end}}
 { timestamp, raw, attributes(severity), entityId, spanId, traceId }
 {{if .FromClause}} from {{.FromClause}} {{end}}
-order events.desc()
+order events.{{.Order}}()
 limits events.count({{.Count}})
-since -1d
+since {{.Since}}
 until now()`
 
 func init() {
@@ -46,6 +46,8 @@ type templateVariables struct {
 	FromClause string
 	RawFilter  []string
 	Severities []string
+	Order      string
+	Since      string
 }
 
 func (tv *templateVariables) HasPredicates() bool {
