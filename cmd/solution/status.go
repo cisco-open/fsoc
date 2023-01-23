@@ -49,7 +49,13 @@ var solutionStatusCmd = &cobra.Command{
 	Long: `This command provides the ability to see the current installation and upload status of a solution.
 	
 	Usage:
-	fsoc solution status --name <solution-name> --solution-version <optional-solution-version> --status-type [upload | install | all]`,
+	fsoc solution status --name <solution-name> --solution-version <optional-solution-version> --status-type [upload | install | all]
+	
+	Flags/Options:
+	--name - Flag to indicate the name of the solution for which you would like to fetch the upload/installation status
+	--solution-version - OPTIONAL Flag to indicate the version of the solution for which you would like to fetch the upload/installation status
+	--status-type - OPTIONAL Flag to specify the status that you would like to view.  If not specified, the output will contain both solution upload and solution installation status information
+	`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return getSolutionStatus(cmd, args)
 	},
