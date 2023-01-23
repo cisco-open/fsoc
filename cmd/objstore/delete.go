@@ -41,8 +41,6 @@ var objStoreDeleteCmd = &cobra.Command{
 	--layer-type - Flag to indicate the layer at which the object you would like to delete currently exists
 	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to delete.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
 
-	`,
-
 	Args:             cobra.ExactArgs(0),
 	Run:              deleteObject,
 	TraverseChildren: true,

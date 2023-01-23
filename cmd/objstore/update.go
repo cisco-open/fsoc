@@ -46,8 +46,6 @@ var objStoreUpdateCmd = &cobra.Command{
 	--layer-type - Flag to indicate the layer at which the object you would like to update exists
 	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to update.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
 
-	`,
-
 	Args:             cobra.ExactArgs(0),
 	Run:              updateObject,
 	TraverseChildren: true,
