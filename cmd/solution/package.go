@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -75,8 +74,9 @@ func packageSolution(cmd *cobra.Command, args []string) {
 }
 
 func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
-	splitPath := strings.Split(sltnPackagePath, "/")
-	solutionName := splitPath[len(splitPath)-1]
+	// splitPath := strings.Split(sltnPackagePath, "/")
+	// solutionName := splitPath[len(splitPath)-1]
+	solutionName := filepath.Base(sltnPackagePath)
 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating %s archive... \n", archiveFileName))
 	archive, err := os.Create(archiveFileName)
@@ -86,25 +86,24 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	defer archive.Close()
 	zipWriter := zip.NewWriter(archive)
 
-	if len(splitPath) > 1 {
-		fsocWorkingDir, err := os.Getwd()
-		if err != nil {
-			log.Errorf("Couldn't read fsoc working directory: %v", err)
-		}
-
-		solutionRootFolder := filepath.Dir(sltnPackagePath)
-		err = os.Chdir(solutionRootFolder)
-		if err != nil {
-			log.Errorf("Couldn't switch working folder to solution package folder: %v", err)
-		}
-
-		defer func() {
-			err := os.Chdir(fsocWorkingDir)
-			if err != nil {
-				log.Errorf("Couldn't switch working folder back to fsoc working folder: %v", err)
-			}
-		}()
+	fsocWorkingDir, err := os.Getwd()
+	if err != nil {
+		log.Errorf("Couldn't read fsoc working directory: %v", err)
 	}
+
+	solutionRootFolder := filepath.Dir(sltnPackagePath)
+	err = os.Chdir(solutionRootFolder)
+	if err != nil {
+		log.Errorf("Couldn't switch working folder to solution package folder: %v", err)
+	}
+
+	defer func() {
+		err := os.Chdir(fsocWorkingDir)
+		if err != nil {
+			log.Errorf("Couldn't switch working folder back to fsoc working folder: %v", err)
+		}
+	}()
+
 	err = filepath.Walk(solutionName,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
