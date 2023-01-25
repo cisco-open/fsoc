@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	//"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
