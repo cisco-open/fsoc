@@ -35,10 +35,15 @@ func newGetObjectCmd() *cobra.Command {
 		Long:    `Fetch an object from object store using set of properties which can uniquely identify it.`,
 		Example: `  # Get object [SERVICE principal]
   fsoc obj get --type=extensibility:solution --object=extensibility --layer-id=extensibility --layer-type=SOLUTION
+  
   # Get object [USER principal]
-  fsoc obj get --type extensibility:solution --object extensibility --layer-id udayfso@yopmail.com --layer-type LOCALUSER
+  fsoc obj get --type extensibility:solution --object extensibility --layer-type LOCALUSER
+  
   # Get list of solution objects that are system solutions
-  fsoc obj get --type=extensibility:solution --layer-type=TENANT --filter=(data.isSystem eq true) 
+  fsoc obj get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
+
+  # Get list of objects filtering by a data field
+  fsoc obj get --type preferences:theme --layer-type TENANT --filter "data.backgroundColor eq \"green\""
   `,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

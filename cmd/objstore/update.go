@@ -37,7 +37,14 @@ var objStoreUpdateCmd = &cobra.Command{
 	--object-id=<object id>
 	--object-file=<fully-qualified-path> 
 	--layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER]
-	--layer-id=<respective-layer-id>`,
+	--layer-id=<respective-layer-id>
+	
+	Flags/Options:
+	--type - Flag to indicate the fully qualified type name of the object that you would like to update
+	--object-id - Flag to indicate the ID of the object that you want to update
+	--object-file - Flag to indicate the fully qualified path (from your root directory) to the file containing the definition of the object that you want to update. Please note that update internally calls HTTP PUT so you will need to specify all fields in the object (even if you are updating just one field)
+	--layer-type - Flag to indicate the layer at which the object you would like to update exists
+	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to update.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              updateObject,

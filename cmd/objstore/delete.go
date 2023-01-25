@@ -33,7 +33,13 @@ var objStoreDeleteCmd = &cobra.Command{
 	fsoc objstore delete --type=<fully-qualified-typename> 
 	--object-id=<object id>
 	--layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER]
-	--layer-id=<respective-layer-id>`,
+	--layer-id=<respective-layer-id>
+	
+	Flags/Options:
+	--type - Flag to indicate the fully qualified type name of the object that you would like to delete
+	--object-id - Flag to indicate the ID of the object which you would like to delete
+	--layer-type - Flag to indicate the layer at which the object you would like to delete currently exists
+	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to delete.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              deleteObject,
