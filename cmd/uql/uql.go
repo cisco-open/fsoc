@@ -16,9 +16,12 @@ package uql
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -50,10 +53,9 @@ If the "raw" flag is provided, the actual response from the backend API is displ
 type format int
 
 const (
-	table format = iota
-	auto
-	raw
-	detail
+	tableFormat format = iota
+	autoFormat
+	rawFormat
 	jsonFormat
 	yamlFormat
 )
@@ -86,7 +88,12 @@ func uqlQuery(cmd *cobra.Command, args []string) error {
 	queryStr := args[0]
 	response, err := runQuery(queryStr)
 	if err != nil {
-		log.Fatal(err.Error())
+		if problem, ok := err.(uqlProblem); ok {
+			printProblemDescription(cmd, problem, queryStr)
+			os.Exit(1)
+		} else {
+			log.Fatal(err.Error())
+		}
 	}
 	err = printResponse(cmd, response, output)
 	if err != nil {
@@ -97,11 +104,13 @@ func uqlQuery(cmd *cobra.Command, args []string) error {
 
 func outputFormat(output string, useRaw bool) (format, error) {
 	if useRaw {
-		return raw, nil
+		return rawFormat, nil
 	}
 	switch strings.ToLower(output) {
-	case "table", "auto":
-		return table, nil
+	case "auto":
+		return autoFormat, nil
+	case "table":
+		return tableFormat, nil
 	case "json":
 		return jsonFormat, nil
 	case "yaml":
@@ -132,7 +141,7 @@ func runQuery(query string) (*Response, error) {
 
 func printResponse(cmd *cobra.Command, response *Response, output format) error {
 	switch output {
-	case table:
+	case tableFormat, autoFormat:
 		t := makeFlatTable(response)
 		cmd.Println(t.Render())
 	case jsonFormat:
@@ -147,7 +156,7 @@ func printResponse(cmd *cobra.Command, response *Response, output format) error 
 			return err
 		}
 		return fsoc.PrintYaml(cmd, json)
-	case raw:
+	case rawFormat:
 		fsoc.PrintCmdOutput(cmd, string(*response.raw))
 	}
 	return nil
@@ -159,4 +168,77 @@ func changeFlagUsage(cmd *cobra.Command) {
 			flag.Usage = fmt.Sprintf("output format (%s)", availableFormats)
 		}
 	})
+}
+
+func printProblemDescription(cmd *cobra.Command, problem uqlProblem, inputQuery string) {
+	cmd.PrintErrf("%s\n%s\n\n", problem.title, problem.detail)
+	if len(problem.errorDetails) != 0 {
+		var query string
+		// Sometimes, the query is not reported back in the problem json
+		if problem.query == "" {
+			query = inputQuery
+		} else {
+			query = problem.query
+		}
+		cmd.PrintErrf("Error in the query:\n%s\n\n", highlightError(query, problem.errorDetails[0]))
+	}
+	printErrorDetail(cmd, problem.errorDetails[0])
+}
+
+func printErrorDetail(cmd *cobra.Command, detail errorDetail) {
+	msg := strings.Builder{}
+	msg.WriteString(detail.message)
+	if detail.fixSuggestion != "" {
+		msg.WriteString(". ")
+		msg.WriteString(detail.fixSuggestion)
+	}
+	if len(detail.fixPossibilities) != 0 {
+		msg.WriteString("\nPossible fixes: \n(")
+		msg.WriteString(strings.Join(detail.fixPossibilities, ", "))
+		msg.WriteString(")")
+	}
+	cmd.PrintErrln(msg.String())
+}
+
+func highlightError(query string, detail errorDetail) string {
+	background := termenv.BackgroundColor()
+	foreground := termenv.ForegroundColor()
+	switched := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(fmt.Sprint(background))). // Unfortunately, there is no better conversion in the API
+		Background(lipgloss.Color(fmt.Sprint(foreground))).
+		Bold(true)
+	lines := strings.Split(query, "\n")
+	from := detail.errorFrom
+	to := detail.errorTo
+	noPosition := position{}
+	if from == noPosition && to == noPosition {
+		return query
+	}
+	start := from.column
+	for l := from.line - 1; l < to.line-1 && l < len(lines) && l >= 0; l++ {
+		line := lines[l]
+		lines[l] = fmt.Sprintf("%s%s", line[:min(start, len(line))], switched.Render(line[min(start, len(line)):]))
+	}
+	lastErrorLine := to.line - 1
+	if lastErrorLine < len(lines) && lastErrorLine >= 0 {
+		line := lines[lastErrorLine]
+		toColumn := to.column
+		if detail.errorType == "SEMANTIC" {
+			toColumn++ // There is a bug in the reporting of the error position for the semantic errors.
+		}
+		lines[lastErrorLine] = fmt.Sprintf(
+			"%s%s%s",
+			line[:min(start, len(line))],
+			switched.Render(line[min(start, len(line)):min(toColumn, len(line))]),
+			line[min(toColumn, len(line)):],
+		)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func min(a int, b int) int {
+	if a > b {
+		return b
+	}
+	return a
 }

@@ -39,12 +39,46 @@ type Options struct {
 	ResponseHeaders map[string][]string // headers as returned by the call
 }
 
+// Problem type is a json object returned for content-type application/problem+json according to the RFC-7807
+type Problem struct {
+	Type       string `json:"type"`
+	Title      string `json:"title"`
+	Detail     string `json:"detail"`
+	Status     int    `json:"status"`
+	Extensions map[string]any
+}
+
+func (p *Problem) UnmarshalJSON(bs []byte) (err error) {
+	type _Problem Problem
+	commonFields := _Problem{}
+
+	if err = json.Unmarshal(bs, &commonFields); err == nil {
+		*p = Problem(commonFields)
+	}
+
+	extensions := make(map[string]interface{})
+
+	if err = json.Unmarshal(bs, &extensions); err == nil {
+		delete(extensions, "type")
+		delete(extensions, "title")
+		delete(extensions, "detail")
+		delete(extensions, "status")
+		p.Extensions = extensions
+	}
+
+	return err
+}
+
+func (p Problem) Error() string {
+	return fmt.Sprintf("%s - %s", p.Title, p.Detail)
+}
+
 // JSONGet performs a GET request and parses the response as JSON
 func JSONGet(path string, out any, options *Options) error {
 	return jsonRequest("GET", path, nil, out, options)
 }
 
-// JSONGet performs a GET request and parses the response as JSON
+// JSONDelete performs a DELETE request and parses the response as JSON
 func JSONDelete(path string, out any, options *Options) error {
 	return jsonRequest("DELETE", path, nil, out, options)
 }
@@ -64,7 +98,7 @@ func HTTPGet(path string, out any, options *Options) error {
 	return httpRequest("GET", path, nil, out, options)
 }
 
-// JSONPost performs a POST request with JSON command and response
+// JSONPut performs a PUT request with JSON command and response
 func JSONPut(path string, body any, out any, options *Options) error {
 	return jsonRequest("PUT", path, body, out, options)
 }
@@ -74,7 +108,7 @@ func JSONPatch(path string, body any, out any, options *Options) error {
 	return jsonRequest("PATCH", path, body, out, options)
 }
 
-// JSONPatch performs a http request and parses the response as JSON, allowing
+// JSONRequest performs an HTTP request and parses the response as JSON, allowing
 // the http method to be specified
 func JSONRequest(method string, path string, body any, out any, options *Options) error {
 	return jsonRequest(method, path, body, out, options)
@@ -179,6 +213,13 @@ func jsonRequest(method string, path string, body any, out any, options *Options
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
+		if resp.Header.Get("Content-Type") == "application/problem+json" {
+			var problem Problem
+			err = json.Unmarshal(respBytes, &problem)
+			if err == nil {
+				return problem
+			}
+		}
 		var errobj any
 
 		// try to unmarshal JSON
@@ -366,6 +407,13 @@ func httpRequest(method string, path string, body []byte, out any, options *Opti
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
+		if resp.Header.Get("Content-Type") == "application/problem+json" {
+			var problem Problem
+			err = json.Unmarshal(respBytes, &problem)
+			if err == nil {
+				return problem
+			}
+		}
 		var errobj any
 		// try to unmarshal JSON
 		err := json.Unmarshal(respBytes, &errobj)
