@@ -121,7 +121,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf("Solution command failed: %v", err.Error())
 	}
 	// message = fmt.Sprintf("Solution %s - %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
-	message = fmt.Sprintf("Solution bundle %s was successfully deployed.", solutionArchivePath)
+	message = fmt.Sprintf("Solution bundle %s was successfully deployed.\n", solutionArchivePath)
 	output.PrintCmdStatus(cmd, message)
 }
 
