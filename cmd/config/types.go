@@ -33,6 +33,10 @@ const (
 	AuthMethodSessionManager = "session-manager"
 )
 
+const (
+	AnnotationForConfigBypass = "config_bypass"
+)
+
 // Struct Context defines a full configuration context (aka access profile). The Name
 // field contains the name of the context (which is unique within the config file);
 // the remaining fields define the access profile.
