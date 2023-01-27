@@ -141,17 +141,23 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			config.SetSelectedProfile(profile)
 		}
 	}
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		profile := config.GetCurrentProfileName()
-		exists := config.GetCurrentContext() != nil
-		log.WithFields(log.Fields{
-			"config_file": viper.ConfigFileUsed(),
-			"profile":     profile,
-			"existing":    exists,
-		}).
-			Info("fsoc context")
+	_, bypassConfig := cmd.Annotations[config.AnnotationForConfigBypass]
+	if !bypassConfig {
+		// If a config file is found, read it in.
+		if err := viper.ReadInConfig(); err == nil {
+			profile := config.GetCurrentProfileName()
+			exists := config.GetCurrentContext() != nil
+			if !exists {
+				log.Fatalf("fsoc is not configured, please use `fsoc config set` to configure an initial context")
+			}
+			log.WithFields(log.Fields{
+				"config_file": viper.ConfigFileUsed(),
+				"profile":     profile,
+				"existing":    exists,
+			}).
+				Info("fsoc context")
+		} else {
+			log.Fatalf("fsoc is not configured, please use `fsoc config set` to configure an initial context")
+		}
 	}
-
 }
