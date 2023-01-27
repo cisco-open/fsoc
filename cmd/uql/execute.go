@@ -17,6 +17,7 @@ package uql
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apex/log"
@@ -37,6 +38,7 @@ type Query struct {
 	Str string `json:"query"`
 }
 
+// parsedResponse contains unchanged response JSON and list of parsed data chunks
 type parsedResponse struct {
 	chunks  []parsedChunk
 	rawJson *json.RawMessage
@@ -62,6 +64,36 @@ type modelRef struct {
 	Model    string `json:"$model"`
 }
 
+// uqlProblem represents parsed data from an object returned with content-type application/problem+json according to the RFC-7807
+// These parsed data are specific for the UQL service.
+type uqlProblem struct {
+	query        string
+	title        string
+	detail       string
+	errorDetails []errorDetail
+}
+
+func (p uqlProblem) Error() string {
+	return fmt.Sprintf("%s: %s", p.title, p.detail)
+}
+
+// errorDetail contains detailed information about user error in the query
+type errorDetail struct {
+	message          string
+	fixSuggestion    string
+	fixPossibilities []string
+	errorType        string
+	errorFrom        position
+	errorTo          position
+}
+
+// position is a place in a multi-line string. Numbering of lines starts with 1
+// Position before the first character has column value 0
+type position struct {
+	line   int
+	column int
+}
+
 type uqlService interface {
 	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
 	Continue(link *Link) (parsedResponse, error)
@@ -76,6 +108,9 @@ func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResp
 	var rawJson json.RawMessage
 	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, nil)
 	if err != nil {
+		if problem, ok := err.(api.Problem); ok {
+			return parsedResponse{}, makeUqlProblem(problem)
+		}
 		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
 	}
 	var chunks []parsedChunk
@@ -346,4 +381,66 @@ func resolveRefs(dataSet *DataSet, dataSets map[string]*DataSet) *DataSet {
 		}
 	}
 	return dataSet
+}
+
+func makeUqlProblem(original api.Problem) uqlProblem {
+	problem := uqlProblem{
+		query:        asStringOrNothing(original.Extensions["query"]),
+		title:        original.Title,
+		detail:       original.Detail,
+		errorDetails: make([]errorDetail, 0),
+	}
+	switch array := original.Extensions["errorDetails"].(type) {
+	case []any:
+		for _, values := range array {
+			switch asMap := values.(type) {
+			case map[string]any:
+				problem.errorDetails = append(problem.errorDetails, makeErrorDetail(asMap))
+			}
+		}
+	}
+	return problem
+}
+
+func makeErrorDetail(values map[string]any) errorDetail {
+	detail := errorDetail{
+		message:       asStringOrNothing(values["message"]),
+		fixSuggestion: asStringOrNothing(values["fixSuggestion"]),
+		errorType:     asStringOrNothing(values["errorType"]),
+		errorFrom:     asPositionOrNothing(asStringOrNothing(values["errorFrom"])),
+		errorTo:       asPositionOrNothing(asStringOrNothing(values["errorTo"])),
+	}
+	switch typed := values["fixPossibilities"].(type) {
+	case []any:
+		for _, val := range typed {
+			detail.fixPossibilities = append(detail.fixPossibilities, asStringOrNothing(val))
+		}
+	}
+	return detail
+}
+
+func asStringOrNothing(value any) string {
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
+}
+
+func asPositionOrNothing(value string) position {
+	if strings.Count(value, ":") != 1 {
+		return position{}
+	}
+	split := strings.Split(value, ":")
+	line, err := strconv.Atoi(split[0])
+	if err != nil {
+		return position{}
+	}
+	col, err := strconv.Atoi(split[1])
+	if err != nil {
+		return position{}
+	}
+	return position{
+		line:   line,
+		column: col,
+	}
 }

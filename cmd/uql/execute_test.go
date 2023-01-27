@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 // Tests that a proper server response is correctly deserialized into a Response struct
@@ -408,6 +410,99 @@ func TestContinueQuery_HappyDay(t *testing.T) {
 
 	// then
 	assert.Nil(t, err)
+}
+
+func TestMakeUqlProblem(t *testing.T) {
+	// given
+	apiProblem := api.Problem{
+		Type:   "https://developer.cisco.com/docs/appdynamics/errors/#!input-validation",
+		Title:  "Query compilation failure!",
+		Detail: "Unable to compile due to query semantic errors.",
+		Status: 0,
+		Extensions: map[string]any{
+			"query": "FETCH error",
+			"errorDetails": []any{
+				map[string]any{
+					"message":          "Error message",
+					"fixSuggestion":    "Fix suggestion",
+					"fixPossibilities": []any{"fix option 1", "fix option 2"},
+					"errorType":        "SEMANTIC",
+					"errorFrom":        "1:2",
+					"errorTo":          "3:4",
+				},
+			},
+		},
+	}
+
+	// when
+	problem := makeUqlProblem(apiProblem)
+
+	// then
+	check := assert.New(t)
+
+	expected := uqlProblem{
+		query:  "FETCH error",
+		title:  "Query compilation failure!",
+		detail: "Unable to compile due to query semantic errors.",
+		errorDetails: []errorDetail{
+			{
+				message:          "Error message",
+				fixSuggestion:    "Fix suggestion",
+				fixPossibilities: []string{"fix option 1", "fix option 2"},
+				errorType:        "SEMANTIC",
+				errorFrom: position{
+					line:   1,
+					column: 2,
+				},
+				errorTo: position{
+					line:   3,
+					column: 4,
+				},
+			},
+		},
+	}
+	check.EqualValues(expected, problem, "uqlProblem struct should be correctly mapped from source data")
+}
+
+func TestAsStringOrNothing(t *testing.T) {
+	// given
+	notString := 12
+
+	// when
+	asString := asStringOrNothing(notString)
+
+	// then
+	check := assert.New(t)
+	check.Zero(asString, "non-strings values should be returned as zero-strings")
+}
+
+func TestAsPositionOrNothing(t *testing.T) {
+	// given
+	type params struct {
+		Case     string
+		AsString string
+		Expected position
+	}
+
+	cases := []params{
+		{Case: "valid position", AsString: "1:2", Expected: position{line: 1, column: 2}},
+		{Case: "invalid value", AsString: "nonsense", Expected: position{}},
+		{Case: "half position", AsString: "1:", Expected: position{}},
+		{Case: "half position", AsString: "1", Expected: position{}},
+		{Case: "negative values", AsString: "-1:2", Expected: position{line: -1, column: 2}},
+		{Case: "half invalid", AsString: "1:nonsense", Expected: position{}},
+		{Case: "half invalid", AsString: "nonsense:1", Expected: position{}},
+		{Case: "too many values", AsString: "1:2:3", Expected: position{}},
+	}
+
+	// when - then
+	for _, c := range cases {
+		t.Run(c.Case, func(t *testing.T) {
+			check := assert.New(t)
+			actual := asPositionOrNothing(c.AsString)
+			check.EqualValues(c.Expected, actual)
+		})
+	}
 }
 
 type mockUqlService struct {
