@@ -17,6 +17,7 @@ package solution
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cisco-open/fsoc/cmd/config"
 	"os"
 	"strings"
 
@@ -47,6 +48,7 @@ var solutionInitCmd = &cobra.Command{
 	fsoc solution init --name=<solutionName> [--include-service] [--include-knowldege]`,
 
 	Run:              generateSolutionPackage,
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 

@@ -41,12 +41,13 @@ fsoc config set --profile prod --token=top-secret`
 func newCmdConfigSet() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:     "set --profile [CONTEXT] [token=VALUE][tenant=TENANT_ID][secret-file=PATH]",
-		Short:   "Create or modify a context entry in an fsoc config file",
-		Long:    setContextLong,
-		Args:    cobra.MaximumNArgs(1),
-		Example: setContextExample,
-		Run:     configSetContext,
+		Use:         "set --profile [CONTEXT] [token=VALUE][tenant=TENANT_ID][secret-file=PATH]",
+		Short:       "Create or modify a context entry in an fsoc config file",
+		Long:        setContextLong,
+		Args:        cobra.MaximumNArgs(1),
+		Example:     setContextExample,
+		Annotations: map[string]string{AnnotationForConfigBypass: ""},
+		Run:         configSetContext,
 	}
 
 	cmd.Flags().String("server", "", "Set server URL in context")
