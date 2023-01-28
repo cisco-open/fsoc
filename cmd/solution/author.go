@@ -62,10 +62,11 @@ type apiItemList struct {
 }
 
 var authorCmd = &cobra.Command{
-	Use:   "author [flags]",
-	Short: "Open authoring tool for editing template files",
-	Long:  "This command provides access to the FSO platform user interface authoring tool for editing a solution's templates interactively. It starts a background web server to provide access to the template files and opens the authoring tool in your default browser.",
-	Run:   authorRunWrapper,
+	Use:    "author [flags]",
+	Short:  "Open authoring tool for editing template files",
+	Long:   "This command provides access to the FSO platform user interface authoring tool for editing a solution's templates interactively. It starts a background web server to provide access to the template files and opens the authoring tool in your default browser. This command currently works only with localhost-based development environments.",
+	Run:    authorRunWrapper,
+	Hidden: true,
 }
 
 func getAuthorCmd() *cobra.Command {
@@ -123,9 +124,10 @@ func authorRun(cmd *cobra.Command, cfg *config.Context, dir string, local bool) 
 	}
 	browserUrl.RawQuery = queryParams.Encode()
 
-	// inform about required feature flag
-	// TODO: remove when the feature flag is no longer needed
-	log.Warnf("Note that this function requires the following UI feature flags to be enabled:\n" +
+	// inform about availability and required feature flag
+	// TODO: remove when support changes
+	log.Warnf("Note that this command currently does not work outside of development environments.")
+	log.Warnf("Note that this command requires the following UI feature flags to be enabled:\n" +
 		"\t- SHOW_TEMPLATE_AUTHORING\n" +
 		"\t- ENABLE_FSOC_INTEGRATION_WITH_AUTHORING")
 
