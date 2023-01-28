@@ -31,9 +31,7 @@ For more information on setting up the development environment and building fsoc
 
 ## TL;DR Install Prebuilt Binaries
 
-The prebuilt binaries are published for each [`fsoc` release](https://github.com/cisco-open/fsoc/releases).
-
-`fsoc` provides ready binaries for the following platforms:
+Prebuilt binaries are published for each [`fsoc` release](https://github.com/cisco-open/fsoc/releases) for the following platforms:
 
 | Platform | Binary file name |
 | --- | --- |
@@ -43,7 +41,7 @@ The prebuilt binaries are published for each [`fsoc` release](https://github.com
 | Linux, ARM | `fsoc-linux-arm64` |
 | Windows 10/11 | `fsoc-windows-amd64.exe` |
 
-### Installing On Linux or Windows with WSL
+### Installing on Linux or Windows with WSL
 
 ```
 FSOCOS=linux-amd64 \
@@ -51,38 +49,38 @@ bash -c 'curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/d
 chmod +x fsoc
 sudo mv fsoc /usr/local/bin
 ```
-Change the `FSOCOS` platform name above for installing on Linux/ARM.
+Change the `FSOCOS` platform name above to `linux-arm64` for installing on Linux/ARM.
 
-### Installing On Mac OS, Intel
+### Installing on Mac OS, Intel
 
 ```
-FSOCOS=darwin-amd64 \
-bash -c 'curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-${FSOCOS}"'
+curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-darwin-amd64"
 chmod +x fsoc
 sudo mv fsoc /usr/local/bin
 ```
 
-### Installing On Mac OS, M1/M2
+### Installing on Mac OS, M1/M2
 
 ```
-FSOCOS=darwin-arm64 \
-bash -c 'curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-${FSOCOS}"'
+curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-darwin-arm64"
 chmod +x fsoc
 sudo mv fsoc /usr/local/bin
 ```
 
 ### Installing On Windows
 
-1. Download the [latest release](https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-windows-amd64.exe)
+If you will run `fsoc` on the Windows Subsystem for Linux (WSL), please use the Linux and WSL instructions above.
 
-If you have curl installed, you can run the following command in cmd.exe or Powershell:
+For installing `fsoc` as a native application on Windows, follow these steps:
+
+1. Download the [latest release](https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-windows-amd64.exe). If you have curl installed, you can run the following command in cmd.exe or Powershell:
 ```
 curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-windows-amd64.exe"
 ```
 
 2. Append or prepend the `fsoc` binary folder to your PATH environment variable.
 
-3. Test to ensure the version of `fsoc` is the same as downloaded:
+3. Test to ensure the version of `fsoc` is the same as the [latest](https://github.com/cisco-open/fsoc/releases/latest):
 
 ```
 fsoc version
