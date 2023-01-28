@@ -18,6 +18,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
@@ -54,4 +55,5 @@ func login(cmd *cobra.Command, args []string) {
 	if err := api.Login(); err != nil {
 		log.Fatalf("Login failed: %v", err)
 	}
+	output.PrintCmdStatus(cmd, "Login completed successfully.\n")
 }
