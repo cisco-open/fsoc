@@ -56,26 +56,26 @@ func getSolutionPushCmd() *cobra.Command {
 func pushSolution(cmd *cobra.Command, args []string) {
 	manifestPath := ""
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	var solutionArchivePath string
 	if solutionBundlePath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
 			log.Fatal("Please use solution-bundle flag or run this command in a folder with a solution")
 		}
 		manifestPath = currentDir
+		if !isSolutionPackageRoot(manifestPath) {
+			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
+		}
+
+		_, _ = getSolutionManifest(manifestPath)
+
+		solutionArchive := generateZipNoCmd(manifestPath)
+		solutionArchivePath = filepath.Base(solutionArchive.Name())
+
 	} else {
 		manifestPath = solutionBundlePath
+		solutionArchivePath = manifestPath
 	}
-
-	if !isSolutionPackageRoot(manifestPath) {
-		log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
-	}
-
-	_, _ = getSolutionManifest(manifestPath)
-
-	solutionArchive := generateZipNoCmd(manifestPath)
-	solutionArchivePath := filepath.Base(solutionArchive.Name())
-
-	//solutionArchivePath := manifestPath
 
 	var stage string
 	var message string
