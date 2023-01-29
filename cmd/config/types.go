@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	AnnotationForConfigBypass = "config_bypass"
+	AnnotationForConfigBypass = "config/bypass-check"
 )
 
 // Struct Context defines a full configuration context (aka access profile). The Name
