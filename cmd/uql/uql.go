@@ -95,6 +95,12 @@ func uqlQuery(cmd *cobra.Command, args []string) error {
 			log.Fatal(err.Error())
 		}
 	}
+	if response.HasErrors() {
+		log.Error("Execution of query encountered errors. Returned data are not complete!")
+		for _, e := range response.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
+		}
+	}
 	err = printResponse(cmd, response, output)
 	if err != nil {
 		return err
@@ -118,8 +124,9 @@ func outputFormat(output string, useRaw bool) (format, error) {
 
 	default:
 		return -1, fmt.Errorf(
-			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [auto, table, json]",
+			"unsupported output format %s for sub-command uql. This sub-command supports only following formats: [%s]",
 			output,
+			availableFormats,
 		)
 	}
 }
@@ -130,10 +137,6 @@ func runQuery(query string) (*Response, error) {
 	resp, err := ExecuteQuery(&Query{Str: query}, ApiVersion1)
 	if err != nil {
 		return nil, err
-	}
-
-	if resp.HasErrors() {
-		return nil, Errors(resp.Errors())
 	}
 
 	return resp, nil
@@ -171,7 +174,7 @@ func changeFlagUsage(cmd *cobra.Command) {
 }
 
 func printProblemDescription(cmd *cobra.Command, problem uqlProblem, inputQuery string) {
-	cmd.PrintErrf("%s\n%s\n\n", problem.title, problem.detail)
+	cmd.Printf("%s\n%s\n\n", problem.title, problem.detail)
 	if len(problem.errorDetails) != 0 {
 		var query string
 		// Sometimes, the query is not reported back in the problem json
@@ -180,7 +183,7 @@ func printProblemDescription(cmd *cobra.Command, problem uqlProblem, inputQuery 
 		} else {
 			query = problem.query
 		}
-		cmd.PrintErrf("Error in the query:\n%s\n\n", highlightError(query, problem.errorDetails[0]))
+		cmd.Printf("Error in the query:\n%s\n\n", highlightError(query, problem.errorDetails[0]))
 	}
 	printErrorDetail(cmd, problem.errorDetails[0])
 }
@@ -197,7 +200,7 @@ func printErrorDetail(cmd *cobra.Command, detail errorDetail) {
 		msg.WriteString(strings.Join(detail.fixPossibilities, ", "))
 		msg.WriteString(")")
 	}
-	cmd.PrintErrln(msg.String())
+	cmd.Println(msg.String())
 }
 
 func highlightError(query string, detail errorDetail) string {
