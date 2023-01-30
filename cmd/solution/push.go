@@ -15,11 +15,13 @@
 package solution
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -43,7 +45,7 @@ Usage:
 func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file")
-	_ = solutionPushCmd.MarkFlagRequired("solution-package")
+	//_ = solutionPushCmd.MarkFlagRequired("solution-package")
 	solutionPushCmd.Flags().
 		String("stage", "", "The pipeline stage this solution version should be deployed to [STABLE or TEST]")
 
@@ -52,18 +54,28 @@ func getSolutionPushCmd() *cobra.Command {
 }
 
 func pushSolution(cmd *cobra.Command, args []string) {
+	manifestPath := ""
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	var solutionArchivePath string
 	if solutionBundlePath == "" {
-		log.Fatal("solution-bundle cannot be empty, use --solution-bundle=<solution-bundle-archive-path>")
-	}
-	// if !isSolutionPackageRoot(solutionBundlePath) {
-	// 	log.Fatal("solution-bundle path doesn't point to a solution package root folder")
-	// }
-	// manifest, _ := getSolutionManifest(solutionBundlePath)
+		currentDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal("Please use solution-bundle flag or run this command in a folder with a solution")
+		}
+		manifestPath = currentDir
+		if !isSolutionPackageRoot(manifestPath) {
+			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
+		}
 
-	// solutionArchive := generateZip(solutionBundlePath)
-	// solutionArchivePath := filepath.Base(solutionArchive.Name())
-	solutionArchivePath := solutionBundlePath
+		_, _ = getSolutionManifest(manifestPath)
+
+		solutionArchive := generateZipNoCmd(manifestPath)
+		solutionArchivePath = filepath.Base(solutionArchive.Name())
+
+	} else {
+		manifestPath = solutionBundlePath
+		solutionArchivePath = manifestPath
+	}
 
 	var stage string
 	var message string
@@ -127,4 +139,50 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 func getSolutionPushUrl() string {
 	return "solnmgmt/v1beta/solutions"
+}
+
+func generateZipNoCmd(sltnPackagePath string) *os.File {
+	// splitPath := strings.Split(sltnPackagePath, "/")
+	// solutionName := splitPath[len(splitPath)-1]
+	solutionName := filepath.Base(sltnPackagePath)
+	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
+	archive, err := os.Create(archiveFileName)
+	if err != nil {
+		panic(err)
+	}
+	defer archive.Close()
+	zipWriter := zip.NewWriter(archive)
+
+	fsocWorkingDir, err := os.Getwd()
+	if err != nil {
+		log.Errorf("Couldn't read fsoc working directory: %v", err)
+	}
+
+	solutionRootFolder := filepath.Dir(sltnPackagePath)
+	err = os.Chdir(solutionRootFolder)
+	if err != nil {
+		log.Errorf("Couldn't switch working folder to solution package folder: %v", err)
+	}
+
+	defer func() {
+		err := os.Chdir(fsocWorkingDir)
+		if err != nil {
+			log.Errorf("Couldn't switch working folder back to fsoc working folder: %v", err)
+		}
+	}()
+
+	err = filepath.Walk(solutionName,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			addFileToZip(zipWriter, path, info)
+			return nil
+		})
+	if err != nil {
+		log.Errorf("Error traversing the folder: %v", err.Error())
+	}
+	zipWriter.Close()
+
+	return archive
 }
