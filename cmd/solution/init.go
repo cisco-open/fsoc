@@ -17,13 +17,13 @@ package solution
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cisco-open/fsoc/cmd/config"
 	"os"
 	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
