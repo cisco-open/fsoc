@@ -52,12 +52,16 @@ func (p *Problem) UnmarshalJSON(bs []byte) (err error) {
 	type _Problem Problem
 	commonFields := _Problem{}
 
+	// If the commonFields was of unaliased type Problem, this method UnmarshalJSON would be called in recursion.
+	// When we try to unmarshall data to struct _Problem, the default behavior based on json tags on struct fields
+	// is used instead of this method.
 	if err = json.Unmarshal(bs, &commonFields); err == nil {
 		*p = Problem(commonFields)
 	}
 
 	extensions := make(map[string]interface{})
 
+	// in the second go of the unmarshalling we are parsing all undefined fields that may be part of the JSON object
 	if err = json.Unmarshal(bs, &extensions); err == nil {
 		delete(extensions, "type")
 		delete(extensions, "title")
@@ -211,24 +215,8 @@ func jsonRequest(method string, path string, body any, out any, options *Options
 		}
 	}
 
-	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
-		if resp.Header.Get("Content-Type") == "application/problem+json" {
-			var problem Problem
-			err = json.Unmarshal(respBytes, &problem)
-			if err == nil {
-				return problem
-			}
-		}
-		var errobj any
-
-		// try to unmarshal JSON
-		err := json.Unmarshal(respBytes, &errobj)
-		if err != nil {
-			// process as a string instead, ignore parsing error
-			errobj = bytes.NewBuffer(respBytes).String()
-		}
-		return fmt.Errorf("Error response: %+v", errobj)
+		return parseIntoError(resp, respBytes)
 	}
 
 	if method != "DELETE" {
@@ -405,23 +393,8 @@ func httpRequest(method string, path string, body []byte, out any, options *Opti
 		}
 	}
 
-	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
-		if resp.Header.Get("Content-Type") == "application/problem+json" {
-			var problem Problem
-			err = json.Unmarshal(respBytes, &problem)
-			if err == nil {
-				return problem
-			}
-		}
-		var errobj any
-		// try to unmarshal JSON
-		err := json.Unmarshal(respBytes, &errobj)
-		if err != nil {
-			// process as a string instead, ignore parsing error
-			errobj = bytes.NewBuffer(respBytes).String()
-		}
-		return fmt.Errorf("Error response: %+v", errobj)
+		return parseIntoError(resp, respBytes)
 	}
 
 	contentType := resp.Header.Get("content-type")
@@ -489,4 +462,28 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	}
 
 	return req, nil
+}
+
+// parseError creates an error from HTTP response data
+// method creates either an error with wrapped response body
+// or a Problem struct in case the response is of type "application/problem+json"
+func parseIntoError(resp *http.Response, respBytes []byte) error {
+
+	// attempt to parse as standardised JSON object
+	// on failure continue with the other strategy
+	if resp.Header.Get("Content-Type") == "application/problem+json" {
+		var problem Problem
+		err := json.Unmarshal(respBytes, &problem)
+		if err == nil {
+			return problem
+		}
+	}
+	var errobj any
+	// attempt to parse response as JSON object
+	err := json.Unmarshal(respBytes, &errobj)
+	if err != nil {
+		// process as a string instead, ignore parsing error
+		errobj = bytes.NewBuffer(respBytes).String()
+	}
+	return fmt.Errorf("error response: %+v", errobj)
 }

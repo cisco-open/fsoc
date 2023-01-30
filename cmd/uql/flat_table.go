@@ -30,15 +30,15 @@ const (
 
 // flatTable is transformed complex UQL response as a single table.
 type flatTable struct {
-	header  genericCell
-	content genericCell
+	header  cell
+	content cell
 }
 
-// genericCell is a general building block of a table.
+// cell is a general building block of a table.
 // A cell represents a value from a column.
 // The columns might contain sub-columns. The structure of columns is a tree.
 // Therefore, a cell might contain child sub-cells
-type genericCell interface {
+type cell interface {
 	// childWidths returns maximal widths of columns in the leaves of the column tree.
 	childWidths() []int
 	// inflateWidths sets minimal widths of columns in the leaves of the column tree.
@@ -61,7 +61,7 @@ type atomicCell struct {
 
 // simpleTable is a 2D table of atomicCells.
 type simpleTable struct {
-	data      [][]genericCell
+	data      [][]cell
 	colNum    int
 	maxWidths []int
 }
@@ -72,9 +72,9 @@ type emptyTable struct {
 	maxWidths []int
 }
 
-// combinedTable is a generic table where each cell might be an another sub-table.
+// combinedTable is a generic table where each cell might be another sub-table.
 type combinedTable struct {
-	data        [][]genericCell
+	data        [][]cell
 	topCols     int
 	flattenCols int
 	maxWidths   []int
@@ -120,7 +120,7 @@ func (t *flatTable) Render() string {
 	return lipgloss.JoinVertical(lipgloss.Left, t.header.render(), t.header.renderBottomBorder(), t.content.render())
 }
 
-func makeCell(dataset Complex, model *Model) genericCell {
+func makeCell(dataset Complex, model *Model) cell {
 	allSimpleCells := true
 	for _, field := range model.Fields {
 		if field.Model != nil {
@@ -133,9 +133,9 @@ func makeCell(dataset Complex, model *Model) genericCell {
 		return makeEmptyTable(model)
 	}
 	rowNo := len(dataset.Values())
-	rows := make([][]genericCell, rowNo)
+	rows := make([][]cell, rowNo)
 	for r, row := range dataset.Values() {
-		rowCells := make([]genericCell, colNo)
+		rowCells := make([]cell, colNo)
 		for c, field := range model.Fields {
 			// is simple scalar field
 			if field.Model == nil {
@@ -201,7 +201,7 @@ func (c *atomicCell) renderBottomBorder() string {
 	return strings.Repeat(bottomBorder, c.width)
 }
 
-func makeSimpleTable(cells [][]genericCell, colNum int) *simpleTable {
+func makeSimpleTable(cells [][]cell, colNum int) *simpleTable {
 	if len(cells) == 0 {
 		panic("No row data provided for creation of a table. This is a bug.")
 	}
@@ -317,7 +317,7 @@ func (t *emptyTable) renderBottomBorder() string {
 	return strings.Join(cellBottoms, cornerBorder)
 }
 
-func makeCombinedTable(cells [][]genericCell, colNum int) *combinedTable {
+func makeCombinedTable(cells [][]cell, colNum int) *combinedTable {
 	if len(cells) == 0 || len(cells[0]) == 0 {
 		panic("Trying to render a sub-table with either zero rows or zero columns. This is a bug")
 	}
@@ -511,7 +511,7 @@ func (c *headerCell) renderBottomBorder() string {
 
 // calculateMaxWidths traverses the whole table of values and collects maximum widths of all leaf cells
 // from the column tree structure.
-func calculateMaxWidths(cells [][]genericCell) []int {
+func calculateMaxWidths(cells [][]cell) []int {
 	var nestedCols int
 	for _, c := range cells[0] {
 		nestedCols += c.childColumns()
@@ -532,8 +532,8 @@ func calculateMaxWidths(cells [][]genericCell) []int {
 	return maxWidths
 }
 
-// renderTableRow renders all generic cells for a single row of a table.
-func renderTableRow(row *[]genericCell, cols int) string {
+// renderTableRow renders all cells for a single row of a table.
+func renderTableRow(row *[]cell, cols int) string {
 	renderedRowCells := make([]string, cols)
 	maxCellHeight := 0
 	for c, cell := range *row {
@@ -572,7 +572,7 @@ func interleave(items []string, separator string) []string {
 }
 
 // lastLineIsBorder checks if rendering of the row will produce a bottom border for the highest cell of the row.
-func lastLineIsBorder(row []genericCell) bool {
+func lastLineIsBorder(row []cell) bool {
 	for _, cell := range row {
 		switch cell.(type) {
 		case *simpleTable, *combinedTable:
