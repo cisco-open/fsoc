@@ -94,7 +94,8 @@ func newGetTypeCmd() *cobra.Command {
 	getTypeCmd.PersistentFlags().
 		String("type", "", "Fully qualified type name. It will be formed by combining the solution which defined the type and the type name.")
 
-	getTypeCmd.PersistentFlags().String("solution", "", "Name of solution type belongs to.")
+	// only get type by fqtn is supported.
+	_ = getTypeCmd.MarkPersistentFlagRequired("type");
 
 	return getTypeCmd
 }
@@ -106,16 +107,6 @@ func getType(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("error trying to get %q flag value: %w", "type", err)
 	}
-
-	/* 	soln, err := cmd.Flags().GetString("solution")
-		if err != nil {
-			return err
-		}
-
-	 	headers := map[string]string{
-			"layer-type": "SOLUTION",
-			"layer-id":   soln,
-		} */
 
 	// execute command and print result
 	cmdkit.FetchAndPrint(cmd, getTypeUrl(fqtn), nil)
