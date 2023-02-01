@@ -16,6 +16,7 @@ package version
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -112,6 +113,9 @@ func uintConv(str string, strict bool) uint {
 		} else {
 			return 0
 		}
+	}
+	if u > math.MaxUint {
+		log.Fatalf("bug: number value %v exceeds expected size", u)
 	}
 	return uint(u)
 }
