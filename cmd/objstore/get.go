@@ -95,7 +95,7 @@ func newGetTypeCmd() *cobra.Command {
 		String("type", "", "Fully qualified type name. It will be formed by combining the solution which defined the type and the type name.")
 
 	// only get type by fqtn is supported.
-	_ = getTypeCmd.MarkPersistentFlagRequired("type");
+	_ = getTypeCmd.MarkPersistentFlagRequired("type")
 
 	return getTypeCmd
 }

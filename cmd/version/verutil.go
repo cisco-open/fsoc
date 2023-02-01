@@ -54,8 +54,8 @@ type VersionData struct {
 	GitHash           string `yaml:"git_hash" json:"git_hash" human:"Git Hash"`
 	GitBranch         string `yaml:"git_branch" json:"git_branch" human:"Git Branch"`
 	GitDirty          bool   `yaml:"git_dirty" json:"git_dirty" human:"Git Dirty"`
-	GitTimestamp      uint   `yaml:"git_timestamp" json:"git_timestamp" human:"Git Timestamp"`
-	BuildTimestamp    uint   `yaml:"build_timestamp" json:"build_timestamp" human:"Build Timestamp"`
+	GitTimestamp      uint64 `yaml:"git_timestamp" json:"git_timestamp" human:"Git Timestamp"`
+	BuildTimestamp    uint64 `yaml:"build_timestamp" json:"build_timestamp" human:"Build Timestamp"`
 	BuildHost         string `yaml:"build_host" json:"build_host" human:"Build Host"`
 	Platform          string `yaml:"platform" json:"platform" human:"Platform"`
 }
@@ -69,8 +69,8 @@ func init() {
 	version.GitHash = defGitHash
 	version.GitBranch = defGitBranch
 	version.GitDirty = defGitDirty != "false"
-	version.GitTimestamp = uintConv(defGitTimestamp)
-	version.BuildTimestamp = uintConv(defBuildTimestamp)
+	version.GitTimestamp = parseEpoch(defGitTimestamp)
+	version.BuildTimestamp = parseEpoch(defBuildTimestamp)
 	version.BuildHost = defBuildHost
 
 	// parse version string
@@ -80,9 +80,9 @@ func init() {
 	verElems := re.FindStringSubmatch(version.Version)
 	nElems := len(verElems)
 	if nElems >= 4 {
-		version.VersionMajor = uintConv(verElems[1])
-		version.VersionMinor = uintConv(verElems[2])
-		version.VersionPatch = uintConv(verElems[3])
+		version.VersionMajor = parseVerElement(verElems[1])
+		version.VersionMinor = parseVerElement(verElems[2])
+		version.VersionPatch = parseVerElement(verElems[3])
 	}
 	if nElems >= 5 {
 		version.VersionPrerelease = verElems[4]
@@ -99,14 +99,28 @@ func IsDev() bool {
 	return version.IsDev
 }
 
-func uintConv(str string) uint {
-	const (
-		base    = 10
-		bitSize = 64
-	)
+func parseEpoch(str string) uint64 {
+	// return 0 if no timestamp
+	if str == "" {
+		return 0
+	}
 
-	i, _ := strconv.ParseInt(str, base, bitSize)
-	return uint(i)
+	// parse into a 64-bit value
+	u, err := strconv.ParseUint(str, 10, 64)
+	if err != nil {
+		log.Fatalf("bug: failed to parse timestamp %q: %v", str, err)
+	}
+
+	return u
+}
+
+func parseVerElement(str string) uint {
+	u, err := strconv.ParseUint(str, 10, 32)
+	if err != nil {
+		log.Fatalf("bug: failed to parse version element %q: %v", str, err)
+	}
+
+	return uint(u)
 }
 
 func localTime(str string) time.Time {
