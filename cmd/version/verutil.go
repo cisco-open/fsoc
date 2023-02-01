@@ -69,8 +69,8 @@ func init() {
 	version.GitHash = defGitHash
 	version.GitBranch = defGitBranch
 	version.GitDirty = defGitDirty != "false"
-	version.GitTimestamp = uintConv(defGitTimestamp)
-	version.BuildTimestamp = uintConv(defBuildTimestamp)
+	version.GitTimestamp = uintConv(defGitTimestamp, false)
+	version.BuildTimestamp = uintConv(defBuildTimestamp, false)
 	version.BuildHost = defBuildHost
 
 	// parse version string
@@ -80,9 +80,9 @@ func init() {
 	verElems := re.FindStringSubmatch(version.Version)
 	nElems := len(verElems)
 	if nElems >= 4 {
-		version.VersionMajor = uintConv(verElems[1])
-		version.VersionMinor = uintConv(verElems[2])
-		version.VersionPatch = uintConv(verElems[3])
+		version.VersionMajor = uintConv(verElems[1], true)
+		version.VersionMinor = uintConv(verElems[2], true)
+		version.VersionPatch = uintConv(verElems[3], true)
 	}
 	if nElems >= 5 {
 		version.VersionPrerelease = verElems[4]
@@ -99,14 +99,21 @@ func IsDev() bool {
 	return version.IsDev
 }
 
-func uintConv(str string) uint {
+func uintConv(str string, strict bool) uint {
 	const (
 		base    = 10
 		bitSize = 64
 	)
 
-	i, _ := strconv.ParseInt(str, base, bitSize)
-	return uint(i)
+	u, err := strconv.ParseUint(str, base, bitSize)
+	if err != nil {
+		if strict {
+			log.Fatalf("bug: failed to parse a number from %q: %v", str, err)
+		} else {
+			return 0
+		}
+	}
+	return uint(u)
 }
 
 func localTime(str string) time.Time {
