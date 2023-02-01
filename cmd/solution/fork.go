@@ -18,7 +18,7 @@ import (
 )
 
 var solutionForkCmd = &cobra.Command{
-	Use:   "fork --name=<solutionName> --source-name=<sourceSolutionName> [--stage=STABLE|TEST]",
+	Use:   "fork --name=<solutionName> --source-name=<sourceSolutionName>",
 	Short: "Fork a solution in the specified folder",
 	Long:  `This command will download the solution into this folder and change the name of the manifest to the specified name`,
 	Run:   solutionForkCommand,
@@ -29,7 +29,6 @@ func GetSolutionForkCommand() *cobra.Command {
 	_ = solutionForkCmd.MarkFlagRequired("source-name")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
 	_ = solutionForkCmd.MarkFlagRequired("name")
-	solutionForkCmd.Flags().String("stage", "STABLE", "The pipeline stage[STABLE or TEST] of solution that needs to be downloaded. Default value is STABLE")
 	return solutionForkCmd
 }
 
@@ -38,12 +37,6 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	forkName, _ := cmd.Flags().GetString("name")
 	if solutionName == "" {
 		log.Fatalf("name cannot be empty, use --source-name=<solution-name>")
-	}
-
-	var stage string
-	stage, _ = cmd.Flags().GetString("stage")
-	if stage != "STABLE" && stage != "TEST" {
-		log.Fatalf("%s isn't a valid value for the --stage flag. Possible values are TEST or STABLE", stage)
 	}
 
 	currentDirectory, err := filepath.Abs(".")
@@ -63,7 +56,7 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("There is already a manifest file in this folder")
 	}
 
-	downloadSolutionZip(cmd, solutionName, stage, forkName)
+	downloadSolutionZip(cmd, solutionName, forkName)
 	err = extractZip(fileSystemRoot, fileSystem, solutionName)
 	if err != nil {
 		log.Fatalf("Failed to copy files from the zip file to current directory: %v", err)
@@ -145,12 +138,12 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 	}
 }
 
-func downloadSolutionZip(cmd *cobra.Command, solutionName string, stage string, forkName string) {
+func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName string) {
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
 	var message string
 
 	headers := map[string]string{
-		"stage":            stage,
+		"stage":            "STABLE",
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}

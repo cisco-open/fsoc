@@ -36,7 +36,7 @@ var solutionPushCmd = &cobra.Command{
 	Long: `This command allows the current tenant specified in the profile to deploy a solution bundle archive into the FSO Platform.
 
 Usage:
-	fsoc solution push --solution-bundle=<solution-bundle-archive-path> --stage=[STABLE | TEST]`,
+	fsoc solution push --solution-bundle=<solution-bundle-archive-path>`,
 	Args:             cobra.ExactArgs(0),
 	Run:              pushSolution,
 	TraverseChildren: true,
@@ -46,8 +46,6 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file")
 	//_ = solutionPushCmd.MarkFlagRequired("solution-package")
-	solutionPushCmd.Flags().
-		String("stage", "", "The pipeline stage this solution version should be deployed to [STABLE or TEST]")
 
 	return solutionPushCmd
 
@@ -77,23 +75,11 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		solutionArchivePath = manifestPath
 	}
 
-	var stage string
-	var message string
-
-	if cmd.Flags().Changed("stage") {
-		stage, _ = cmd.Flags().GetString("stage")
-		if stage != "STABLE" && stage != "TEST" {
-			log.Fatalf("%s isn't a valid value for the --stage flag. Possible values are TEST or STABLE")
-		}
-		// message = fmt.Sprintf("Deploying solution %s - %s as %s version", manifest.Name, manifest.SolutionVersion, stage)
-	} else {
-		stage = "TEST"
-		// message = fmt.Sprintf("Deploying solution %s - %s as TEST version", manifest.Name, manifest.SolutionVersion)
-	}
+	//message := fmt.Sprintf("Deploying solution %s - %s", manifest.Name, manifest.SolutionVersion)
+	message := fmt.Sprintf("Deploying solution")
 
 	log.WithFields(log.Fields{
 		"solution-package": solutionBundlePath,
-		"stage":            stage,
 	}).Info(message)
 
 	file, err := os.Open(solutionArchivePath)

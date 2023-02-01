@@ -24,14 +24,14 @@ import (
 )
 
 var solutionDownloadCmd = &cobra.Command{
-	Use:   "download --name=SOLUTION [--stage=STABLE|TEST]",
+	Use:   "download --name=SOLUTION",
 	Short: "Download solution",
 	Long: `This command allows the current tenant specified in the profile to download a solution bundle archive into the current directory or the directory specified in command argument.
 
-    Command: fsoc solution download --name=<solutionName> [--stage=<STABLE|TEST>]
+    Command: fsoc solution download --name=<solutionName>
 
 	Usage:
-	fsoc solution download  --name=<solution-name> --stage=[STABLE|TEST] `,
+	   fsoc solution download  --name=<solution-name>`,
 	Args:             cobra.ExactArgs(0),
 	Run:              downloadSolution,
 	TraverseChildren: true,
@@ -40,7 +40,6 @@ var solutionDownloadCmd = &cobra.Command{
 func getSolutionDownloadCmd() *cobra.Command {
 	solutionDownloadCmd.Flags().String("name", "", "name of the solution that needs to be downloaded")
 	_ = solutionDownloadCmd.MarkFlagRequired("name")
-	solutionDownloadCmd.Flags().String("stage", "STABLE", "The pipeline stage[STABLE or TEST] of solution that needs to be downloaded. Default value is STABLE")
 	return solutionDownloadCmd
 }
 
@@ -50,18 +49,10 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf("solution-name cannot be empty, use --name=<solution-name>")
 	}
 
-	var stage string
-	var message string
-
-	stage, _ = cmd.Flags().GetString("stage")
-	if stage != "STABLE" && stage != "TEST" {
-		log.Fatalf("%s isn't a valid value for the --stage flag. Possible values are TEST or STABLE", stage)
-	}
-
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
 
 	headers := map[string]string{
-		"stage":            stage,
+		"stage":            "STABLE",
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}
@@ -70,7 +61,7 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf("Solution download command failed: %v", err.Error())
 	}
 
-	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in current directory.\r\n", solutionName)
+	message := fmt.Sprintf("Solution bundle %s was successfully downloaded in current directory.\r\n", solutionName)
 	output.PrintCmdStatus(cmd, message)
 }
 
