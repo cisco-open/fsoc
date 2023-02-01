@@ -76,7 +76,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	}
 
 	//message := fmt.Sprintf("Deploying solution %s - %s", manifest.Name, manifest.SolutionVersion)
-	message := fmt.Sprintf("Deploying solution")
+	message := "Deploying solution"
 
 	log.WithFields(log.Fields{
 		"solution-package": solutionBundlePath,
