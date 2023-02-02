@@ -18,14 +18,16 @@ import (
 	//"errors"
 
 	"github.com/apex/log"
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/spf13/cobra"
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update fsoc",
-	Long:  `Update fsoc if a new version is available.`,
-	Run:   update,
+	Use:         "update",
+	Short:       "Update fsoc",
+	Long:        `Update fsoc if a new version is available.`,
+	Run:         update,
+	Annotations: map[string]string{config.AnnotationForConfigBypass: ""},
 }
 
 func init() {
@@ -33,7 +35,7 @@ func init() {
 }
 
 func update(cmd *cobra.Command, args []string) {
-	log.Fatalf("Update command is not yet implemented. Please check version manually and download update if available.")
+	log.Fatalf("Update command is not implemented yet. Please check version manually and download an update if available.")
 }
 
 // func update(core *Core, pkg dependency.Installable) {
