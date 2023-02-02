@@ -18,8 +18,9 @@ import (
 	//"errors"
 
 	"github.com/apex/log"
-	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/cmd/config"
 )
 
 var updateCmd = &cobra.Command{
