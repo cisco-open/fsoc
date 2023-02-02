@@ -141,8 +141,11 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			config.SetSelectedProfile(profile)
 		}
 	}
-	_, bypassConfig := cmd.Annotations[config.AnnotationForConfigBypass]
-	if !bypassConfig {
+
+	// enforce presence of a configured profile (unless bypassed for commands that
+	// must work or can work without it)
+	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
+	if !bypass {
 		// If a config file is found, read it in.
 		if err := viper.ReadInConfig(); err == nil {
 			profile := config.GetCurrentProfileName()
@@ -160,4 +163,14 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Fatalf("fsoc is not configured, please use `fsoc config set` to configure an initial context")
 		}
 	}
+}
+
+func bypassConfig(cmd *cobra.Command) bool {
+	_, bypassConfig := cmd.Annotations[config.AnnotationForConfigBypass]
+	return bypassConfig
+}
+
+func isCompletionCommand(cmd *cobra.Command) bool {
+	p := cmd.Parent()
+	return (p != nil && p.Name() == "completion")
 }
