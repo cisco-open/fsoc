@@ -165,7 +165,7 @@ func jsonRequest(method string, path string, body any, out any, options *Options
 	// log error if it occurred
 	if resp.StatusCode/100 != 2 {
 		// log error before trying to parse body, more processing later
-		log.Errorf("Request failed, status %q; more info to follow", resp.Status)
+		log.Infof("Request failed, status %q; more info to follow", resp.Status)
 	}
 
 	// collect response body (whether success or error)
