@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -46,6 +47,7 @@ The directory should either be empty or not exist.`,
 	Args:             cobra.ExactArgs(1),
 	Run:              genDocs,
 	TraverseChildren: true,
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 }
 
 func NewSubCmd() *cobra.Command {

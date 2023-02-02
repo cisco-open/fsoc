@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -29,6 +30,7 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		displayVersion(cmd)
 	},
+	Annotations: map[string]string{config.AnnotationForConfigBypass: ""},
 }
 
 func init() {
