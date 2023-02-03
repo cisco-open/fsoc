@@ -142,25 +142,29 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// enforce presence of a configured profile (unless bypassed for commands that
-	// must work or can work without it)
+	// Determine if a configured profile is required for this command
+	// (bypassed only for commands that must work or can safely work without it)
 	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
-	if !bypass {
-		// If a config file is found, read it in.
-		if err := viper.ReadInConfig(); err == nil {
-			profile := config.GetCurrentProfileName()
-			exists := config.GetCurrentContext() != nil
-			if !exists {
-				log.Fatalf("fsoc is not configured, please use `fsoc config set` to configure an initial context")
-			}
-			log.WithFields(log.Fields{
-				"config_file": viper.ConfigFileUsed(),
-				"profile":     profile,
-				"existing":    exists,
-			}).
-				Info("fsoc context")
+
+	// try to read the config file.and profile
+	err := viper.ReadInConfig()
+	if err == nil {
+		profile := config.GetCurrentProfileName()
+		exists := config.GetCurrentContext() != nil
+		if !exists && !bypass {
+			log.Fatalf("fsoc is not fully configured: missing profile %q; please use \"fsoc config set\" to configure it", profile)
+		}
+		log.WithFields(log.Fields{
+			"config_file": viper.ConfigFileUsed(),
+			"profile":     profile,
+			"existing":    exists,
+		}).
+			Info("fsoc context")
+	} else {
+		if bypass {
+			log.Infof("Unable to read config file (%v), proceeding without a config", err)
 		} else {
-			log.Fatalf("fsoc is not configured, please use `fsoc config set` to configure an initial context")
+			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
 		}
 	}
 }
