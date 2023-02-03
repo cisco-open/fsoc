@@ -116,11 +116,12 @@ func updateConfigFile(keyValues map[string]interface{}) {
 	for key, value := range keyValues {
 		viper.Set(key, value)
 	}
-
 	// set up config file in viper
 	viper.SetConfigType("yaml")
 	if viper.ConfigFileUsed() == "" {
-		viper.SetConfigFile(defaultConfigFile)
+		home, _ := os.UserHomeDir()
+		configFileLocation := strings.Replace(defaultConfigFile, "~", home, 1)
+		viper.SetConfigFile(configFileLocation)
 	}
 	viper.SetConfigPermissions(0600) // o=rw
 
