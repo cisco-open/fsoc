@@ -131,6 +131,8 @@ func addFileToZip(zipWriter *zip.Writer, fileName string, info os.FileInfo) {
 		fileName = fileName + string(os.PathSeparator)
 	}
 
+	fileName = filepath.ToSlash(fileName)
+
 	archWriter, err := zipWriter.Create(fileName)
 
 	if err != nil {
