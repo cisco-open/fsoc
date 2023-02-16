@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ var solutionInitCmd = &cobra.Command{
 	Short: "Creates a new solution package",
 	Long: `This command list all the solutions that are deployed in the current tenant specified in the profile.
 
-    Command: fsoc solution init --name=<solutionName> [--include-service] [--include-knowledge]
+    Command: fsoc solution init --name=<solutionName> [options]
 
     Parameters:
-    solutionName - Name of the solution
+    name - Name of the solution
 
 	Options:
     include-service - Flag to include sample service component
@@ -68,10 +68,17 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 
 	solutionName, _ := cmd.Flags().GetString("name")
 	solutionName = strings.ToLower(solutionName)
+
+	if len(solutionName) == 0 {
+		log.Errorf("Parameter \"name\" is required")
+		return
+	}
+
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
 		log.Errorf("Solution init failed - %v", err.Error())
+		return
 	}
 
 	manifest := createInitialSolutionManifest(solutionName)
@@ -134,6 +141,7 @@ func createSolutionManifestFile(folderName string, manifest *Manifest) {
 
 	if err != nil {
 		log.Errorf("Failed to create manifest.json %v", err.Error())
+		return
 	}
 
 	manifestJson, _ := json.Marshal(manifest)
@@ -182,6 +190,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
 		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
 			log.Errorf("Create solution component file failed - %v", err.Error())
+			return
 		}
 	}
 
@@ -190,6 +199,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	svcFile, err := os.Create(filepath)
 	if err != nil {
 		log.Errorf("Create solution component file failed - %v", err.Error())
+		return
 	}
 	defer svcFile.Close()
 
