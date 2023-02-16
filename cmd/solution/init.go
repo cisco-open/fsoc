@@ -30,7 +30,7 @@ import (
 var solutionInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Creates a new solution package",
-	Long: `This command list all the solutions that are deployed in the current tenant specified in the profile.
+	Long: `This command creates a skeleton of a new solution by given name.
 
     Command: fsoc solution init --name=<solutionName> [options]
 
