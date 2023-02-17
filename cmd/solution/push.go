@@ -33,10 +33,14 @@ import (
 var solutionPushCmd = &cobra.Command{
 	Use:   "push",
 	Short: "Deploy your solution",
-	Long: `This command allows the current tenant specified in the profile to deploy a solution bundle archive into the FSO Platform.
+	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
 
-Usage:
-	fsoc solution push --solution-bundle=<solution-bundle-archive-path>`,
+Examples:
+  fsoc solution push
+  fsoc solution push --solution-bundle=mysolution.zip
+  
+The first command deploys a solution from the current directory. The second command
+deploys a solution from an existing archive file.`,
 	Args:             cobra.ExactArgs(0),
 	Run:              pushSolution,
 	TraverseChildren: true,
@@ -44,8 +48,7 @@ Usage:
 
 func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
-		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file")
-	//_ = solutionPushCmd.MarkFlagRequired("solution-package")
+		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
 
 	return solutionPushCmd
 
@@ -58,7 +61,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	if solutionBundlePath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
-			log.Fatal("Please use solution-bundle flag or run this command in a folder with a solution")
+			log.Fatal("Please run this command in a folder with a solution or use the --solution-bundle flag")
 		}
 		manifestPath = currentDir
 		if !isSolutionPackageRoot(manifestPath) {
@@ -84,7 +87,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
-		log.Fatalf("Failed to open file %s - %v", solutionArchivePath, err.Error())
+		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
 	}
 	defer file.Close()
 
@@ -93,12 +96,12 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	fw, err := writer.CreateFormFile("file", solutionArchivePath)
 	if err != nil {
-		log.Fatalf("Failed to create form file - %v", err.Error())
+		log.Fatalf("Failed to create form file: %v", err)
 	}
 
 	_, err = io.Copy(fw, file)
 	if err != nil {
-		log.Errorf("Failed to copy file %s into file writer - %v", solutionArchivePath, err.Error())
+		log.Fatalf("Failed to copy file %q into file writer: %v", solutionArchivePath, err)
 	}
 
 	writer.Close()
@@ -111,15 +114,15 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	var res any
 
-	output.PrintCmdStatus(cmd, message)
+	output.PrintCmdStatus(cmd, fmt.Sprintf("%v\n", message))
 
 	err = api.HTTPPost(getSolutionPushUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
 
 	if err != nil {
-		log.Fatalf("Solution command failed: %v", err.Error())
+		log.Fatalf("Solution command failed: %v", err)
 	}
 	// message = fmt.Sprintf("Solution %s - %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
-	message = fmt.Sprintf("Solution bundle %s was successfully deployed.\n", solutionArchivePath)
+	message = fmt.Sprintf("Solution bundle %q was successfully deployed.\n", solutionArchivePath)
 	output.PrintCmdStatus(cmd, message)
 }
 
@@ -134,26 +137,26 @@ func generateZipNoCmd(sltnPackagePath string) *os.File {
 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
 	archive, err := os.Create(archiveFileName)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to create a bundle archive %q: %v", archiveFileName, err)
 	}
 	defer archive.Close()
 	zipWriter := zip.NewWriter(archive)
 
 	fsocWorkingDir, err := os.Getwd()
 	if err != nil {
-		log.Errorf("Couldn't read fsoc working directory: %v", err)
+		log.Fatalf("Couldn't read the working directory: %v", err)
 	}
 
 	solutionRootFolder := filepath.Dir(sltnPackagePath)
 	err = os.Chdir(solutionRootFolder)
 	if err != nil {
-		log.Errorf("Couldn't switch working folder to solution package folder: %v", err)
+		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
 	}
 
 	defer func() {
 		err := os.Chdir(fsocWorkingDir)
 		if err != nil {
-			log.Errorf("Couldn't switch working folder back to fsoc working folder: %v", err)
+			log.Fatalf("Couldn't switch working folder back to the original one: %v", err)
 		}
 	}()
 
@@ -166,7 +169,7 @@ func generateZipNoCmd(sltnPackagePath string) *os.File {
 			return nil
 		})
 	if err != nil {
-		log.Errorf("Error traversing the folder: %v", err.Error())
+		log.Fatalf("Error traversing the solution folder: %v", err)
 	}
 	zipWriter.Close()
 

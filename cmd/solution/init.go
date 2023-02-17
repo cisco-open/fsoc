@@ -29,39 +29,40 @@ import (
 
 var solutionInitCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Creates a new solution package",
-	Long: `This command creates a skeleton of a new solution by given name.
+	Short: "Create a new solution",
+	Long: `This command creates a skeleton of a solution in the current directory.
 
-    Command: fsoc solution init --name=<solutionName> [options]
+Example: 
 
-    Parameters:
-    name - Name of the solution
-
-	Options:
-    include-service - Flag to include sample service component
-	include-metric - Flag to include sample metric type component
-    include-knowledge - Flag to include sample knowledge type component  
-    include-meltworkflow - Flag to include sample melt workflow
-    include-dash-ui - Flag to include sample dash-ui template
-
-	Usage:
-	fsoc solution init --name=<solutionName> [--include-service] [--include-knowldege]`,
-
+   fsoc solution init --name=testSolution --include-service --include-knowledge
+   
+Creates a subdirectory named "testSolution" in the current directory and populates
+it with a solution manifest and objects for it. The optional --include-... flags
+define what objects are added to the solution. Once the solution is created,
+the "solution extend" command can be used to add more objects.`,
 	Run:              generateSolutionPackage,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 
+// Planned options:
+//    include-service - Flag to include sample service component
+//    include-metric - Flag to include sample metric type component
+//    include-knowledge - Flag to include sample knowledge type component
+//    include-meltworkflow - Flag to include sample melt workflow
+//    include-dash-ui - Flag to include sample dash-ui template
+
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
-		String("name", "", "The name of the new solution")
+		String("name", "", "The name of the new solution (required)")
+	_ = solutionInitCmd.MarkFlagRequired("name")
+
 	solutionInitCmd.Flags().
 		Bool("include-service", true, "Add a service component definition to this solution")
 	solutionInitCmd.Flags().
 		Bool("include-knowledge", true, "Add a knowledge type definition to this solution")
 
 	return solutionInitCmd
-
 }
 
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
@@ -70,15 +71,13 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	solutionName = strings.ToLower(solutionName)
 
 	if len(solutionName) == 0 {
-		log.Errorf("Parameter \"name\" is required")
-		return
+		log.Fatal("A non-empty flag \"--name\" is required.")
 	}
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
-		log.Errorf("Solution init failed - %v", err.Error())
-		return
+		log.Fatalf("Solution init failed - %v", err)
 	}
 
 	manifest := createInitialSolutionManifest(solutionName)
@@ -138,10 +137,8 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 func createSolutionManifestFile(folderName string, manifest *Manifest) {
 	filepath := fmt.Sprintf("%s/manifest.json", folderName)
 	manifestFile, err := os.Create(filepath)
-
 	if err != nil {
-		log.Errorf("Failed to create manifest.json %v", err.Error())
-		return
+		log.Fatalf("Failed to create manifest.json: %v", err)
 	}
 
 	manifestJson, _ := json.Marshal(manifest)
@@ -189,8 +186,7 @@ func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
 func createComponentFile(compDef any, folderName string, fileName string) {
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
 		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
-			log.Errorf("Create solution component file failed - %v", err.Error())
-			return
+			log.Fatalf("Failed to create solution component directory %q: %v", folderName, err)
 		}
 	}
 
@@ -198,8 +194,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 
 	svcFile, err := os.Create(filepath)
 	if err != nil {
-		log.Errorf("Create solution component file failed - %v", err.Error())
-		return
+		log.Fatalf("Failed to create solution component file %q: %v", folderName+"/"+fileName, err)
 	}
 	defer svcFile.Close()
 
@@ -212,7 +207,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 func appendFolder(folderName string) {
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
 		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
-			log.Errorf("Error adding folder named %s - %v", folderName, err.Error())
+			log.Fatalf("Error adding folder named %q: %v", folderName, err)
 		}
 	}
 }
@@ -220,8 +215,7 @@ func appendFolder(folderName string) {
 func openFile(filePath string) *os.File {
 	svcFile, err := os.Open(filePath)
 	if err != nil {
-		log.Errorf("Can't open the file named %s \n", filePath)
-		return nil
+		log.Fatalf("Can't open the file named %q: %v", filePath, err)
 	}
 	return svcFile
 }
@@ -230,7 +224,7 @@ func createFile(filePath string) {
 	var svcFile *os.File
 	var err error
 	if svcFile, err = os.Create(filePath); err != nil {
-		log.Errorf("Can't create the file named %s - %v", filePath, err.Error())
+		log.Fatalf("Can't create the file named %q: %v", filePath, err)
 	}
 	svcFile.Close()
 }

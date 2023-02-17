@@ -28,17 +28,14 @@ var solutionDownloadCmd = &cobra.Command{
 	Short: "Download solution",
 	Long: `This command allows the current tenant specified in the profile to download a solution bundle archive into the current directory or the directory specified in command argument.
 
-    Command: fsoc solution download --name=<solutionName>
-
-	Usage:
-	   fsoc solution download  --name=<solution-name>`,
+Example: fsoc solution download --name=spacefleet`,
 	Args:             cobra.ExactArgs(0),
 	Run:              downloadSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionDownloadCmd() *cobra.Command {
-	solutionDownloadCmd.Flags().String("name", "", "name of the solution that needs to be downloaded")
+	solutionDownloadCmd.Flags().String("name", "", "name of the solution to download (required)")
 	_ = solutionDownloadCmd.MarkFlagRequired("name")
 	return solutionDownloadCmd
 }
@@ -46,7 +43,7 @@ func getSolutionDownloadCmd() *cobra.Command {
 func downloadSolution(cmd *cobra.Command, args []string) {
 	solutionName, _ := cmd.Flags().GetString("name")
 	if solutionName == "" {
-		log.Fatalf("solution-name cannot be empty, use --name=<solution-name>")
+		log.Fatalf("Solution name cannot be empty, use --name=<solution-name>")
 	}
 
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
@@ -58,10 +55,10 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 	httpOptions := api.Options{Headers: headers}
 	bufRes := make([]byte, 0)
 	if err := api.HTTPGet(getSolutionDownloadUrl(solutionName), &bufRes, &httpOptions); err != nil {
-		log.Fatalf("Solution download command failed: %v", err.Error())
+		log.Fatalf("Solution download command failed: %v", err)
 	}
 
-	message := fmt.Sprintf("Solution bundle %s was successfully downloaded in current directory.\r\n", solutionName)
+	message := fmt.Sprintf("Solution bundle %q downloaded successfully.\n", solutionName)
 	output.PrintCmdStatus(cmd, message)
 }
 

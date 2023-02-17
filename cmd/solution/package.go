@@ -58,7 +58,11 @@ func packageSolution(cmd *cobra.Command, args []string) {
 	if !isSolutionPackageRoot(solutionPackagePath) {
 		log.Fatal("solution-package path doesn't point to a solution package root folder")
 	}
-	manifest, _ := getSolutionManifest(solutionPackagePath)
+	manifest, err := getSolutionManifest(solutionPackagePath)
+	if err != nil {
+		log.Fatalf("Failed to read solution manifest: %v", err)
+	}
+
 	var message string
 	message = fmt.Sprintf("Generating solution %s - %s bundle archive \n", manifest.Name, manifest.SolutionVersion)
 	log.WithFields(log.Fields{
@@ -88,19 +92,19 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 
 	fsocWorkingDir, err := os.Getwd()
 	if err != nil {
-		log.Errorf("Couldn't read fsoc working directory: %v", err)
+		log.Fatalf("Couldn't read the current working directory: %v", err)
 	}
 
 	solutionRootFolder := filepath.Dir(sltnPackagePath)
 	err = os.Chdir(solutionRootFolder)
 	if err != nil {
-		log.Errorf("Couldn't switch working folder to solution package folder: %v", err)
+		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
 	}
 
 	defer func() {
 		err := os.Chdir(fsocWorkingDir)
 		if err != nil {
-			log.Errorf("Couldn't switch working folder back to fsoc working folder: %v", err)
+			log.Fatalf("Couldn't switch working folder back to starting working folder: %v", err)
 		}
 	}()
 
@@ -113,7 +117,7 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 			return nil
 		})
 	if err != nil {
-		log.Errorf("Error traversing the folder: %v", err.Error())
+		log.Fatalf("Error traversing the folder: %v", err)
 	}
 	zipWriter.Close()
 
@@ -123,7 +127,7 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 func addFileToZip(zipWriter *zip.Writer, fileName string, info os.FileInfo) {
 	newFile, err := os.Open(fileName)
 	if err != nil {
-		log.Errorf("Couldn't open file %v", err.Error())
+		log.Fatalf("Couldn't open file %q: %v", fileName, err)
 	}
 	defer newFile.Close()
 
@@ -136,12 +140,12 @@ func addFileToZip(zipWriter *zip.Writer, fileName string, info os.FileInfo) {
 	archWriter, err := zipWriter.Create(fileName)
 
 	if err != nil {
-		log.Errorf("Couldn't create archive writer for file - %v", err.Error())
+		log.Fatalf("Couldn't create archive writer for file: %v", err)
 	}
 
 	if !info.IsDir() {
 		if _, err := io.Copy(archWriter, newFile); err != nil {
-			log.Errorf("Couldn't write file to architve - %v", err.Error())
+			log.Fatalf("Couldn't write file to architve: %v", err)
 		}
 	}
 }
@@ -161,17 +165,18 @@ func getSolutionManifest(path string) (*Manifest, error) {
 	manifestPath := fmt.Sprintf("%s/manifest.json", path)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Errorf("The folder %s is not a solution package root folder", path)
-		return nil, err
+		return nil, fmt.Errorf("%q is not a solution package root folder", path)
 	}
 	defer manifestFile.Close()
 
-	manifestBytes, _ := io.ReadAll(manifestFile)
-	var manifest *Manifest
+	manifestBytes, err := io.ReadAll(manifestFile)
+	if err != nil {
+		return nil, err
+	}
 
+	var manifest *Manifest
 	err = json.Unmarshal(manifestBytes, &manifest)
 	if err != nil {
-		log.Errorf("Can't generate a manifest objects from the manifest.json, make sure your manifest.json file is correct. - %v", err.Error())
 		return nil, err
 	}
 

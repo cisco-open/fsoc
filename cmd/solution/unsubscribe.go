@@ -29,8 +29,8 @@ var solutionUnsubscribeCmd = &cobra.Command{
 	Short: "Unsubscribe from a solution",
 	Long: `This command allows the current tenant specified in the profile to unsubscribe from a solution.
 
-Usage:
-	fsoc solution unsubscribe --name=<solution name>`,
+Example:
+  fsoc solution unsubscribe --name=spacefleet`,
 	Args:             cobra.ExactArgs(0),
 	Run:              unsubscribeFromSolution,
 	TraverseChildren: true,
@@ -48,13 +48,12 @@ func getUnsubscribeSolutionCmd() *cobra.Command {
 func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
 	solutionName, _ := cmd.Flags().GetString("name")
 	if solutionName == "" {
-		log.Fatal("Solution name cannot be empty, use --name=SOLUTION")
+		log.Fatal("Solution name cannot be empty, use --name=<solution>")
 	}
 
 	isSystemSolution, err := isSystemSolution(solutionName)
 	if err != nil {
-		log.Fatalf("Failed to check solution status: %v", err.Error())
-		return
+		log.Fatalf("Failed to get solution status: %v", err)
 	}
 	if isSystemSolution {
 		log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution\n", solutionName)

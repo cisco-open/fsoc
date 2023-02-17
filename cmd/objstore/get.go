@@ -69,8 +69,6 @@ func newGetObjectCmd() *cobra.Command {
 	//_ = getCmd.MarkPersistentFlagRequired("layer-id")
 	_ = getCmd.MarkPersistentFlagRequired("layer-type")
 
-	_ = getCmd.MarkPersistentFlagRequired("type")
-
 	return getCmd
 }
 
@@ -130,7 +128,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	layerID, _ := cmd.Flags().GetString("layer-id")
 	if layerID == "" {
 		if layerType == "SOLUTION" {
-			return fmt.Errorf("Error: for GET requests made to the SOLUTION layer, please manually supply the layerId flag")
+			return fmt.Errorf("Requests made to the SOLUTION layer require the --layer-id flag")
 		} else {
 			layerID = getCorrectLayerID(layerType, fqtn)
 		}
@@ -148,11 +146,10 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	} else {
 		if cmd.Flags().Changed("filter") {
 			filterCriteria, err := cmd.Flags().GetString("filter")
-			query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
 			if err != nil {
-				log.Errorf("error trying to get %q flag value: %w", "filter", err)
-				return nil
+				return fmt.Errorf("error trying to get %q flag value: %w", "filter", err)
 			}
+			query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
 			fqtn = fqtn + "?" + query
 		}
 		objStoreUrl = getObjectListUrl(fqtn)
