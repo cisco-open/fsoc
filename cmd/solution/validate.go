@@ -51,7 +51,7 @@ func getSolutionValidateUrl() string {
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	_ = solutionValidateCmd.MarkFlagRequired("solution-package")
+	//_ = solutionValidateCmd.MarkFlagRequired("solution-package")
 
 	return solutionValidateCmd
 }
