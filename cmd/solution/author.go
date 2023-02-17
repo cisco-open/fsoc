@@ -172,7 +172,7 @@ func newTemplateServer(dir string) *templateServer {
 	}
 	exists, err := afero.DirExists(fileSystem, templatePath)
 	if err != nil || !exists {
-		log.Fatalf("Could not find %q directory specified in the manifest: %v", templatePath, err.Error())
+		log.Fatalf("Could not find %q directory specified in the manifest: %v", templatePath, err)
 	}
 
 	// create a termination signal channel
@@ -281,7 +281,7 @@ func (t *templateServer) callbackHandler(w http.ResponseWriter, r *http.Request)
 		fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 	if err != nil {
-		log.Errorf("Error while parsing request: %v", err.Error())
+		log.Errorf("Error while parsing request: %v", err)
 		fmt.Fprint(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 	if terminate {
@@ -294,7 +294,7 @@ func (t *templateServer) readTemplate(w http.ResponseWriter, r *http.Request, ur
 	file, err := afero.ReadFile(t.Fs, t.TemplatePath+URIParts[len(URIParts)-1])
 	log.Info("Getting file at " + t.TemplatePath + URIParts[len(URIParts)-1])
 	if err != nil {
-		log.Errorf("No such template file in this directory: %v", err.Error())
+		log.Errorf("No such template file in this directory: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return err
 	} else {
@@ -312,7 +312,7 @@ func (t *templateServer) readTemplate(w http.ResponseWriter, r *http.Request, ur
 func (t *templateServer) returnTemplateList(w http.ResponseWriter, r *http.Request) error {
 	files, err := afero.ReadDir(t.Fs, t.TemplatePath)
 	if err != nil {
-		log.Errorf("Cannot read the files: %v", err.Error())
+		log.Errorf("Cannot read the files: %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return err
 	}
@@ -341,12 +341,12 @@ func (t *templateServer) updateTemplate(w http.ResponseWriter, r *http.Request, 
 	//var body string
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Errorf("Cannot read request body: %v", err.Error())
+		log.Errorf("Cannot read request body: %v", err)
 	}
 	URIParts := strings.Split(uri.RequestURI(), "/")
 	err = afero.WriteFile(t.Fs, t.TemplatePath+URIParts[len(URIParts)-1], b, 0644)
 	if err != nil {
-		log.Errorf("Error writing to this file: %v", err.Error())
+		log.Errorf("Error writing to this file: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return err
 	} else {
@@ -359,7 +359,7 @@ func (t *templateServer) deleteTemplateFile(w http.ResponseWriter, r *http.Reque
 	URIParts := strings.Split(uri.RequestURI(), "/")
 	err := t.Fs.Remove(t.TemplatePath + URIParts[len(URIParts)-1])
 	if err != nil {
-		log.Errorf("Error in deleting file: %v", err.Error())
+		log.Errorf("Error in deleting file: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return err
 	}
@@ -370,13 +370,13 @@ func (t *templateServer) deleteTemplateFile(w http.ResponseWriter, r *http.Reque
 func checkURI(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
 	_, err := url.Parse(callbackUrl)
 	if err != nil {
-		log.Errorf("Unexpected failure to obtain expected callback path (likely a bug): %v", err.Error())
+		log.Errorf("Unexpected failure to obtain expected callback path (likely a bug): %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return nil, err
 	}
 	uri, err := url.Parse(r.RequestURI)
 	if err != nil {
-		log.Errorf("Unexpected failure to parse callback path received (malformed request?): %v", err.Error())
+		log.Errorf("Unexpected failure to parse callback path received (malformed request?): %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return nil, err
 	}

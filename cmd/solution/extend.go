@@ -32,21 +32,19 @@ var solutionExtendCmd = &cobra.Command{
 	Short: "Extends your solution package by adding new components",
 	Long: `This command allows you to easily add new components to your solution package.
 
-    Command: fsoc solution extend --add-knowledge=<knowldgetypename>
-
-	Options:
-    --add-service - Flag to add a new service component to the current solution package
-	--add-knowledge - Flag to add a new knowledge type component to the current solution package  
-    --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
-    --add-dash-ui - Flag to add a new user experience component to the current solution package
-	--add-metric - Flag to add a new metric type component to the current solution package
-
-	Usage:
-	fsoc solution extend --add-knowledge=<knowledgeTypeName>`,
+Example: 
+  fsoc solution extend --add-knowledge=<knowldgetypename>`,
 
 	Run:              addSolutionComponent,
 	TraverseChildren: true,
 }
+
+// Planned options:
+// --add-service - Flag to add a new service component to the current solution package
+// --add-knowledge - Flag to add a new knowledge type component to the current solution package
+// --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
+// --add-dash-ui - Flag to add a new user experience component to the current solution package
+// --add-metric - Flag to add a new metric type component to the current solution package
 
 func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
@@ -76,9 +74,12 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 	manifestFile := openFile("manifest.json")
 	defer manifestFile.Close()
 
-	manifestBytes, _ := io.ReadAll(manifestFile)
-	var manifest *Manifest
+	manifestBytes, err := io.ReadAll(manifestFile)
+	if err != nil {
+		log.Fatalf("Failed to read solution manifest: %v", err)
+	}
 
+	var manifest *Manifest
 	err = json.Unmarshal(manifestBytes, &manifest)
 	if err != nil {
 		log.Fatalf("Failed to parse solution manifest: %v", err)
@@ -177,7 +178,7 @@ func addFmmMetric(cmd *cobra.Command, manifest *Manifest, folderName, componentN
 		metricsBytes := readComponentDef(metricComponentDef)
 		err := json.Unmarshal(metricsBytes, &metricsArray)
 		if err != nil {
-			log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
+			log.Fatalf("Can't generate an array of entity definition objects from the %q file, make sure it is correct.", filePath)
 			return
 		}
 	}
@@ -189,7 +190,6 @@ func addFmmMetric(cmd *cobra.Command, manifest *Manifest, folderName, componentN
 	createComponentFile(metricsArray, folderName, fileName)
 	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
 	createSolutionManifestFile(".", manifest)
-
 }
 
 func addFmmResourceMapping(cmd *cobra.Command, manifest *Manifest, folderName, entityName string) {
@@ -210,8 +210,7 @@ func addFmmResourceMapping(cmd *cobra.Command, manifest *Manifest, folderName, e
 		componentDefBytes := readComponentDef(resourceMapComponentDef)
 		err := json.Unmarshal(componentDefBytes, &resourceMappingArray)
 		if err != nil {
-			log.Errorf("Can't generate an array of resource mapping definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
-			return
+			log.Fatalf("Can't generate an array of resource mapping definition objects from the %q file, make sure it is correct.", filePath)
 		}
 	}
 
@@ -250,8 +249,7 @@ func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentN
 
 		err := json.Unmarshal(entitiesBytes, &entitiesArray)
 		if err != nil {
-			log.Errorf("Can't generate an array of entity definition objects from the %s file, make sure your %s file is correct.", filePath, filePath)
-			return
+			log.Fatalf("Can't generate an array of entity definition objects from the %q file, make it is correct.", filePath)
 		}
 	}
 
@@ -272,8 +270,7 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 	entityBytes := readComponentDef(entityComponentDef)
 	err := json.Unmarshal(entityBytes, &entitiesArray)
 	if err != nil {
-		log.Errorf("Can't generate an array of %s type definition objects from the %s file.", entityComponentDef.Type, entityComponentDef.ObjectsFile)
-		return nil
+		log.Fatalf("Can't generate an array of %q type definition objects from the %q file.", entityComponentDef.Type, entityComponentDef.ObjectsFile)
 	}
 	for _, entity := range entitiesArray {
 		if entity.Name == entityName {
@@ -283,7 +280,7 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 			entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
 			scopeFilterFields := make([]string, 0)
 			attributeMaps := make(FmmNameMappings, 0)
-			displayName := fmt.Sprintf("Resource mapping configuration for the %s entity", entityType)
+			displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
 			fmmTypeDef := &FmmTypeDef{
 				Namespace:   namespace,
 				Kind:        "resourceMapping",
@@ -307,7 +304,7 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 	}
 
 	if !hasEntity {
-		message := fmt.Sprintf("A fmm:resourceMapping was not created! Could not find an fmm:entity named %s in this solution", entityName)
+		message := fmt.Sprintf("A fmm:resourceMapping was not created! Could not find an fmm:entity named %q in this solution", entityName)
 		output.PrintCmdStatus(cmd, message)
 	}
 	return newResoureMapping

@@ -81,8 +81,7 @@ func updateObject(cmd *cobra.Command, args []string) {
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
 	if err != nil {
-		log.Errorf("Can't find the object definition file named %s", objJsonFilePath)
-		return
+		log.Fatalf("Can't find the object definition file named %s", objJsonFilePath)
 	}
 	defer objectFile.Close()
 
@@ -90,8 +89,7 @@ func updateObject(cmd *cobra.Command, args []string) {
 	var objectStruct map[string]interface{}
 	err = json.Unmarshal(objectBytes, &objectStruct)
 	if err != nil {
-		log.Errorf("Can't generate a %s object from the %s file. Make sure the object definition has all the required field and is valid according to the type definition.")
-		return
+		log.Fatalf("Can't parse file %q. Make sure the object definition has all the required field and is valid according to the type definition.", objJsonFilePath)
 	}
 
 	layerType, _ := cmd.Flags().GetString("layer-type")
@@ -99,13 +97,11 @@ func updateObject(cmd *cobra.Command, args []string) {
 
 	if layerID == "" {
 		if !cmd.Flags().Changed("layer-id") {
-			log.Error("Unable to set layer-id flag from given context. Please specify a unique layer-id value with the --layer-id flag")
-			return
+			log.Fatal("Unable to set layer-id flag from given context. Please specify a unique layer-id value with the --layer-id flag")
 		}
 		layerID, err = cmd.Flags().GetString("layer-id")
 		if err != nil {
-			log.Errorf("error trying to get %q flag value: %w", "layer-id", err)
-			return
+			log.Fatalf("error trying to get %q flag value: %w", "layer-id", err)
 		}
 	}
 
@@ -119,11 +115,10 @@ func updateObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing object %s with the new definition from %s \n", objId, objJsonFilePath))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing object %q with the new data from %q \n", objId, objJsonFilePath))
 	err = api.JSONPut(objectUrl, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Errorf("Solution command failed: %v", err.Error())
-		return
+		log.Fatalf("Object update failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Object replacement was done successfully!\n")
+	output.PrintCmdStatus(cmd, "Object updated successfully.\n")
 }

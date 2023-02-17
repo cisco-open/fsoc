@@ -48,14 +48,9 @@ var solutionStatusCmd = &cobra.Command{
 	Short: "Get the installation/upload status of a solution",
 	Long: `This command provides the ability to see the current installation and upload status of a solution.
 	
-	Usage:
-	fsoc solution status --name <solution-name> --solution-version <optional-solution-version> --status-type [upload | install | all]
-	
-	Flags/Options:
-	--name - Flag to indicate the name of the solution for which you would like to fetch the upload/installation status
-	--solution-version - OPTIONAL Flag to indicate the version of the solution for which you would like to fetch the upload/installation status
-	--status-type - OPTIONAL Flag to specify the status that you would like to view.  If not specified, the output will contain both solution upload and solution installation status information
-	`,
+Example:
+  fsoc solution status --name spacefleet --status-type=all
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return getSolutionStatus(cmd, args)
 	},
@@ -67,6 +62,7 @@ func getSolutionStatusCmd() *cobra.Command {
 	solutionStatusCmd.Flags().
 		String("name", "", "The name of the solution for which you would like to retrieve the upload status")
 	_ = solutionStatusCmd.MarkFlagRequired("name")
+
 	solutionStatusCmd.Flags().
 		String("solution-version", "", "The version of the solution for which you would like to retrieve the upload status")
 	solutionStatusCmd.Flags().
@@ -82,7 +78,7 @@ func getObject(url string, headers map[string]string) StatusItem {
 	err := api.HTTPGet(url, &res, &api.Options{Headers: headers})
 
 	if err != nil {
-		log.Fatalf("Issue fetching install/upload object: %v", err)
+		log.Fatalf("Error fetching status object %q: %v", url, err)
 	}
 
 	if len(res.Items) > 0 {

@@ -149,7 +149,7 @@ func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName strin
 	httpOptions := api.Options{Headers: headers}
 	bufRes := make([]byte, 0)
 	if err := api.HTTPGet(getSolutionDownloadUrl(solutionName), &bufRes, &httpOptions); err != nil {
-		log.Fatalf("Solution download command failed: %v", err.Error())
+		log.Fatalf("Solution download failed: %v", err)
 	}
 
 	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in the this directory.\r\n", solutionName)

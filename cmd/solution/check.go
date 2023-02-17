@@ -21,8 +21,8 @@ var solutionCheckCmd = &cobra.Command{
 	Short: "Validate your solution component definitions",
 	Long: `This command allows the current tenant specified in the profile to build and package a solution bundle to be deployed into the FSO Platform.
 
-Usage:
-	fsoc solution check`,
+Example:
+  fsoc solution check --entities --metrics`,
 	Args:             cobra.ExactArgs(0),
 	Run:              checkSolution,
 	TraverseChildren: true,
@@ -44,13 +44,15 @@ func checkSolution(cmd *cobra.Command, args []string) {
 	manifestFile := openFile("manifest.json")
 	defer manifestFile.Close()
 
-	manifestBytes, _ := io.ReadAll(manifestFile)
-	var manifest *Manifest
+	manifestBytes, err := io.ReadAll(manifestFile)
+	if err != nil {
+		log.Fatalf("Failed to read manifest.json: %v", err)
+	}
 
+	var manifest *Manifest
 	err = json.Unmarshal(manifestBytes, &manifest)
 	if err != nil {
-		output.PrintCmdStatus(cmd, "Can't generate a manifest objects from the manifest.json, make sure your manifest.json file is correct.")
-		return
+		log.Fatalf("Failed to parse manifest.json: %v", err)
 	}
 
 	cfg := config.GetCurrentContext()
@@ -102,7 +104,7 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 
 	jsonSchema, err := json.Marshal(typeDef["jsonSchema"])
 	if err != nil {
-		log.Errorf("Couldn't marshal json object to []byte: %v", err)
+		log.Errorf("Couldn't marshal schema to json: %v", err)
 	}
 
 	schemaLoader := gojsonschema.NewStringLoader(string(jsonSchema))
@@ -120,12 +122,12 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 		var jsonArray []map[string]interface{}
 		err = json.Unmarshal(compDefBytes, &jsonArray)
 		if err != nil {
-			log.Errorf("Couldn't unmarshal json file content to object array: %v", err)
+			log.Errorf("Failed to parse component: %v", err)
 		}
 		for _, object := range jsonArray {
 			jsonObject, err := json.Marshal(object)
 			if err != nil {
-				log.Errorf("Couldn't marshal json object to []byte: %v", err)
+				log.Errorf("Couldn't marshal object to json: %v", err)
 			}
 			documentLoader := gojsonschema.NewStringLoader(string(jsonObject))
 			validate(cmd, schemaLoader, documentLoader, compDef)
@@ -140,13 +142,13 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 func validate(cmd *cobra.Command, schemaLoader, documentLoader gojsonschema.JSONLoader, compDef ComponentDef) {
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Schema validation failed: %v", err)
 	}
 
 	if result.Valid() {
-		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %s are valid definitions of type %s \n", compDef.ObjectsFile, compDef.Type))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %q are valid definitions of type %q \n", compDef.ObjectsFile, compDef.Type))
 	} else {
-		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %s are invalid definitions of type %s ! \n", compDef.ObjectsFile, compDef.Type))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("The components defined in the file %q are invalid definitions of type %q ! \n", compDef.ObjectsFile, compDef.Type))
 		for _, desc := range result.Errors() {
 			output.PrintCmdStatus(cmd, fmt.Sprintf("- %s\n", desc))
 		}

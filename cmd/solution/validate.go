@@ -60,8 +60,8 @@ var solutionValidateCmd = &cobra.Command{
 	Short: "Validate your solution package",
 	Long: `This command allows the current tenant specified in the profile to upload the specified solution bundle for the purpose of validating its contents
 
-Usage:
-	fsoc solution validate --solution-bundle=<solution-bundle-archive-path>`,
+Example:
+  fsoc solution validate --solution-bundle=mysolution.zip`,
 	Args:             cobra.ExactArgs(0),
 	Run:              validateSolution,
 	TraverseChildren: true,
@@ -79,7 +79,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
-		log.Fatalf("Failed to open file %s - %v", solutionArchivePath, err.Error())
+		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
 	}
 	defer file.Close()
 
@@ -88,13 +88,13 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	fw, err := writer.CreateFormFile("file", solutionArchivePath)
 	if err != nil {
-		log.Fatalf("Failed to create form file - %v", err.Error())
+		log.Fatalf("Failed to create form file: %v", err)
 	}
 
 	_, err = io.Copy(fw, file)
 	if err != nil {
 		writer.Close()
-		log.Fatalf("Failed to copy file %s into file writer - %v", solutionArchivePath, err.Error())
+		log.Fatalf("Failed to copy file %q into file writer: %v", solutionArchivePath, err)
 	}
 
 	writer.Close()
@@ -108,13 +108,12 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	var res Result
 
 	err = api.HTTPPost(getSolutionValidateUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
-
 	if err != nil {
-		log.Fatalf("Solution validate command failed: %v", err.Error())
+		log.Fatalf("Solution validate command failed: %v", err)
 	}
 
 	if res.Valid {
-		message = fmt.Sprintf("Solution bundle %s validated successfully\n", solutionArchivePath)
+		message = fmt.Sprintf("Solution bundle %s validated successfully.\n", solutionArchivePath)
 	} else {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}
@@ -124,7 +123,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 func getSolutionValidationErrorsString(total int, errors Errors) string {
 	var message = fmt.Sprintf("\n%d errors detected while validating solution package\n", total)
 	for _, err := range errors.Items {
-		message += fmt.Sprintf("Error Content: %+v \n", err)
+		message += fmt.Sprintf("- Error Content: %+v\n", err)
 	}
 	message += "\n"
 

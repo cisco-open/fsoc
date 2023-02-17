@@ -34,8 +34,8 @@ var solutionSubscribeCmd = &cobra.Command{
 	Short: "Subscribe to a solution",
 	Long: `This command allows the current tenant specified in the profile to subscribe to a solution.
 
-Usage:
-	fsoc solution subscribe --name=<solution name>`,
+Example:
+	fsoc solution subscribe --name=spacefleet`,
 	Args:             cobra.ExactArgs(0),
 	Run:              subscribeToSolution,
 	TraverseChildren: true,
@@ -53,7 +53,7 @@ func getSubscribeSolutionCmd() *cobra.Command {
 func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 	solutionName, _ := cmd.Flags().GetString("name")
 	if solutionName == "" {
-		log.Fatal("Solution name cannot be empty, use --name=SOLUTION")
+		log.Fatal("Solution name cannot be empty, use --name=<solution>")
 	}
 
 	var message string
@@ -79,8 +79,7 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 	var res any
 	err := api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscribe, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Errorf("Solution command failed: %v", err.Error())
-		return
+		log.Fatalf("Solution command failed: %v", err)
 	}
 
 	if isSubscribed {

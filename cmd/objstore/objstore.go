@@ -15,8 +15,6 @@
 package objstore
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -43,9 +41,6 @@ See <docs url>`,
   fsoc obj get --type=<typeName> --object=<objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER
 # Get object
   fsoc obj create --type=<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<respective-layer-id>] `,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("incomplete command")
-		},
 		TraverseChildren: true,
 	}
 

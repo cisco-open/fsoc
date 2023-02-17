@@ -29,17 +29,13 @@ var objStoreDeleteCmd = &cobra.Command{
 	Short: "Delete an existent knowledge object",
 	Long: `This command allows an existent knowledge object to be deleted.
 
-	Usage:
-	fsoc objstore delete --type=<fully-qualified-typename> 
-	--object-id=<object id>
-	--layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER]
-	--layer-id=<respective-layer-id>
-	
-	Flags/Options:
-	--type - Flag to indicate the fully qualified type name of the object that you would like to delete
-	--object-id - Flag to indicate the ID of the object which you would like to delete
-	--layer-type - Flag to indicate the layer at which the object you would like to delete currently exists
-	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to delete.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
+Usage:
+  fsoc objstore delete \
+    --type=<fully-qualified-typename> \
+    --object-id=<object id> \
+    --layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER] \
+    --layer-id=<respective-layer-id>
+`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              deleteObject,
@@ -76,13 +72,11 @@ func deleteObject(cmd *cobra.Command, args []string) {
 
 	if layerID == "" {
 		if !cmd.Flags().Changed("layer-id") {
-			log.Error("Unable to set layer-id flag from given context. Please specify a unique layer-id value with the --layer-id flag")
-			return
+			log.Fatalf("Unable to set layer-id flag from given context. Please specify a unique layer-id value with the --layer-id flag")
 		}
 		layerID, err = cmd.Flags().GetString("layer-id")
 		if err != nil {
-			log.Errorf("error trying to get %q flag value: %w", "layer-id", err)
-			return
+			log.Fatalf("error trying to get %q flag value: %w", "layer-id", err)
 		}
 	}
 
@@ -96,11 +90,10 @@ func deleteObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting object %s of type  %s \n", objId, objType)))
+	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting object %q of type %q\n", objId, objType)))
 	err = api.JSONDelete(objectUrl, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Errorf("Solution command failed: %v", err.Error())
-		return
+		log.Fatalf("Failed to delete object: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Object was successfully deleted!\n")
+	output.PrintCmdStatus(cmd, "Object was successfully deleted.\n")
 }
