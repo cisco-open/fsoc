@@ -112,7 +112,7 @@ func extractZip(rootFileSystem afero.Fs, fileSystem afero.Fs, solutionName strin
 	}
 	reader, _ := zip.NewReader(zipFile, fileInfo.Size())
 	zipFileSystem := zipfs.New(reader)
-	dirInfo, err := afero.ReadDir(zipFileSystem, "./")
+	dirInfo, _ := afero.ReadDir(zipFileSystem, "./")
 	err = copyFolderToLocal(zipFileSystem, fileSystem, dirInfo[0].Name())
 	return err
 }
