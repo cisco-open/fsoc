@@ -117,7 +117,7 @@ var objStoreInsertPatchedObjectCmd = &cobra.Command{
 A patched object inherits values from an object that exists at a higher layer and can also override mutable fields when needed.
 
 Example:
-  fsoc objstore create-patch --type<fully-qualified-typename> --object-file=<fully-qualified-path> --target-layer-type=<valid-layer-type> --parent-object-id=<valid-object-id>`,
+  fsoc objstore create-patch --type<fully-qualified-typename> --object-file=<fully-qualified-path> --target-layer-type=<valid-layer-type> --target-object-id=<valid-object-id>`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              insertPatchObject,
@@ -130,15 +130,15 @@ func getCreatePatchObjectCmd() *cobra.Command {
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("type")
 
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("parent-object-id", "", "The id of the parent object for which you want to create a patched object at a lower layer")
-	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("parent-object-id")
+		String("target-object-id", "", "The id of the object for which you want to create a patched object at a lower layer")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-object-id")
 
 	objStoreInsertPatchedObjectCmd.Flags().
 		String("object-file", "", "The fully qualified path to the json file containing the object definition")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("objectFile")
 
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("target-layer-type", "", "The layer-type at which the patch object will be created. For inheritance purposes, this should always be a `lower` layer than the parent object's layer")
+		String("target-layer-type", "", "The layer-type at which the patch object will be created. For inheritance purposes, this should always be a `lower` layer than the target object's layer")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-layer-type")
 
 	return objStoreInsertPatchedObjectCmd
@@ -146,7 +146,7 @@ func getCreatePatchObjectCmd() *cobra.Command {
 
 func insertPatchObject(cmd *cobra.Command, args []string) {
 	objType, _ := cmd.Flags().GetString("type")
-	parentObjId, _ := cmd.Flags().GetString("parent-object-id")
+	parentObjId, _ := cmd.Flags().GetString("target-object-id")
 
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
