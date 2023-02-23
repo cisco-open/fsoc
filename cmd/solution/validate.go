@@ -20,6 +20,7 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -50,7 +51,7 @@ func getSolutionValidateUrl() string {
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	_ = solutionValidateCmd.MarkFlagRequired("solution-package")
+	//_ = solutionValidateCmd.MarkFlagRequired("solution-package")
 
 	return solutionValidateCmd
 }
@@ -68,12 +69,25 @@ Example:
 }
 
 func validateSolution(cmd *cobra.Command, args []string) {
+	manifestPath := ""
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	var solutionArchivePath string
 	if solutionBundlePath == "" {
-		log.Fatalf("solution-bundle cannot be empty, use --solution-bundle=<solution-bundle-archive-path>")
-	}
+		currentDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal("Please run this command in a folder with a solution or use the --solution-bundle flag")
+		}
+		manifestPath = currentDir
+		if !isSolutionPackageRoot(manifestPath) {
+			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
+		}
+		_, _ = getSolutionManifest(manifestPath)
 
-	solutionArchivePath := solutionBundlePath
+		solutionArchive := generateZipNoCmd(manifestPath)
+		solutionArchivePath = filepath.Base(solutionArchive.Name())
+	} else {
+		solutionArchivePath = solutionBundlePath
+	}
 
 	var message string
 
