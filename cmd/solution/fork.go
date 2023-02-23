@@ -101,11 +101,12 @@ func manifestExists(fileSystem afero.Fs, forkName string) bool {
 }
 
 func extractZip(rootFileSystem afero.Fs, fileSystem afero.Fs, solutionName string) error {
-	zipFile, err := rootFileSystem.OpenFile("./"+solutionName+".zip", os.O_RDONLY, os.FileMode(0644))
+	solutionZip := "./" + solutionName + ".zip"
+	zipFile, err := rootFileSystem.OpenFile(solutionZip, os.O_RDONLY, os.FileMode(0644))
 	if err != nil {
 		log.Fatalf("Error opening zip file: %v", err)
 	}
-	fileInfo, _ := rootFileSystem.Stat("./" + solutionName + ".zip")
+	fileInfo, _ := rootFileSystem.Stat(solutionZip)
 	reader, _ := zip.NewReader(zipFile, fileInfo.Size())
 	zipFileSystem := zipfs.New(reader)
 	err = copyFolderToLocal(zipFileSystem, fileSystem, "./"+solutionName)
