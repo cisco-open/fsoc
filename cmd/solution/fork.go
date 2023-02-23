@@ -101,22 +101,26 @@ func manifestExists(fileSystem afero.Fs, forkName string) bool {
 }
 
 func extractZip(rootFileSystem afero.Fs, fileSystem afero.Fs, solutionName string) error {
-	solutionZip := "./" + solutionName + ".zip"
-	zipFile, err := rootFileSystem.OpenFile(solutionZip, os.O_RDONLY, os.FileMode(0644))
+	println("./" + solutionName + ".zip")
+	zipFile, err := rootFileSystem.OpenFile("./"+solutionName+".zip", os.O_RDONLY, os.FileMode(0644))
 	if err != nil {
 		log.Fatalf("Error opening zip file: %v", err)
 	}
-	fileInfo, _ := rootFileSystem.Stat(solutionZip)
+	fileInfo, err := rootFileSystem.Stat("./" + solutionName + ".zip")
+	if err != nil {
+		log.Errorf("Err reading zip: %v", err)
+	}
 	reader, _ := zip.NewReader(zipFile, fileInfo.Size())
 	zipFileSystem := zipfs.New(reader)
-	err = copyFolderToLocal(zipFileSystem, fileSystem, "./"+solutionName)
+	dirInfo, _ := afero.ReadDir(zipFileSystem, "./")
+	err = copyFolderToLocal(zipFileSystem, fileSystem, dirInfo[0].Name())
 	return err
 }
 
 func editManifest(fileSystem afero.Fs, forkName string) {
 	manifestFile, err := afero.ReadFile(fileSystem, "./manifest.json")
 	if err != nil {
-		log.Fatalf("Error opening manifest file")
+		log.Fatalf("Error opening manifest file: %v", err)
 	}
 
 	var manifest Manifest
