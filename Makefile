@@ -94,9 +94,9 @@ print-version-info:
 
 .PHONY: install-tools
 install-tools:
-	${GO} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.0
-	${GO} install github.com/goreleaser/goreleaser@v1.12.3
-	${GO} install golang.org/x/tools/cmd/goimports@v0.1.12
+	${GO} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+	${GO} install github.com/goreleaser/goreleaser@v1.15.2
+	${GO} install golang.org/x/tools/cmd/goimports@v0.6.0
 	${GO} install github.com/pavius/impi/cmd/impi@v0.0.3
 	${GO} install github.com/wadey/gocovmerge@v0.0.0-20160331181800-b5bfa59ec0ad
 	${GO} install github.com/ory/go-acc@v0.2.8
@@ -107,7 +107,7 @@ pre-commit: install-tools format go-impi lint vet tidy mod-update ## check all p
 
 build: install-tools mod-update
 	@echo "Building binaries for all supported platforms in builds/"
-	@${GORELEASER} release --snapshot --rm-dist --skip-publish
+	@${GORELEASER} release --snapshot --clean --skip-publish
 
 test-with-cover: install-tools
 	$(GOACC) ./...
