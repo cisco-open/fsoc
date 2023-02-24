@@ -1,6 +1,6 @@
 module github.com/cisco-open/fsoc
 
-go 1.18
+go 1.19
 
 require (
 	github.com/apex/log v1.9.0
