@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		fileName := fmt.Sprintf("%s.json", componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
-		bytes, _ := json.Marshal(manifest)
+		bytes, _ := json.MarshalIndent(manifest, "", "  ")
 		err := os.WriteFile("./manifest.json", bytes, 0644)
 		if err != nil {
 			log.Fatalf("Failed to update manifest.json file to reflect new knowledge type: %v", err)
@@ -119,7 +119,7 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 		}
 
 		manifest.Objects = append(manifest.Objects, *serviceComponentDef)
-		bytes, _ := json.Marshal(manifest)
+		bytes, _ := json.MarshalIndent(manifest, "", "  ")
 		err := os.WriteFile("./manifest.json", bytes, 0644)
 		if err != nil {
 			log.Fatalf("Failed to update manifest.json file to reflect new service component: %v", err)
