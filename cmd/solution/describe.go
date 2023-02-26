@@ -2,11 +2,13 @@ package solution
 
 import (
 	"fmt"
+	"net/url"
+
 	"github.com/apex/log"
+	"github.com/spf13/cobra"
+
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/platform/api"
-	"github.com/spf13/cobra"
-	"net/url"
 )
 
 var solutionDescribeCmd = &cobra.Command{
@@ -49,7 +51,7 @@ func solutionDescribe(cmd *cobra.Command, args []string) {
 
 	log.Infof("Getting details of the '%s' solution", solution)
 	var res Solution
-	api.JSONGet(getSolutionDescribeUrl(url.PathEscape(solution)), &res, &api.Options{Headers: headers}) //(getSolutionDescribeUrl(), &api.Options{Headers: headers})
+	_ = api.JSONGet(getSolutionDescribeUrl(url.PathEscape(solution)), &res, &api.Options{Headers: headers})
 	fmt.Printf("ID: %s\n", res.ID)
 	fmt.Printf("LayerID: %s\n", res.LayerID)
 	fmt.Printf("layerType: %s\n", res.LayerType)
