@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -327,7 +327,7 @@ func (t *templateServer) returnTemplateList(w http.ResponseWriter, r *http.Reque
 
 	itemsList.Items = itemArray
 	itemsList.NumItems = len(files)
-	jsonOutput, err := json.Marshal(&itemsList)
+	jsonOutput, err := json.MarshalIndent(&itemsList, "", "  ")
 	if err != nil {
 		log.Error(err.Error())
 		return err
