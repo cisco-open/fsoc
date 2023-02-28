@@ -141,7 +141,7 @@ func createSolutionManifestFile(folderName string, manifest *Manifest) {
 		log.Fatalf("Failed to create manifest.json: %v", err)
 	}
 
-	manifestJson, _ := json.Marshal(manifest)
+	manifestJson, _ := json.MarshalIndent(manifest, "", "  ")
 
 	_, _ = manifestFile.WriteString(string(manifestJson))
 	manifestFile.Close()
@@ -198,7 +198,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	svcJson, _ := json.Marshal(compDef)
+	svcJson, _ := json.MarshalIndent(compDef, "", "  ")
 
 	_, _ = svcFile.WriteString(string(svcJson))
 	svcFile.Close()
