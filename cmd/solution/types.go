@@ -106,6 +106,11 @@ type FmmEntity struct {
 	AssociationTypes      *FmmAssociationTypesTypeDef     `json:"associationTypes,omitempty"`
 }
 
+type FmmEvent struct {
+	*FmmTypeDef
+	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
+}
+
 type FmmResourceMapping struct {
 	*FmmTypeDef
 	EntityType            string               `json:"entityType"`
