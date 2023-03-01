@@ -49,6 +49,9 @@ func getSolutionCheckCmd() *cobra.Command {
 	solutionCheckCmd.Flags().
 		Bool("metrics", false, "Validate all the metrics, metricmappings and metricaggregations components defined in this solution package")
 
+	solutionCheckCmd.Flags().
+		Bool("all", false, "Validate all the fmm components defined in this solution package")
+
 	return solutionCheckCmd
 }
 
@@ -77,6 +80,9 @@ func checkSolution(cmd *cobra.Command, args []string) {
 		namespace := typeSplit[0]
 		typeName := typeSplit[1]
 		if namespace == "fmm" {
+			if cmd.Flags().Changed("all") {
+				checkComponentDef(cmd, objDef, cfg)
+			}
 			if cmd.Flags().Changed("entities") {
 				if typeName == "entity" || typeName == "resourceMapping" || typeName == "associationDeclaration" || typeName == "associationDerivation" {
 					checkComponentDef(cmd, objDef, cfg)
