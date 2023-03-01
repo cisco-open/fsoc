@@ -48,16 +48,17 @@ Example:
 
 func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
-		String("add-service", "", "Add as a new service component definition to this solution")
+		String("add-service", "", "Add a new service component definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-knowledge", "", "Add as a new knowledge type definition to this solution")
+		String("add-knowledge", "", "Add a new knowledge type definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-entity", "", "Add as a new entity type definition to this solution")
+		String("add-entity", "", "Add a new entity type definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-metric", "", "Add as a new metric type definition to this solution")
+		String("add-metric", "", "Add a new metric type definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-resourceMapping", "", "Add as a new metric type definition to this solution")
-
+		String("add-resourceMapping", "", "Add a new resource mapping type definition to a given entity within this solution")
+	solutionExtendCmd.Flags().
+		String("add-event", "", "Add a new event type definition to this solution")
 	return solutionExtendCmd
 
 }
@@ -152,6 +153,15 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 
 		addFmmMetric(cmd, manifest, folderName, componentName)
 	}
+
+	if cmd.Flags().Changed("add-event") {
+		componentName, _ := cmd.Flags().GetString("add-event")
+		componentName = strings.ToLower(componentName)
+		folderName := "model"
+
+		addFmmEvent(cmd, manifest, folderName, componentName)
+	}
+
 }
 
 func addFmmMetric(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
@@ -239,12 +249,6 @@ func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentN
 		createFile(filePath)
 		output.PrintCmdStatus(cmd, "Added model/entities.json file to your solution \n")
 	} else {
-		// filePath = entityComponentDef.ObjectsFile
-		// entitiesDefFile := openFile(filePath)
-		// defer entitiesDefFile.Close()
-
-		// entitiesBytes, _ := io.ReadAll(entitiesDefFile)
-
 		entitiesBytes := readComponentDef(entityComponentDef)
 
 		err := json.Unmarshal(entitiesBytes, &entitiesArray)
@@ -258,6 +262,39 @@ func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentN
 	splitPath := strings.Split(entityComponentDef.ObjectsFile, "/")
 	fileName := splitPath[len(splitPath)-1]
 	createComponentFile(entitiesArray, folderName, fileName)
+	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
+	createSolutionManifestFile(".", manifest)
+}
+
+func addFmmEvent(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
+	var filePath string
+	checkCreateSolutionNamespace(cmd, manifest, folderName)
+
+	eventComponentDef := getComponentDef("fmm:event", manifest)
+	var eventsArray []*FmmEvent
+	if eventComponentDef.Type == "" {
+		eventComponentDef = &ComponentDef{
+			Type:        "fmm:event",
+			ObjectsFile: "model/events.json",
+		}
+		manifest.Objects = append(manifest.Objects, *eventComponentDef)
+		filePath = eventComponentDef.ObjectsFile
+		createFile(filePath)
+		output.PrintCmdStatus(cmd, "Added model/events.json file to your solution \n")
+	} else {
+		eventsBytes := readComponentDef(eventComponentDef)
+
+		err := json.Unmarshal(eventsBytes, &eventsArray)
+		if err != nil {
+			log.Fatalf("Can't generate an array of event definition objects from the %q file, make it is correct.", filePath)
+		}
+	}
+
+	eventComp := getEventComponent(componentName, manifest.Name)
+	eventsArray = append(eventsArray, eventComp)
+	splitPath := strings.Split(eventComponentDef.ObjectsFile, "/")
+	fileName := splitPath[len(splitPath)-1]
+	createComponentFile(eventsArray, folderName, fileName)
 	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
 	createSolutionManifestFile(".", manifest)
 }
@@ -355,7 +392,7 @@ func getNamespaceComponent(solutionName string) *FmmNamespace {
 	return namespaceDef
 }
 
-func getEntityComponent(entityName string, solutionName string) *FmmEntity {
+func getEntityComponent(entityName string, namespaceName string) *FmmEntity {
 	emptyStringArray := make([]string, 0)
 	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
 	// emptyAssociationTypes := &FmmAssociationTypesTypeDef{}
@@ -366,7 +403,7 @@ func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 	}
 
 	namespaceAssign := &FmmNamespaceAssignTypeDef{
-		Name:    solutionName,
+		Name:    namespaceName,
 		Version: 1,
 	}
 
@@ -398,9 +435,45 @@ func getEntityComponent(entityName string, solutionName string) *FmmEntity {
 	return entityComponentDef
 }
 
-func getMetricComponent(metricName string, contentType FmmMetricContentType, category FmmMetricCategory, metricType FmmMetricType, solutionName string) *FmmMetric {
+func getEventComponent(eventName string, namespaceName string) *FmmEvent {
+	emptyStringArray := make([]string, 0)
+	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
+
+	emptyAttributeArray["name"] = &FmmAttributeTypeDef{
+		Type:        "string",
+		Description: fmt.Sprintf("The name of the %s", eventName),
+	}
+
 	namespaceAssign := &FmmNamespaceAssignTypeDef{
-		Name:    solutionName,
+		Name:    namespaceName,
+		Version: 1,
+	}
+
+	fmmTypeDef := &FmmTypeDef{
+		Namespace:   *namespaceAssign,
+		Kind:        "event",
+		Name:        eventName,
+		DisplayName: eventName,
+	}
+
+	requiredArray := append(emptyStringArray, "name")
+	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
+		Required:   requiredArray,
+		Optimized:  emptyStringArray,
+		Attributes: emptyAttributeArray,
+	}
+
+	eventComponentDef := &FmmEvent{
+		FmmTypeDef:           fmmTypeDef,
+		AttributeDefinitions: attributesDefinition,
+	}
+
+	return eventComponentDef
+}
+
+func getMetricComponent(metricName string, contentType FmmMetricContentType, category FmmMetricCategory, metricType FmmMetricType, namespaceName string) *FmmMetric {
+	namespaceAssign := &FmmNamespaceAssignTypeDef{
+		Name:    namespaceName,
 		Version: 1,
 	}
 
