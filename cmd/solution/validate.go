@@ -123,7 +123,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	err = api.HTTPPost(getSolutionValidateUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Solution validate command failed: %v", err)
+		log.Fatalf("Solution validate request failed: %v", err)
 	}
 
 	if res.Valid {
@@ -132,6 +132,9 @@ func validateSolution(cmd *cobra.Command, args []string) {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}
 	output.PrintCmdStatus(cmd, message)
+	if !res.Valid {
+		log.Fatalf("%d error(s) found while validating the solution", res.Errors.Total)
+	}
 }
 
 func getSolutionValidationErrorsString(total int, errors Errors) string {
