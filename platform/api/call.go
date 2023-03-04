@@ -37,7 +37,6 @@ import (
 type Options struct {
 	Headers         map[string]string
 	ResponseHeaders map[string][]string // headers as returned by the call
-	rawRequestBody  bool                // send the request body as is, don't JSON-encode
 }
 
 // JSONGet performs a GET request and parses the response as JSON
