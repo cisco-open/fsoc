@@ -58,7 +58,7 @@ func JSONGetCollection(path string, out any, options *Options) error {
 	var pageNo int
 	for pageNo = 0; true; pageNo += 1 {
 		// request collection
-		err := jsonRequest("GET", path, nil, &page, &subOptions)
+		err := httpRequest("GET", path, nil, &page, &subOptions)
 		if err != nil {
 			if pageNo > 0 {
 				return fmt.Errorf("Error retrieving non-first page #%v in collection at %q: %v. All data discarded", pageNo+1, path, err)
