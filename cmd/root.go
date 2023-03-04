@@ -18,9 +18,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/apex/log/handlers/json"
 	"os"
+	"path"
 
 	"github.com/apex/log"
+	"github.com/apex/log/handlers/cli"
+	"github.com/apex/log/handlers/multi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -70,12 +74,12 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.fsoc.yaml)")
 	rootCmd.PersistentFlags().StringVar(&cfgProfile, "profile", "", "access profile (default is current or \"default\")")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
+	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -120,6 +124,12 @@ func helperFlagFormatter(fs *pflag.FlagSet) string {
 // preExecHook is executed after the command line is parsed but
 // before the command's handler is executed
 func preExecHook(cmd *cobra.Command, args []string) {
+	logLocation, _ := cmd.Flags().GetString("log")
+	var file *os.File
+	_ = os.Truncate(logLocation, 0)
+	file, _ = os.Create(logLocation)
+	log.SetHandler(multi.New(cli.New(os.Stderr), json.New(file)))
+
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
 		log.SetLevel(log.InfoLevel)
 	} else {
@@ -127,6 +137,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 
 	log.WithFields(version.GetVersion()).Info("fsoc version")
+	log.Infof("Recording log at the following location: %s", logLocation)
 
 	log.WithFields(log.Fields{
 		"command":   cmd.Name(),
@@ -142,39 +153,16 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Determine if a configured profile is required for this command
-	// (bypassed only for commands that must work or can safely work without it)
-	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
-
-	// try to read the config file.and profile
-	err := viper.ReadInConfig()
-	if err == nil {
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
 		profile := config.GetCurrentProfileName()
 		exists := config.GetCurrentContext() != nil
-		if !exists && !bypass {
-			log.Fatalf("fsoc is not fully configured: missing profile %q; please use \"fsoc config set\" to configure it", profile)
-		}
 		log.WithFields(log.Fields{
 			"config_file": viper.ConfigFileUsed(),
 			"profile":     profile,
 			"existing":    exists,
 		}).
 			Info("fsoc context")
-	} else {
-		if bypass {
-			log.Infof("Unable to read config file (%v), proceeding without a config", err)
-		} else {
-			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
-		}
 	}
-}
 
-func bypassConfig(cmd *cobra.Command) bool {
-	_, bypassConfig := cmd.Annotations[config.AnnotationForConfigBypass]
-	return bypassConfig
-}
-
-func isCompletionCommand(cmd *cobra.Command) bool {
-	p := cmd.Parent()
-	return (p != nil && p.Name() == "completion")
 }
