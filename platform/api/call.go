@@ -93,8 +93,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		// marshal body data to JSON
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
-			log.Errorf("Failed to marshal data: %v", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("Failed to marshal body data: %w", err)
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	} else if body != nil {
@@ -116,8 +115,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	url.RawQuery = query
 	req, err := http.NewRequest(method, url.String(), bodyReader)
 	if err != nil {
-		log.Errorf("Failed to create a request %q: %v", url.String(), err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to create a request for %q: %w", url.String(), err)
 	}
 
 	// add headers that are not already provided
@@ -176,13 +174,13 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	// build HTTP request
 	req, err := prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
 	if err != nil {
-		return err // anything that needed logging has been logged
+		return err // assume error messages provide sufficient info
 	}
 
 	// execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%v request to %q failed: %v", method, req.RequestURI, err)
+		return fmt.Errorf("%v request to %q failed: %w", method, req.RequestURI, err)
 	}
 
 	// log error if it occurred
@@ -196,7 +194,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed reading response to %v to %q: %v", method, req.RequestURI, err)
+		return fmt.Errorf("Failed reading response to %v to %q: %w", method, req.RequestURI, err)
 	}
 
 	// handle special case when access token needs to be refreshed and request retried
@@ -204,8 +202,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		log.Info("Current token is no longer valid; trying to refresh")
 		err := Login()
 		if err != nil {
-			// nb: sufficient logging from login should have occurred
-			return err
+			return fmt.Errorf("Failed to login: %w", err)
 		}
 
 		// re-load context, including refreshed token
@@ -215,11 +212,11 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		log.Info("Retrying the request with the refreshed token")
 		req, err = prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
 		if err != nil {
-			return err // anything that needed logging has been logged
+			return err // error should have enough context
 		}
 		resp, err = client.Do(req)
 		if err != nil {
-			return fmt.Errorf("%v request to %q failed: %v", method, req.RequestURI, err.Error())
+			return fmt.Errorf("%v request to %q failed: %w", method, req.RequestURI, err)
 		}
 
 		// log error if it occurred
@@ -234,7 +231,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		defer resp.Body.Close()
 		respBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("Failed reading response to %v to %q: %v", method, req.RequestURI, err)
+			return fmt.Errorf("Failed reading response to %v to %q: %w", method, req.RequestURI, err)
 		}
 	}
 
@@ -242,19 +239,25 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		return parseIntoError(resp, respBytes)
 	}
 
+	// process body
 	contentType := resp.Header.Get("content-type")
 	if method != "DELETE" {
-		// when command type is not SOLUTION_DOWNLOAD, parse the response to be JSON
-		if contentType != "application/octet-stream" && contentType != "application/zip" {
-			if err := json.Unmarshal(respBytes, out); err != nil {
-				return fmt.Errorf("Failed to JSON parse the response: %v (%q)", err, respBytes)
-			}
-		} else {
+		// for downloaded files, save them
+		if contentType == "application/octet-stream" || contentType == "application/zip" {
 			var solutionFileName = options.Headers["solutionFileName"]
-			// zip the buffer data to a zip with solution name in current directory
+			if solutionFileName == "" {
+				return fmt.Errorf("(bug) filename not provided for response type %q", contentType)
+			}
+
+			// store the response data into specified file
 			err := os.WriteFile(solutionFileName, respBytes, 0777)
 			if err != nil {
-				log.Fatalf("Failed to parse the Solution download API buffer response: %v (%q)", err, respBytes)
+				return fmt.Errorf("Failed to save the solution archive file as %q: %w", solutionFileName, err)
+			}
+		} else {
+			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
+			if err := json.Unmarshal(respBytes, out); err != nil {
+				return fmt.Errorf("Failed to JSON parse the response: %w (%q)", err, respBytes)
 			}
 		}
 	}
