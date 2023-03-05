@@ -50,7 +50,7 @@ func newCmdConfigSet() *cobra.Command {
 		Run:         configSetContext,
 	}
 
-	cmd.Flags().String("server", "", "Set server URL in context")
+	cmd.Flags().String("url", "", "Set server URL in context")
 	cmd.Flags().String("tenant", "", "Set tenant ID in context")
 	cmd.Flags().String("token", "", "Set token value in context (use --token=- to get from stdin)")
 	cmd.Flags().String("secret-file", "", "Set credentials file to use for service principal login (.json or .csv)")
@@ -108,8 +108,8 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	}
 
 	// update only the fields for which flags were specified explicitly
-	if flags.Changed("server") {
-		ctxPtr.Server, _ = flags.GetString("server")
+	if flags.Changed("url") {
+		ctxPtr.URL, _ = flags.GetString("url")
 	}
 	if flags.Changed("tenant") {
 		ctxPtr.Tenant, _ = flags.GetString("tenant")
