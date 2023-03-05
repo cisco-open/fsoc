@@ -15,7 +15,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -28,8 +27,6 @@ import (
 	"strings"
 
 	"github.com/apex/log"
-
-	"github.com/cisco-open/fsoc/cmd/config"
 )
 
 type tokenStruct struct {
@@ -47,31 +44,30 @@ type credentialsStruct struct {
 }
 
 // servicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
-func servicePrincipalLogin(cfg *config.Context) error {
+func servicePrincipalLogin(ctx *callContext) error {
 	log.Infof("Starting login flow using a service principal")
 
 	// read service principal credentials file
-	file := cfg.SecretFile
+	file := ctx.cfg.SecretFile
 	if file == "" {
-		file = cfg.CsvFile // implicitly update config schema
+		file = ctx.cfg.CsvFile // implicitly update config schema
 	}
 	credentials, err := readCredentials(file)
 	if err != nil {
-		log.Errorf("Failed to read credentials file %q: %v", file, err.Error())
-		return err
+		return fmt.Errorf("Failed to read credentials file %q: %v", file, err)
 	}
 
 	// check/backfill missing fields (the new, JSON, format of the credentials has tenant and server URL)
-	if cfg.Tenant == "" {
+	if ctx.cfg.Tenant == "" {
 		// bail if using the old CSV format which does not provide tenant ID
 		// (we can resolve the tenant ID from the server URL but no need to do this for legacy CSV service principal format)
 		if credentials.TenantID == "" {
 			return fmt.Errorf("Missing tenant ID, please specify using `fsoc config set --tenant=TENANTID`")
 		}
-		cfg.Tenant = credentials.TenantID // the new JSON credentials format has the tenant
-		log.Infof("Extracted tenant ID %q from the credentials file", cfg.Tenant)
+		ctx.cfg.Tenant = credentials.TenantID // the new JSON credentials format has the tenant
+		log.Infof("Extracted tenant ID %q from the credentials file", ctx.cfg.Tenant)
 	}
-	if cfg.Server == "" {
+	if ctx.cfg.Server == "" {
 		if credentials.TokenURL == "" {
 			return fmt.Errorf("Missing Server URL, please specify using `fsoc config set --server=SERVERURL`")
 		}
@@ -79,36 +75,35 @@ func servicePrincipalLogin(cfg *config.Context) error {
 		if err != nil {
 			return fmt.Errorf("Failed to parse server URL from the credentials token URL, %q: %v", credentials.TokenURL, err)
 		}
-		cfg.Server = urlStruct.Host
-		log.Infof("Extracted server URL %q from the credentials file", cfg.Server)
+		ctx.cfg.Server = urlStruct.Host
+		log.Infof("Extracted server URL %q from the credentials file", ctx.cfg.Server)
 	}
 
 	// create a HTTP request
 	url := &url.URL{
 		Scheme: "https",
-		Host:   cfg.Server,
-		Path:   "auth/" + cfg.Tenant + "/default/oauth2/token",
+		Host:   ctx.cfg.Server,
+		Path:   "auth/" + ctx.cfg.Tenant + "/default/oauth2/token",
 	}
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url.String(), strings.NewReader("grant_type=client_credentials")) //TODO: urlencode data!
 	if err != nil {
-		log.Errorf("Failed to create a request %q: %v", url.String(), err.Error())
-		return err
+		return fmt.Errorf("Failed to create a request for %q: %v", url.String(), err)
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
 	req.SetBasicAuth(credentials.ClientID, credentials.Secret)
 
 	// execute request
+	ctx.startSpinner("Exchange service principal for auth token")
 	resp, err := client.Do(req)
+	ctx.stopSpinner(err == nil && resp.StatusCode == 200)
 	if err != nil {
-		log.Errorf("GET request to %q failed: %v", url.String(), err.Error())
-		//TODO: provide more details from the response object for enhanced error info
-		return err
+		return fmt.Errorf("Failed to request auth (%q): %w", url.String(), err)
 	}
 	if resp.StatusCode != 200 {
 		// log error here before trying to parse body, more processing later
-		log.Errorf("Login failed, status %q", resp.Status)
+		log.Errorf("Login failed, status %q; details to follow", resp.Status)
 		// fall through to reading the payload body for more error info
 	}
 
@@ -116,21 +111,12 @@ func servicePrincipalLogin(cfg *config.Context) error {
 	defer resp.Body.Close()
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Failed reading login response from %q: %v", url.String(), err.Error())
-		return err
+		return fmt.Errorf("Failed reading login response from %q: %w", url.String(), err)
 	}
 
 	// report error if failed & return
 	if resp.StatusCode != 200 { // exactly 200 expected, none of the other 2xx is good
-		var errobj any
-
-		// try to unmarshal JSON
-		err := json.Unmarshal(respBytes, &errobj)
-		if err != nil {
-			// process as a string instead, ignore parsing error
-			errobj = bytes.NewBuffer(respBytes).String()
-		}
-		return fmt.Errorf("Error response: %+v", errobj)
+		return parseIntoError(resp, respBytes)
 	}
 
 	// update context with token
@@ -141,7 +127,7 @@ func servicePrincipalLogin(cfg *config.Context) error {
 		return err
 	}
 	log.Info("Login returned a valid token")
-	cfg.Token = token.AccessToken
+	ctx.cfg.Token = token.AccessToken
 
 	return nil
 }
