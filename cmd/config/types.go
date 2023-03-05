@@ -44,7 +44,7 @@ type Context struct {
 	Name       string `json:"name" yaml:"name"`
 	AuthMethod string `json:"auth_method,omitempty" yaml:"auth_method,omitempty" mapstructure:"auth_method"`
 	// Server: Deprecated
-	//Server       string `json:"server,omitempty" yaml:"server,omitempty"`
+	Server       string `json:"server,omitempty" yaml:"server,omitempty"`
 	URL          string `json:"url,omitempty" yaml:"url,omitempty"`
 	Tenant       string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
 	User         string `json:"user,omitempty" yaml:"user,omitempty"`

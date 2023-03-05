@@ -133,7 +133,7 @@ func jsonRequest(method string, path string, body any, out any, options *Options
 	if cfg == nil {
 		return errors.New("Missing context; use 'fsoc config set' to configure your context")
 	}
-	log.WithFields(log.Fields{"context": cfg.Name, "server": cfg.Server, "tenant": cfg.Tenant}).Info("Using context")
+	log.WithFields(log.Fields{"context": cfg.Name, "URL": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")
 
 	// force login if no token
 	if cfg.Token == "" {
@@ -252,11 +252,11 @@ func prepareJSONRequest(cfg *config.Context, client *http.Client, method string,
 	}
 
 	// create a HTTP request
-	url := &url.URL{
-		Scheme: "https",
-		Host:   cfg.Server,
-		Path:   path,
+	url, err := url.Parse(cfg.URL)
+	if err != nil {
+		log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", cfg.URL, err)
 	}
+	url.Path = path
 
 	// checking if there is a query in the path
 	iQuery := strings.Index(path, "?")
@@ -311,7 +311,7 @@ func httpRequest(method string, path string, body []byte, out any, options *Opti
 	if cfg == nil {
 		return errors.New("Missing context; use 'fsoc config set' to configure your context")
 	}
-	log.WithFields(log.Fields{"context": cfg.Name, "server": cfg.Server, "tenant": cfg.Tenant}).Info("Using context")
+	log.WithFields(log.Fields{"context": cfg.Name, "URL": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")
 
 	// force login if no token
 	if cfg.Token == "" {
@@ -431,11 +431,12 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	// }
 
 	// create a HTTP request
-	url := &url.URL{
-		Scheme: "https",
-		Host:   cfg.Server,
-		Path:   path,
+
+	url, err := url.Parse(cfg.URL)
+	if err != nil {
+		log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", cfg.URL, err)
 	}
+	url.Path = path
 
 	// checking if there is a query in the path
 	iQuery := strings.Index(path, "?")

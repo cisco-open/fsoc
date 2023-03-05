@@ -86,7 +86,7 @@ func oauthLogin(ctx *config.Context) error {
 	if ctx.Tenant == "" {
 		tenantId, err := resolveTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("Could not resolve tenant ID for %q: %v", ctx.Server, err.Error())
+			return fmt.Errorf("Could not resolve tenant ID for %q: %v", ctx.URL, err.Error())
 		}
 		ctx.Tenant = tenantId
 		log.Infof("Successfully resolved tenant ID to %v", ctx.Tenant)
@@ -354,7 +354,7 @@ func oauthUriWithSuffix(ctx *config.Context, suffix string) string {
 	// 	panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
 	// }
 	// return uri
-	return strings.Join([]string{"https://" + ctx.Server, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
+	return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
 }
 
 func startCallbackServer() (*http.Server, chan authCodes, error) {
