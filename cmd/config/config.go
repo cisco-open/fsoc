@@ -108,6 +108,7 @@ func getConfig() configFileContents {
 		updateConfigFile(map[string]interface{}{
 			"contexts": newContexts,
 		})
+		c.Contexts = newContexts
 	}
 	return c
 }
