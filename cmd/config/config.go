@@ -87,12 +87,7 @@ func GetCurrentContext() *Context {
 	return nil
 }
 
-func getConfig() configFileContents {
-	var c configFileContents
-	err := viper.Unmarshal(&c)
-	if err != nil {
-		log.Fatalf("unable to read config, %v", err)
-	}
+func replaceServerWithURLInConfig(c *configFileContents) {
 	needReWrite := false
 	newContexts := make([]Context, len(c.Contexts))
 	for i, context := range c.Contexts {
@@ -110,6 +105,15 @@ func getConfig() configFileContents {
 		})
 		c.Contexts = newContexts
 	}
+}
+
+func getConfig() configFileContents {
+	var c configFileContents
+	err := viper.Unmarshal(&c)
+	if err != nil {
+		log.Fatalf("unable to read config, %v", err)
+	}
+	replaceServerWithURLInConfig(&c)
 	return c
 }
 
