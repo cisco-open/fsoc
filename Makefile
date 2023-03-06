@@ -38,9 +38,9 @@ export CGO_ENABLED ?= 0
 CURRENT_PATH := $(PATH)
 TEST_REPORTS_DIR = ./build/reports
 
-export PATH := bin:${PATH}
-export GOBIN = $(SCRIPT_DIR)/bin
-export PATH = $(GOBIN):$(CURRENT_PATH)
+GOBIN = $(SCRIPT_DIR)/bin
+PATH  := $(GOBIN):bin:$(PATH)
+SHELL := env PATH=$(PATH) /bin/bash
 
 GORELEASER ?= $(GOBIN)/goreleaser
 GOLINT ?= $(GOBIN)/golangci-lint
