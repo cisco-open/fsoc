@@ -1,10 +1,12 @@
 package api
 
 import (
-	"github.com/cisco-open/fsoc/cmd/config"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/cisco-open/fsoc/cmd/config"
 )
 
 func TestPrepareHTTPRequest(t *testing.T) {

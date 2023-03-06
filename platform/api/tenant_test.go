@@ -1,9 +1,11 @@
 package api
 
 import (
-	"github.com/cisco-open/fsoc/cmd/config"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/cisco-open/fsoc/cmd/config"
 )
 
 func TestComputeResolverEndpointForLocalSetup(t *testing.T) {
