@@ -19,7 +19,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -144,28 +143,22 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 func httpRequest(method string, path string, body any, out any, options *Options) error {
 	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling FSO platform API")
 
+	callCtx := newCallContext()
+	cfg := callCtx.cfg               // quick access
+	defer callCtx.stopSpinner(false) // ensure the spinner is not running when returning (belt & suspenders)
+
 	// create a default options to avoid nil-checking
 	if options == nil {
 		options = &Options{}
 	}
 
-	// get current context to obtain the URL and token (TODO: consider supporting unauth access for local dev)
-	cfg := config.GetCurrentContext()
-	if cfg == nil {
-		return errors.New("Missing context; use 'fsoc config set' to configure your context")
-	}
-	log.WithFields(log.Fields{"context": cfg.Name, "url": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")
-
 	// force login if no token
 	if cfg.Token == "" {
-		log.Infof("No token available, trying to log in")
-		if err := Login(); err != nil {
+		log.Info("No auth token available, trying to log in")
+		if err := login(callCtx); err != nil {
 			return err
 		}
-		cfg = config.GetCurrentContext()
-		if cfg.Token == "" {
-			return errors.New("Login succeeded but did not provide a token")
-		}
+		cfg = callCtx.cfg // may have changed across login
 	}
 
 	// create http client for the request
@@ -177,16 +170,12 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		return err // assume error messages provide sufficient info
 	}
 
-	// execute request
+	// execute request, speculatively, assuming the auth token is valid
+	callCtx.startSpinner(fmt.Sprintf("Platform API call (%v %v)", req.Method, urlDisplayPath(req.URL)))
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("%v request to %q failed: %w", method, req.RequestURI, err)
-	}
-
-	// log error if it occurred
-	if resp.StatusCode/100 != 2 {
-		// log error before trying to parse body, more processing later
-		log.Errorf("Request failed, status %q; more info to follow", resp.Status)
+		// nb: spinner will be stopped by defer
+		return fmt.Errorf("%v request to %q failed: %w", method, req.URL.String(), err)
 	}
 
 	// collect response body (whether success or error)
@@ -194,19 +183,18 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed reading response to %v to %q: %w", method, req.RequestURI, err)
+		return fmt.Errorf("Failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
 	}
 
 	// handle special case when access token needs to be refreshed and request retried
 	if resp.StatusCode == http.StatusForbidden {
-		log.Info("Current token is no longer valid; trying to refresh")
-		err := Login()
+		callCtx.stopSpinnerHide()
+		log.Warn("Current token is no longer valid; trying to refresh")
+		err := login(callCtx)
 		if err != nil {
 			return fmt.Errorf("Failed to login: %w", err)
 		}
-
-		// re-load context, including refreshed token
-		cfg = config.GetCurrentContext()
+		cfg = callCtx.cfg // may have changed across login
 
 		// retry the request
 		log.Info("Retrying the request with the refreshed token")
@@ -214,31 +202,31 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		if err != nil {
 			return err // error should have enough context
 		}
+		callCtx.startSpinner(fmt.Sprintf("Platform API call, retry after login (%v %v)", req.Method, urlDisplayPath(req.URL)))
 		resp, err = client.Do(req)
+		// leave the spinner until the outcome is finalized, return will stop/fail it
 		if err != nil {
-			return fmt.Errorf("%v request to %q failed: %w", method, req.RequestURI, err)
-		}
-
-		// log error if it occurred
-		if resp.StatusCode/100 != 2 {
-			// log error before trying to parse body, more processing later
-			log.Errorf("Request failed, status %q; more info to follow", resp.Status)
-		} else {
-			log.Infof("Request completed successfully: %v", resp.Status)
+			return fmt.Errorf("%v request to %q failed: %w", method, req.URL.String(), err)
 		}
 
 		// collect response body (whether success or error)
 		defer resp.Body.Close()
 		respBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("Failed reading response to %v to %q: %w", method, req.RequestURI, err)
+			return fmt.Errorf("Failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
 		}
 	}
 
+	// return if API call response indicates error
 	if resp.StatusCode/100 != 2 {
+		callCtx.stopSpinner(false) // if still running
+		log.WithFields(log.Fields{"status": resp.StatusCode}).Error("Platform API call failed")
 		return parseIntoError(resp, respBytes)
 	}
 
+	// ensure spinner is stopped, API call has succeeded
+	callCtx.stopSpinner(true)
+  
 	// process body
 	contentType := resp.Header.Get("content-type")
 	if method != "DELETE" {
@@ -257,7 +245,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		} else {
 			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
 			if err := json.Unmarshal(respBytes, out); err != nil {
-				return fmt.Errorf("Failed to JSON parse the response: %w (%q)", err, respBytes)
+				return fmt.Errorf("Failed to JSON-parse the response: %w (%q)", err, respBytes)
 			}
 		}
 	}
@@ -298,4 +286,13 @@ func parseIntoError(resp *http.Response, respBytes []byte) error {
 
 	// fallback to string
 	return fmt.Errorf("error response: %v", bytes.NewBuffer(respBytes).String())
+}
+
+// urlDisplayPath returns the URL path in a display-friendly form (may be abbreviated)
+func urlDisplayPath(uri *url.URL) string {
+	s := uri.Path
+	if uri.RawQuery == "" {
+		return s
+	}
+	return s + "?" + uri.RawQuery
 }
