@@ -40,7 +40,7 @@ TEST_REPORTS_DIR = ./build/reports
 
 GOBIN = $(SCRIPT_DIR)/bin
 PATH  := $(GOBIN):bin:$(PATH)
-SHELL := env PATH=$(PATH) /bin/bash
+SHELL := env PATH=$(PATH) GOBIN=$(GOBIN) /bin/bash
 
 GORELEASER ?= $(GOBIN)/goreleaser
 GOLINT ?= $(GOBIN)/golangci-lint
