@@ -226,7 +226,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 
 	// ensure spinner is stopped, API call has succeeded
 	callCtx.stopSpinner(true)
-
+  
 	// process body
 	contentType := resp.Header.Get("content-type")
 	if method != "DELETE" {
