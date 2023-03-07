@@ -27,9 +27,9 @@ import (
 // requiredSettings defines what config.Context fields are required for each authentication method
 var requiredSettings = map[string][]string{
 	config.AuthMethodNone:             {},
-	config.AuthMethodOAuth:            {"Server"},
-	config.AuthMethodServicePrincipal: {"SecretFile"},      // tenant and server can usually be obtained from the file (new, JSON format)
-	config.AuthMethodJWT:              {"Server", "Token"}, // tenant is desired but may not be mandatory for all requests
+	config.AuthMethodOAuth:            {"URL"},
+	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file (new, JSON format)
+	config.AuthMethodJWT:              {"URL", "Token"}, // tenant is desired but may not be mandatory for all requests
 }
 
 // fieldToFlag maps a config.Context field to CLI flag name, so that we can display better

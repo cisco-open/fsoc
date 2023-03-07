@@ -15,7 +15,7 @@ func TestValidateUrlWithInvalidURL(t *testing.T) {
 	url, err = validateUrl("h://web")
 	assert.Equal(t, "", url)
 	assert.NotNil(t, err)
-	assert.Regexp(t, "invalid schema.*", err)
+	assert.Regexp(t, "the provided scheme.*is not recognized", err)
 }
 
 func TestValidateUrlWithDataNeedClean(t *testing.T) {

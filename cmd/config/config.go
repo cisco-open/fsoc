@@ -20,7 +20,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,20 +39,7 @@ func NewSubCmd() *cobra.Command {
 		Use:   "config SUBCOMMAND [options]",
 		Short: "Configure fsoc",
 		Long:  `View and modify fsoc config files and contexts`,
-		// Run: func(cmd *cobra.Command, args []string) {
-		// 	fmt.Println("config called")
-		// },
 	}
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// configCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// configCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	cmd.AddCommand(newCmdConfigGet())
 	cmd.AddCommand(newCmdConfigSet())
@@ -87,13 +73,17 @@ func GetCurrentContext() *Context {
 	return nil
 }
 
-func replaceServerWithURLInConfig(c *configFileContents) {
+func checkUpgradeScheme(c *configFileContents) {
 	needReWrite := false
 	newContexts := make([]Context, len(c.Contexts))
 	for i, context := range c.Contexts {
 		if context.Server != "" {
-			context.URL = fmt.Sprintf("https://%s", context.Server)
-			log.Warnf("The server config is deprecated. Replacing 'server: %s' for context '%s' with 'url: %s' now...", context.Server, context.Name, context.URL)
+			context.URL = "https://" + context.Server
+			log.WithFields(log.Fields{
+				"context": context.Name,
+				"server":  context.Server,
+				"url":     context.URL,
+			}).Warn("The \"server\" config attribute is deprecated; replacing it with \"url\" now.")
 			context.Server = ""
 			needReWrite = true
 		}
@@ -104,16 +94,21 @@ func replaceServerWithURLInConfig(c *configFileContents) {
 			"contexts": newContexts,
 		})
 		c.Contexts = newContexts
+		log.Warnf("Config file updated to upgrade settings schema.")
 	}
 }
 
 func getConfig() configFileContents {
+	// read config file with all contexts
 	var c configFileContents
 	err := viper.Unmarshal(&c)
 	if err != nil {
-		log.Fatalf("unable to read config, %v", err)
+		log.Fatalf("unable to read config: %v", err)
 	}
-	replaceServerWithURLInConfig(&c)
+
+	// check if scheme needs to be upgraded; do it and update file if so
+	checkUpgradeScheme(&c)
+
 	return c
 }
 
@@ -265,7 +260,7 @@ func SetSelectedProfile(name string) {
 // case when a new profile is being created.
 func GetCurrentProfileName() string {
 	// start with default
-	profile := defaultContext
+	profile := DefaultContext
 
 	// use the profile from command line or the config file's current
 	if selectedProfile != "" {
@@ -274,7 +269,7 @@ func GetCurrentProfileName() string {
 		// get profile that is current for the config file
 		cfg := getConfig()
 		if cfg.CurrentContext == "" {
-			cfg.CurrentContext = defaultContext // dealing with old "current-context" keys (temporary)
+			cfg.CurrentContext = DefaultContext // dealing with old "current-context" keys (temporary)
 		}
 		if cfg.CurrentContext != "" {
 			profile = cfg.CurrentContext

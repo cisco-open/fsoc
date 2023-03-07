@@ -16,7 +16,7 @@ package config
 
 const (
 	DefaultConfigFile = "~/.fsoc"
-	defaultContext    = "default"
+	DefaultContext    = "default"
 )
 
 // Supported authentication methods
@@ -41,10 +41,9 @@ const (
 // field contains the name of the context (which is unique within the config file);
 // the remaining fields define the access profile.
 type Context struct {
-	Name       string `json:"name" yaml:"name"`
-	AuthMethod string `json:"auth_method,omitempty" yaml:"auth_method,omitempty" mapstructure:"auth_method"`
-	// Server: Deprecated
-	Server       string `json:"server,omitempty" yaml:"server,omitempty"`
+	Name         string `json:"name" yaml:"name"`
+	AuthMethod   string `json:"auth_method,omitempty" yaml:"auth_method,omitempty" mapstructure:"auth_method"`
+	Server       string `json:"server,omitempty" yaml:"server,omitempty"` // deprecated
 	URL          string `json:"url,omitempty" yaml:"url,omitempty"`
 	Tenant       string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
 	User         string `json:"user,omitempty" yaml:"user,omitempty"`

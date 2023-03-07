@@ -116,6 +116,7 @@ func authorRun(cmd *cobra.Command, cfg *config.Context, dir string, local bool) 
 		if err != nil {
 			log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", cfg.URL, err)
 		}
+		browserUrl.Path = authoringToolPath
 	}
 	queryParams := url.Values{
 		"url":      {callbackUrl},
