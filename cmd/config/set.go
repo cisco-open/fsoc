@@ -50,31 +50,32 @@ func newCmdConfigSet() *cobra.Command {
 		Annotations: map[string]string{AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
 	}
-	cmd.Flags().String("server", "", "[Deprecated, use 'url' instead] Set server URL in context.")
-	cmd.Flags().String("url", "", "Set server URL in context")
-	cmd.Flags().String("tenant", "", "Set tenant ID in context")
-	cmd.Flags().String("token", "", "Set token value in context (use --token=- to get from stdin)")
-	cmd.Flags().String("secret-file", "", "Set credentials file to use for service principal login (.json or .csv)")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
+	cmd.Flags().String("server", "", "Set server host name")
+	_ = cmd.Flags().MarkDeprecated("server", "The --server flag is deprecated, please use --url instead.")
+	cmd.Flags().String("url", "", "Set server URL (with http or https schema)")
+	cmd.Flags().String("tenant", "", "Set tenant ID")
+	cmd.Flags().String("token", "", "Set token value (use --token=- to get from stdin)")
+	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv)")
 	return cmd
 }
 
 func validateUrl(providedUrl string) (string, error) {
 	parsedUrl, err := url.ParseRequestURI(providedUrl)
 	if err != nil {
-		parsedUrl, err = url.ParseRequestURI(fmt.Sprintf("https://%s", providedUrl))
+		parsedUrl, err = url.ParseRequestURI("https://" + providedUrl)
 	}
 	if err != nil {
-		return "", fmt.Errorf("the provided url is not valid: %s", err)
+		return "", fmt.Errorf("the provided url, %q, is not valid: %w", providedUrl, err)
 	}
 	if parsedUrl.Host == "" {
-		return "", fmt.Errorf("no host is provided in the url: %s", providedUrl)
+		return "", fmt.Errorf("no host is provided in the url %q", providedUrl)
 	}
 	if parsedUrl.Scheme != "https" && parsedUrl.Scheme != "http" {
-		return "", fmt.Errorf("invalid schema is provided: %s", parsedUrl.Scheme)
+		return "", fmt.Errorf("the provided scheme, %q, is not recognized; use %q or %q", parsedUrl.Scheme, "http", "https")
 	}
 	if parsedUrl.String() != providedUrl {
-		log.Warnf("The provided url (%s) is cleaned and stored as %s.", providedUrl, parsedUrl.String())
+		log.Warnf("The provided url, %q, is cleaned and stored as %q.", providedUrl, parsedUrl.String())
 	}
 	return parsedUrl.String(), nil
 }
@@ -131,8 +132,13 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	// update only the fields for which flags were specified explicitly
 	if flags.Changed("server") {
 		providedServer, _ := flags.GetString("server")
-		ctxPtr.URL = fmt.Sprintf("https://%s", providedServer)
-		log.Warnf("The --server option is now deprecated. Please use --url instead future. We will set the 'url: %s' for you now", ctxPtr.URL)
+		constructedUrl := "https://" + providedServer
+		cleanedUrl, err := validateUrl(constructedUrl)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
+		ctxPtr.URL = cleanedUrl
 	}
 	if flags.Changed("url") {
 		providedUrl, _ := flags.GetString("url")

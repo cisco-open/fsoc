@@ -109,8 +109,7 @@ func computeResolverEndpoint(ctx *config.Context) (string, error) {
 	elements[1] = "saas"
 	originalHost := uri.Host
 	uri.Host = strings.Join(elements, ".")
-	//TODO: enable for Go 1.19
-	// uri = uri.JoinPath("tenants", "lookup", ctx.Server)
-	uri.Path += "/tenants/lookup/" + originalHost // use this until Go 1.19 is supported in building
+	uri = uri.JoinPath("tenants", "lookup", originalHost)
+	// uri.Path += "/tenants/lookup/" + originalHost // use this until Go 1.19 is supported in building
 	return uri.String(), nil
 }

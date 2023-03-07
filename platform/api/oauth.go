@@ -348,13 +348,12 @@ func oauthRefreshToken(ctx *config.Context) error {
 }
 
 func oauthUriWithSuffix(ctx *config.Context, suffix string) string {
-	// TODO: switch to JoinPath when BARE starts supporting Go 1.19
-	// uri, err := url.JoinPath("https://"+ctx.Server, "auth", ctx.Tenant, oauth2ClientId, suffix)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
-	// }
-	// return uri
-	return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
+	uri, err := url.JoinPath(ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix)
+	if err != nil {
+		panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
+	}
+	return uri
+	// return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
 }
 
 func startCallbackServer() (*http.Server, chan authCodes, error) {
