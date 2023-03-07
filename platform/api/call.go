@@ -104,15 +104,14 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	// create a HTTP request
+	// create HTTP request
 	path, query, _ := strings.Cut(path, "?")
-	url := &url.URL{
-		Scheme:   "https",
-		Host:     cfg.Server,
-		Path:     path,
-		RawQuery: query,
+	url, err := url.Parse(cfg.URL)
+	if err != nil {
+		log.Fatalf("Failed to parse the url provided in context (%q): %v", cfg.URL, err)
 	}
-
+	url.Path = path
+	url.RawQuery = query
 	req, err := http.NewRequest(method, url.String(), bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a request for %q: %w", url.String(), err)

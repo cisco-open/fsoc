@@ -67,24 +67,26 @@ func servicePrincipalLogin(ctx *callContext) error {
 		ctx.cfg.Tenant = credentials.TenantID // the new JSON credentials format has the tenant
 		log.Infof("Extracted tenant ID %q from the credentials file", ctx.cfg.Tenant)
 	}
-	if ctx.cfg.Server == "" {
+	if ctx.cfg.URL == "" {
 		if credentials.TokenURL == "" {
-			return fmt.Errorf("Missing Server URL, please specify using `fsoc config set --server=SERVERURL`")
+			return fmt.Errorf("Missing Server URL, please specify using `fsoc config set --url=SERVERURL`")
 		}
 		urlStruct, err := url.Parse(credentials.TokenURL)
 		if err != nil {
 			return fmt.Errorf("Failed to parse server URL from the credentials token URL, %q: %v", credentials.TokenURL, err)
 		}
-		ctx.cfg.Server = urlStruct.Host
-		log.Infof("Extracted server URL %q from the credentials file", ctx.cfg.Server)
+		ctx.cfg.URL = urlStruct.Scheme + "://" + urlStruct.Host
+		log.Infof("Extracted server URL %q from the credentials file", ctx.cfg.URL)
 	}
 
 	// create a HTTP request
-	url := &url.URL{
-		Scheme: "https",
-		Host:   ctx.cfg.Server,
-		Path:   "auth/" + ctx.cfg.Tenant + "/default/oauth2/token",
+
+	url, err := url.Parse(ctx.cfg.URL)
+	if err != nil {
+		log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", ctx.cfg.URL, err)
 	}
+	url.Path = "auth/" + ctx.cfg.Tenant + "/default/oauth2/token"
+
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url.String(), strings.NewReader("grant_type=client_credentials")) //TODO: urlencode data!
 	if err != nil {
