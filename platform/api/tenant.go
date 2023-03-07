@@ -38,7 +38,7 @@ func resolveTenant(ctx *config.Context) (string, error) {
 		return "", err
 	}
 
-	log.Infof("Looking up tenant ID for %v", ctx.Server)
+	log.Infof("Looking up tenant ID for %v", ctx.URL)
 
 	// create a GET HTTP request
 	client := &http.Client{}
@@ -93,23 +93,24 @@ func resolveTenant(ctx *config.Context) (string, error) {
 // computeResolverEndpoint figures out the URL for the tenant resolver API,
 // given a tenant vanity URL
 func computeResolverEndpoint(ctx *config.Context) (string, error) {
-	uri, err := url.Parse("https://" + ctx.Server)
+	uri, err := url.Parse(ctx.URL)
 	if err != nil {
 		return "", err
 	}
 
 	elements := strings.Split(uri.Host, ".") // last element may have ":<port>"
 	if len(elements) != 4 {
-		return "", fmt.Errorf("Cannot determine tenant resolver URI for %q, please specify --tenant on `fsoc config set`", ctx.Server)
+		return "", fmt.Errorf("Cannot determine tenant resolver URI for %q, please specify --tenant on `fsoc config set`", ctx.URL)
 	}
 
 	elements[0] = RESOLVER_HOST
 	// In case of production tenants, we need to manually insert "saas" into the url being calculated
 	// in order to determine the lookup url correctly
 	elements[1] = "saas"
+	originalHost := uri.Host
 	uri.Host = strings.Join(elements, ".")
 	//TODO: enable for Go 1.19
 	// uri = uri.JoinPath("tenants", "lookup", ctx.Server)
-	uri.Path += "/tenants/lookup/" + ctx.Server // use this until Go 1.19 is supported in building
+	uri.Path += "/tenants/lookup/" + originalHost // use this until Go 1.19 is supported in building
 	return uri.String(), nil
 }

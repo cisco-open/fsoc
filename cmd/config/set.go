@@ -17,6 +17,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,13 +50,33 @@ func newCmdConfigSet() *cobra.Command {
 		Annotations: map[string]string{AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
 	}
-
-	cmd.Flags().String("server", "", "Set server URL in context")
+	cmd.Flags().String("server", "", "[Deprecated, use 'url' instead] Set server URL in context.")
+	cmd.Flags().String("url", "", "Set server URL in context")
 	cmd.Flags().String("tenant", "", "Set tenant ID in context")
 	cmd.Flags().String("token", "", "Set token value in context (use --token=- to get from stdin)")
 	cmd.Flags().String("secret-file", "", "Set credentials file to use for service principal login (.json or .csv)")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
 	return cmd
+}
+
+func validateUrl(providedUrl string) (string, error) {
+	parsedUrl, err := url.ParseRequestURI(providedUrl)
+	if err != nil {
+		parsedUrl, err = url.ParseRequestURI(fmt.Sprintf("https://%s", providedUrl))
+	}
+	if err != nil {
+		return "", fmt.Errorf("the provided url is not valid: %s", err)
+	}
+	if parsedUrl.Host == "" {
+		return "", fmt.Errorf("no host is provided in the url: %s", providedUrl)
+	}
+	if parsedUrl.Scheme != "https" && parsedUrl.Scheme != "http" {
+		return "", fmt.Errorf("invalid schema is provided: %s", parsedUrl.Scheme)
+	}
+	if parsedUrl.String() != providedUrl {
+		log.Warnf("The provided url (%s) is cleaned and stored as %s.", providedUrl, parsedUrl.String())
+	}
+	return parsedUrl.String(), nil
 }
 
 func configSetContext(cmd *cobra.Command, args []string) {
@@ -109,7 +130,17 @@ func configSetContext(cmd *cobra.Command, args []string) {
 
 	// update only the fields for which flags were specified explicitly
 	if flags.Changed("server") {
-		ctxPtr.Server, _ = flags.GetString("server")
+		providedServer, _ := flags.GetString("server")
+		ctxPtr.URL = fmt.Sprintf("https://%s", providedServer)
+		log.Warnf("The --server option is now deprecated. Please use --url instead future. We will set the 'url: %s' for you now", ctxPtr.URL)
+	}
+	if flags.Changed("url") {
+		providedUrl, _ := flags.GetString("url")
+		cleanedUrl, err := validateUrl(providedUrl)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		ctxPtr.URL = cleanedUrl
 	}
 	if flags.Changed("tenant") {
 		ctxPtr.Tenant, _ = flags.GetString("tenant")

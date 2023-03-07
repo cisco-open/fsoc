@@ -20,6 +20,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,12 +87,33 @@ func GetCurrentContext() *Context {
 	return nil
 }
 
+func replaceServerWithURLInConfig(c *configFileContents) {
+	needReWrite := false
+	newContexts := make([]Context, len(c.Contexts))
+	for i, context := range c.Contexts {
+		if context.Server != "" {
+			context.URL = fmt.Sprintf("https://%s", context.Server)
+			log.Warnf("The server config is deprecated. Replacing 'server: %s' for context '%s' with 'url: %s' now...", context.Server, context.Name, context.URL)
+			context.Server = ""
+			needReWrite = true
+		}
+		newContexts[i] = context
+	}
+	if needReWrite {
+		updateConfigFile(map[string]interface{}{
+			"contexts": newContexts,
+		})
+		c.Contexts = newContexts
+	}
+}
+
 func getConfig() configFileContents {
 	var c configFileContents
 	err := viper.Unmarshal(&c)
 	if err != nil {
 		log.Fatalf("unable to read config, %v", err)
 	}
+	replaceServerWithURLInConfig(&c)
 	return c
 }
 
@@ -120,7 +142,7 @@ func updateConfigFile(keyValues map[string]interface{}) {
 	viper.SetConfigType("yaml")
 	if viper.ConfigFileUsed() == "" {
 		home, _ := os.UserHomeDir()
-		configFileLocation := strings.Replace(defaultConfigFile, "~", home, 1)
+		configFileLocation := strings.Replace(DefaultConfigFile, "~", home, 1)
 		viper.SetConfigFile(configFileLocation)
 	}
 	viper.SetConfigPermissions(0600) // o=rw
