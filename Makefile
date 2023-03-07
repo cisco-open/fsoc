@@ -40,9 +40,6 @@ TEST_REPORTS_DIR = ./build/reports
 
 export GOBIN = $(SCRIPT_DIR)/bin
 export PATH  := $(GOBIN):bin:$(PATH)
-#export PATH := bin:${PATH}
-#export GOBIN = $(SCRIPT_DIR)/bin
-#export PATH = $(GOBIN):$(CURRENT_PATH)
 
 GORELEASER ?= $(GOBIN)/goreleaser
 GOLINT ?= $(GOBIN)/golangci-lint
