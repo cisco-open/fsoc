@@ -47,9 +47,6 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	headers := map[string]string{
 		"layer-type": "TENANT",
 		"layer-id":   layerID,
-		"appd-pty":   "U0VSVklDRQ==",
-		"appd-pid":   "VVNFUg==",
-		"appd-tid":   "NGIwMjU5OGQtNzM4NC00NTgwLTk5YzctYjM3YjBkMmQ2YTFl",
 	}
 
 	// get data and display
