@@ -14,9 +14,17 @@
 
 package config
 
+import (
+	b64 "encoding/base64"
+	"net/http"
+)
+
 const (
 	DefaultConfigFile = "~/.fsoc"
 	defaultContext    = "default"
+	AppdPid           = "appd-pid"
+	AppdTid           = "appd-tid"
+	AppdPty           = "appd-pty"
 )
 
 // Supported authentication methods
@@ -31,6 +39,8 @@ const (
 	AuthMethodServicePrincipal = "service-principal"
 	// Use Session Manager (experimental)
 	AuthMethodSessionManager = "session-manager"
+	// Use for local setup
+	AuthMethodLocal = "local"
 )
 
 const (
@@ -44,14 +54,27 @@ type Context struct {
 	Name       string `json:"name" yaml:"name"`
 	AuthMethod string `json:"auth_method,omitempty" yaml:"auth_method,omitempty" mapstructure:"auth_method"`
 	// Server: Deprecated
-	Server       string `json:"server,omitempty" yaml:"server,omitempty"`
-	URL          string `json:"url,omitempty" yaml:"url,omitempty"`
-	Tenant       string `json:"tenant,omitempty" yaml:"tenant,omitempty"`
-	User         string `json:"user,omitempty" yaml:"user,omitempty"`
-	Token        string `json:"token,omitempty" yaml:"token,omitempty"` // access token
-	RefreshToken string `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty" mapstructure:"refresh_token"`
-	CsvFile      string `json:"csv_file,omitempty" yaml:"csv_file,omitempty"`
-	SecretFile   string `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file"`
+	Server           string           `json:"server,omitempty" yaml:"server,omitempty"`
+	URL              string           `json:"url,omitempty" yaml:"url,omitempty"`
+	Tenant           string           `json:"tenant,omitempty" yaml:"tenant,omitempty"`
+	User             string           `json:"user,omitempty" yaml:"user,omitempty"`
+	Token            string           `json:"token,omitempty" yaml:"token,omitempty"` // access token
+	RefreshToken     string           `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty" mapstructure:"refresh_token"`
+	CsvFile          string           `json:"csv_file,omitempty" yaml:"csv_file,omitempty"`
+	SecretFile       string           `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file"`
+	LocalAuthOptions LocalAuthOptions `json:"auth-options,omitempty" yaml:"auth-options,omitempty" mapstructure:"auth-options"`
+}
+
+type LocalAuthOptions struct {
+	AppdPty string `json:"appd-pty" yaml:"appd-pty" mapstructure:"appd-pty"`
+	AppdTid string `json:"appd-tid" yaml:"appd-tid" mapstructure:"appd-tid"`
+	AppdPid string `json:"appd-pid" yaml:"appd-pid" mapstructure:"appd-pid"`
+}
+
+func (opt *LocalAuthOptions) AddHeaders(req *http.Request) {
+	req.Header.Add(AppdPid, b64.StdEncoding.EncodeToString([]byte(opt.AppdPid)))
+	req.Header.Add(AppdPty, b64.StdEncoding.EncodeToString([]byte(opt.AppdPty)))
+	req.Header.Add(AppdTid, b64.StdEncoding.EncodeToString([]byte(opt.AppdTid)))
 }
 
 // internal, to be renamed to lower case
@@ -64,6 +87,7 @@ type configFileContents struct {
 func GetAuthMethodsStringList() []string {
 	return []string{
 		AuthMethodNone,
+		AuthMethodLocal,
 		AuthMethodOAuth,
 		AuthMethodJWT,
 		AuthMethodServicePrincipal,

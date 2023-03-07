@@ -56,6 +56,9 @@ func newCmdConfigSet() *cobra.Command {
 	cmd.Flags().String("token", "", "Set token value in context (use --token=- to get from stdin)")
 	cmd.Flags().String("secret-file", "", "Set credentials file to use for service principal login (.json or .csv)")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
+	cmd.Flags().String(AppdPid, "", "[Local auth type only]. The pid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
+	cmd.Flags().String(AppdTid, "", "[Local auth type only]. The tid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
+	cmd.Flags().String(AppdPty, "", "[Local auth type only]. The pty to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
 	return cmd
 }
 
@@ -171,6 +174,21 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			log.Fatalf(`Invalid --auth method %q; must be one of {"%v"}`, val, strings.Join(GetAuthMethodsStringList(), `", "`))
 		}
 		ctxPtr.AuthMethod = val
+	}
+
+	if ctxPtr.AuthMethod == AuthMethodLocal {
+		if flags.Changed(AppdPid) {
+			pid, _ := flags.GetString(AppdPid)
+			ctxPtr.LocalAuthOptions.AppdPid = pid
+		}
+		if flags.Changed(AppdPty) {
+			pty, _ := flags.GetString(AppdPty)
+			ctxPtr.LocalAuthOptions.AppdPty = pty
+		}
+		if flags.Changed(AppdTid) {
+			tid, _ := flags.GetString(AppdTid)
+			ctxPtr.LocalAuthOptions.AppdTid = tid
+		}
 	}
 
 	// upgrade config format from CsvFile to SecretFile, opportunistically using the update

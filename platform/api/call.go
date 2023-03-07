@@ -142,7 +142,7 @@ func jsonRequest(method string, path string, body any, out any, options *Options
 			return err
 		}
 		cfg = config.GetCurrentContext()
-		if cfg.Token == "" {
+		if cfg.Token == "" && cfg.AuthMethod != config.AuthMethodNone && cfg.AuthMethod != config.AuthMethodLocal {
 			return errors.New("Login succeeded but did not provide a token")
 		}
 	}
@@ -277,9 +277,11 @@ func prepareJSONRequest(cfg *config.Context, client *http.Client, method string,
 	}
 
 	// add headers
-	req.Header.Add("Accept", "application/json")
-
 	// set Content-Type in case it hasn't been provided by the caller
+	req.Header.Add("Accept", "application/json")
+	if cfg.AuthMethod == config.AuthMethodLocal {
+		cfg.LocalAuthOptions.AddHeaders(req)
+	}
 
 	if headers["Content-Type"] == "" {
 		contentType := "application/json"
@@ -320,7 +322,7 @@ func httpRequest(method string, path string, body []byte, out any, options *Opti
 			return err
 		}
 		cfg = config.GetCurrentContext()
-		if cfg.Token == "" {
+		if cfg.Token == "" && cfg.AuthMethod != config.AuthMethodNone && cfg.AuthMethod != config.AuthMethodLocal {
 			return errors.New("Login succeeded but did not provide a token")
 		}
 	}
@@ -457,6 +459,9 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	}
 
 	req.Header.Add("Authorization", "Bearer "+cfg.Token)
+	if cfg.AuthMethod == config.AuthMethodLocal {
+		cfg.LocalAuthOptions.AddHeaders(req)
+	}
 
 	for k, v := range headers {
 		req.Header.Add(k, v)
