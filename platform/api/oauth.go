@@ -79,22 +79,22 @@ func (s refreshTokenStaleError) Error() string {
 }
 
 // oauthLogin performs a login into the platform API and updates the token(s) in the provided context
-func oauthLogin(ctx *config.Context) error {
+func oauthLogin(ctx *callContext) error {
 	log.Infof("Starting OAuth authentication flow")
 
 	// get tenant if one is not provided, update into ctx
-	if ctx.Tenant == "" {
+	if ctx.cfg.Tenant == "" {
 		tenantId, err := resolveTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("Could not resolve tenant ID for %q: %v", ctx.URL, err.Error())
+			return fmt.Errorf("Could not resolve tenant ID for %q: %v", ctx.cfg.URL, err.Error())
 		}
-		ctx.Tenant = tenantId
-		log.Infof("Successfully resolved tenant ID to %v", ctx.Tenant)
+		ctx.cfg.Tenant = tenantId
+		log.Infof("Successfully resolved tenant ID to %v", ctx.cfg.Tenant)
 		// tenant is now updated in ctx, will be saved if we successfully log in
 	}
 
 	// try refresh token if present
-	if ctx.RefreshToken != "" {
+	if ctx.cfg.RefreshToken != "" {
 		// refresh and return if successful
 		err := oauthRefreshToken(ctx)
 		if err == nil {
@@ -127,8 +127,8 @@ func oauthLogin(ctx *config.Context) error {
 		ClientID:    oauth2ClientId,
 		RedirectURL: oauthRedirectUri,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   oauthUriWithSuffix(ctx, oauth2AuthUriSuffix),
-			TokenURL:  oauthUriWithSuffix(ctx, oauth2TokenUriSuffix),
+			AuthURL:   oauthUriWithSuffix(ctx.cfg, oauth2AuthUriSuffix),
+			TokenURL:  oauthUriWithSuffix(ctx.cfg, oauth2TokenUriSuffix),
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
 		Scopes: []string{"openid", "introspect_tokens", "offline_access"},
@@ -139,7 +139,7 @@ func oauthLogin(ctx *config.Context) error {
 	)
 
 	// open browser to perform login, collect auth with a localhost http server
-	authCode, err := getAuthorizationCodes(url)
+	authCode, err := getAuthorizationCodes(ctx, url)
 	if err != nil {
 		return fmt.Errorf("Login failed to obtain the authorization code: %v", err)
 	}
@@ -158,7 +158,7 @@ func oauthLogin(ctx *config.Context) error {
 	// }
 
 	// exchange auth code for token (using a hand-crafted exchange request)
-	token, err := exchangeCodeForToken(conf, code, authCode)
+	token, err := exchangeCodeForToken(ctx, conf, code, authCode)
 	if err != nil {
 		return fmt.Errorf("Failed to exchange auth code for a token: %v", err.Error())
 	}
@@ -173,16 +173,16 @@ func oauthLogin(ctx *config.Context) error {
 	}
 
 	// update profile
-	ctx.Token = token.AccessToken
-	ctx.RefreshToken = token.RefreshToken
+	ctx.cfg.Token = token.AccessToken
+	ctx.cfg.RefreshToken = token.RefreshToken
 	if userID != "" {
-		ctx.User = userID
+		ctx.cfg.User = userID
 	}
 
 	return nil
 }
 
-func getAuthorizationCodes(url string) (*authCodes, error) {
+func getAuthorizationCodes(ctx *callContext, url string) (*authCodes, error) {
 	// start http server to receive the auth callback
 	callbackServer, respChan, err := startCallbackServer()
 	if err != nil {
@@ -196,19 +196,21 @@ func getAuthorizationCodes(url string) (*authCodes, error) {
 	log.Infof("Starting a browser to perform authentication")
 	//fmt.Printf("If a browser window does not open shortly, please visit the following URL to login\n%v\n", url)
 	if err = openBrowser(url); err != nil {
-		log.Errorf("Failed to automatically launch browser auth window: %v", err.Error())
+		log.Errorf("Failed to automatically launch browser auth window: %v", err)
 		log.Errorf("Please visit the following URL to login\n%v\n", url)
 		// fall through
 	}
 
 	// wait for authorization codes (TODO: add timeout, e.g., a few minutes)
+	ctx.startSpinner("OAuth interactive authentication")
 	authCode := <-respChan // nb: blocks until a callback is received on localhost with the correct path
+	ctx.stopSpinner(true)  // TODO: figure out whether this can indicate fail/in what condition
 	log.Infof("PKCE authorization codes received")
 
 	return &authCode, nil
 }
 
-func exchangeCodeForToken(conf *oauth2.Config, pkce pkce.Code, auth *authCodes) (*appTokens, error) {
+func exchangeCodeForToken(ctx *callContext, conf *oauth2.Config, pkce pkce.Code, auth *authCodes) (*appTokens, error) {
 	log.Infof("Exchanging authorization codes for access token")
 
 	// create http client for the request
@@ -231,7 +233,9 @@ func exchangeCodeForToken(conf *oauth2.Config, pkce pkce.Code, auth *authCodes) 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	// execute request
+	ctx.startSpinner("OAuth auth codes exchange for token")
 	resp, err := client.Do(req)
+	ctx.stopSpinner(err == nil && resp.StatusCode/100 == 2)
 	if err != nil {
 		return nil, fmt.Errorf("POST request to %q failed: %v", req.RequestURI, err.Error())
 	}
@@ -277,7 +281,7 @@ func exchangeCodeForToken(conf *oauth2.Config, pkce pkce.Code, auth *authCodes) 
 // it updates the access token in the context. It should be called only with a valid config
 // that has a refresh token. Note that the refresh token also changes, so it will be updated
 // as well.
-func oauthRefreshToken(ctx *config.Context) error {
+func oauthRefreshToken(ctx *callContext) error {
 	log.Infof("Trying to get a new access token using the refresh token")
 
 	// create http client for the request
@@ -288,11 +292,11 @@ func oauthRefreshToken(ctx *config.Context) error {
 	values.Add("client_id", oauth2ClientId)
 	values.Add("redirect_uri", oauthRedirectUri)
 	values.Add("grant_type", "refresh_token")
-	values.Add("refresh_token", ctx.RefreshToken)
+	values.Add("refresh_token", ctx.cfg.RefreshToken)
 	bodyReader := bytes.NewReader([]byte(values.Encode()))
 
 	// create a POST HTTP request
-	tokenUri := oauthUriWithSuffix(ctx, oauth2TokenUriSuffix)
+	tokenUri := oauthUriWithSuffix(ctx.cfg, oauth2TokenUriSuffix)
 	req, err := http.NewRequest("POST", tokenUri, bodyReader)
 	if err != nil {
 		return fmt.Errorf("Failed to create a token refresh request %q: %v", tokenUri, err)
@@ -300,7 +304,9 @@ func oauthRefreshToken(ctx *config.Context) error {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
 
 	// execute request
+	ctx.startSpinner("OAuth token refresh")
 	resp, err := client.Do(req)
+	ctx.stopSpinner(err == nil && resp.StatusCode/100 == 2)
 	if err != nil {
 		return fmt.Errorf("POST request to %q failed: %v", req.RequestURI, err.Error())
 	}
@@ -322,39 +328,29 @@ func oauthRefreshToken(ctx *config.Context) error {
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
-		var errobj oauthErrorPayload
-
-		// try to unmarshal JSON
-		err := json.Unmarshal(respBytes, &errobj)
-		if err != nil {
-			// process as a string instead, ignore parsing error
-			return fmt.Errorf("Error response: `%v`", bytes.NewBuffer(respBytes).String())
-		}
-		return fmt.Errorf("Error response: %+v", errobj)
+		return parseIntoError(resp, respBytes)
 	}
 
 	// parse tokens
 	var tokenObject appTokens
 	if err := json.Unmarshal(respBytes, &tokenObject); err != nil {
-		return fmt.Errorf("Failed to JSON parse the response as a token object: %v", err.Error())
+		return fmt.Errorf("Failed to JSON parse the response as a token object: %w", err)
 	}
-	//fmt.Printf("refreshed tokens: %+v", tokenObject) //@@
 
 	// update tokens in context
-	ctx.Token = tokenObject.AccessToken
-	ctx.RefreshToken = tokenObject.RefreshToken
+	ctx.cfg.Token = tokenObject.AccessToken
+	ctx.cfg.RefreshToken = tokenObject.RefreshToken
 
 	return nil
 }
 
 func oauthUriWithSuffix(ctx *config.Context, suffix string) string {
-	// TODO: switch to JoinPath when BARE starts supporting Go 1.19
-	// uri, err := url.JoinPath("https://"+ctx.Server, "auth", ctx.Tenant, oauth2ClientId, suffix)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
-	// }
-	// return uri
-	return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
+	uri, err := url.JoinPath(ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix)
+	if err != nil {
+		panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
+	}
+	return uri
+	// return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
 }
 
 func startCallbackServer() (*http.Server, chan authCodes, error) {

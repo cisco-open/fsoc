@@ -28,9 +28,9 @@ import (
 var requiredSettings = map[string][]string{
 	config.AuthMethodNone:             {},
 	config.AuthMethodLocal:            {"LocalAuthOptions.AppdPty", "LocalAuthOptions.AppdPid", "LocalAuthOptions.AppdTid"},
-	config.AuthMethodOAuth:            {"Server"},
-	config.AuthMethodServicePrincipal: {"SecretFile"},      // tenant and server can usually be obtained from the file (new, JSON format)
-	config.AuthMethodJWT:              {"Server", "Token"}, // tenant is desired but may not be mandatory for all requests
+	config.AuthMethodOAuth:            {"URL"},
+	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file (new, JSON format)
+	config.AuthMethodJWT:              {"URL", "Token"}, // tenant is desired but may not be mandatory for all requests
 }
 
 // fieldToFlag maps a config.Context field to CLI flag name, so that we can display better
@@ -48,14 +48,19 @@ var fieldToFlag = map[string]string{
 
 // Login performs a login into the platform API and saves the provided access token.
 // Login respects different access profile types (when supported) to provide the correct
-// login mechanism for each. Currently, only service principal is supported; in the future
-// we expect to support no-auth (for development environments) and SSO/OAuth login using
-// the same user credentials as the browser login.
+// login mechanism for each.
 func Login() error {
+	callCtx := newCallContext()
+	defer callCtx.stopSpinner(false) // ensure not running when returning
+
+	return login(callCtx)
+}
+
+func login(callCtx *callContext) error {
 	log.Infof("Login is forced in order to get a valid access token")
 
-	// get and check current context for required fields
-	cfg := config.GetCurrentContext()
+	// check current context for required fields
+	cfg := callCtx.cfg
 	if err := checkConfigForAuth(cfg); err != nil {
 		return err
 	}
@@ -69,9 +74,9 @@ func Login() error {
 	case config.AuthMethodJWT:
 		authErr = nil // nothing to do (TODO: we may check its validity by executing a no-op request)
 	case config.AuthMethodServicePrincipal:
-		authErr = servicePrincipalLogin(cfg)
+		authErr = servicePrincipalLogin(callCtx)
 	case config.AuthMethodOAuth:
-		authErr = oauthLogin(cfg)
+		authErr = oauthLogin(callCtx)
 	default:
 		panic(fmt.Sprintf("bug: unhandled authentication method %q", cfg.AuthMethod))
 	}
@@ -81,6 +86,9 @@ func Login() error {
 
 	// update current context with logged in credentials (token(s)) to use
 	config.ReplaceCurrentContext(cfg)
+
+	// reload context
+	callCtx.cfg = config.GetCurrentContext()
 
 	return nil
 }

@@ -75,7 +75,7 @@ func getObject(url string, headers map[string]string) StatusItem {
 	var res ResponseBlob
 	var emptyData StatusItem
 
-	err := api.HTTPGet(url, &res, &api.Options{Headers: headers})
+	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
 
 	if err != nil {
 		log.Fatalf("Error fetching status object %q: %v", url, err)

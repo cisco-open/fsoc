@@ -15,7 +15,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,14 +30,14 @@ import (
 const RESOLVER_HOST = "observe-tenant-lookup-api"
 
 // resolveTenant uses the server/url (vanity url) to obtain the tenant ID
-func resolveTenant(ctx *config.Context) (string, error) {
+func resolveTenant(ctx *callContext) (string, error) {
 	// find resolver endpoint based on server vanity url
-	resolverUri, err := computeResolverEndpoint(ctx)
+	resolverUri, err := computeResolverEndpoint(ctx.cfg)
 	if err != nil {
 		return "", err
 	}
 
-	log.Infof("Looking up tenant ID for %v", ctx.URL)
+	log.Infof("Looking up tenant ID for %v", ctx.cfg.URL)
 
 	// create a GET HTTP request
 	client := &http.Client{}
@@ -48,7 +47,9 @@ func resolveTenant(ctx *config.Context) (string, error) {
 	}
 
 	// execute request
+	ctx.startSpinner("Tenant ID resolution")
 	resp, err := client.Do(req)
+	ctx.stopSpinner(err == nil && resp.StatusCode/100 == 2)
 	if err != nil {
 		return "", fmt.Errorf("GET request to %q failed: %v", req.URL, err.Error())
 	}
@@ -70,15 +71,7 @@ func resolveTenant(ctx *config.Context) (string, error) {
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
 	if resp.StatusCode/100 != 2 {
-		var errobj any
-
-		// try to unmarshal JSON
-		err := json.Unmarshal(respBytes, &errobj)
-		if err != nil {
-			// process as a string instead, ignore parsing error
-			return "", fmt.Errorf("Error response: `%v`", bytes.NewBuffer(respBytes).String())
-		}
-		return "", fmt.Errorf("Error response: %+v", errobj)
+		return "", parseIntoError(resp, respBytes)
 	}
 
 	// parse and update tenant ID
@@ -109,8 +102,7 @@ func computeResolverEndpoint(ctx *config.Context) (string, error) {
 	elements[1] = "saas"
 	originalHost := uri.Host
 	uri.Host = strings.Join(elements, ".")
-	//TODO: enable for Go 1.19
-	// uri = uri.JoinPath("tenants", "lookup", ctx.Server)
-	uri.Path += "/tenants/lookup/" + originalHost // use this until Go 1.19 is supported in building
+	uri = uri.JoinPath("tenants", "lookup", originalHost)
+	// uri.Path += "/tenants/lookup/" + originalHost // use this until Go 1.19 is supported in building
 	return uri.String(), nil
 }
