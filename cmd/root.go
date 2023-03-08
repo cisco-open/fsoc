@@ -19,8 +19,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/apex/log"
+	"github.com/apex/log/handlers/cli"
+	"github.com/apex/log/handlers/json"
+	"github.com/apex/log/handlers/multi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -76,6 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
+	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -120,6 +125,12 @@ func helperFlagFormatter(fs *pflag.FlagSet) string {
 // preExecHook is executed after the command line is parsed but
 // before the command's handler is executed
 func preExecHook(cmd *cobra.Command, args []string) {
+	logLocation, _ := cmd.Flags().GetString("log")
+	var file *os.File
+	_ = os.Truncate(logLocation, 0)
+	file, _ = os.Create(logLocation)
+	log.SetHandler(multi.New(cli.New(os.Stderr), json.New(file)))
+
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
 		log.SetLevel(log.InfoLevel)
 	} else {
