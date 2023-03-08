@@ -27,6 +27,7 @@ import (
 // requiredSettings defines what config.Context fields are required for each authentication method
 var requiredSettings = map[string][]string{
 	config.AuthMethodNone:             {},
+	config.AuthMethodLocal:            {"LocalAuthOptions.AppdPty", "LocalAuthOptions.AppdPid", "LocalAuthOptions.AppdTid"},
 	config.AuthMethodOAuth:            {"URL"},
 	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file (new, JSON format)
 	config.AuthMethodJWT:              {"URL", "Token"}, // tenant is desired but may not be mandatory for all requests
@@ -35,11 +36,14 @@ var requiredSettings = map[string][]string{
 // fieldToFlag maps a config.Context field to CLI flag name, so that we can display better
 // help/error message for missing fields
 var fieldToFlag = map[string]string{
-	"Server":     "server",
-	"Token":      "token",
-	"SecretFile": "secret-filer",
-	"AuthMethod": "auth",
-	"Tenant":     "tenant",
+	"Server":                   "server",
+	"Token":                    "token",
+	"SecretFile":               "secret-filer",
+	"AuthMethod":               "auth",
+	"Tenant":                   "tenant",
+	"LocalAuthOptions.AppdPty": "appd-pty",
+	"LocalAuthOptions.AppdPid": "appd-pid",
+	"LocalAuthOptions.AppdTid": "appd-tid",
 }
 
 // Login performs a login into the platform API and saves the provided access token.
@@ -63,6 +67,8 @@ func login(callCtx *callContext) error {
 
 	var authErr error
 	switch cfg.AuthMethod {
+	case config.AuthMethodLocal:
+		authErr = nil
 	case config.AuthMethodNone:
 		authErr = nil // nothing to do
 	case config.AuthMethodJWT:
@@ -92,10 +98,19 @@ func nonZeroStructFields(theStruct *config.Context) []string {
 		return []string{}
 	}
 	structValue := reflect.ValueOf(*theStruct) // must be a struct, bug otherwise
+	return recursiveWalkThrough("", structValue)
+}
+
+func recursiveWalkThrough(prefix string, value reflect.Value) []string {
 	nonZeroFields := []string{}
-	for _, field := range reflect.VisibleFields(structValue.Type()) {
-		if !structValue.FieldByIndex(field.Index).IsZero() {
-			nonZeroFields = append(nonZeroFields, field.Name)
+	for _, field := range reflect.VisibleFields(value.Type()) {
+		currentField := value.FieldByIndex(field.Index)
+		if !currentField.IsZero() {
+			nonZeroFields = append(nonZeroFields, prefix+field.Name)
+			if currentField.Kind() == reflect.Struct {
+				nestedFields := recursiveWalkThrough(field.Name+".", value.FieldByIndex(field.Index))
+				nonZeroFields = append(nonZeroFields, nestedFields...)
+			}
 		}
 	}
 	return nonZeroFields

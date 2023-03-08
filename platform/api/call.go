@@ -132,6 +132,10 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add("Authorization", "Bearer "+cfg.Token)
 	}
 
+	if cfg.AuthMethod == config.AuthMethodLocal {
+		cfg.LocalAuthOptions.AddHeaders(req)
+	}
+
 	// add explicit headers
 	for k, v := range headers {
 		req.Header.Add(k, v)
@@ -226,7 +230,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 
 	// ensure spinner is stopped, API call has succeeded
 	callCtx.stopSpinner(true)
-  
+
 	// process body
 	contentType := resp.Header.Get("content-type")
 	if method != "DELETE" {

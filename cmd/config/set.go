@@ -50,6 +50,9 @@ func newCmdConfigSet() *cobra.Command {
 		Annotations: map[string]string{AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
 	}
+	cmd.Flags().String(AppdPid, "", "[Local auth type only]. The pid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
+	cmd.Flags().String(AppdTid, "", "[Local auth type only]. The tid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
+	cmd.Flags().String(AppdPty, "", "[Local auth type only]. The pty to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
 	cmd.Flags().String("server", "", "Set server host name")
 	_ = cmd.Flags().MarkDeprecated("server", "The --server flag is deprecated, please use --url instead.")
@@ -177,6 +180,21 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			log.Fatalf(`Invalid --auth method %q; must be one of {"%v"}`, val, strings.Join(GetAuthMethodsStringList(), `", "`))
 		}
 		ctxPtr.AuthMethod = val
+	}
+
+	if ctxPtr.AuthMethod == AuthMethodLocal {
+		if flags.Changed(AppdPid) {
+			pid, _ := flags.GetString(AppdPid)
+			ctxPtr.LocalAuthOptions.AppdPid = pid
+		}
+		if flags.Changed(AppdPty) {
+			pty, _ := flags.GetString(AppdPty)
+			ctxPtr.LocalAuthOptions.AppdPty = pty
+		}
+		if flags.Changed(AppdTid) {
+			tid, _ := flags.GetString(AppdTid)
+			ctxPtr.LocalAuthOptions.AppdTid = tid
+		}
 	}
 
 	// upgrade config format from CsvFile to SecretFile, opportunistically using the update
