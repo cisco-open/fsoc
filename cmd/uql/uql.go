@@ -185,7 +185,9 @@ func printProblemDescription(cmd *cobra.Command, problem uqlProblem, inputQuery 
 		}
 		cmd.Printf("Error in the query:\n%s\n\n", highlightError(query, problem.errorDetails[0]))
 	}
-	printErrorDetail(cmd, problem.errorDetails[0])
+	if problem.errorDetails != nil && len(problem.errorDetails) > 0 {
+		printErrorDetail(cmd, problem.errorDetails[0])
+	}
 }
 
 func printErrorDetail(cmd *cobra.Command, detail errorDetail) {
