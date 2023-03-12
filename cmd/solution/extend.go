@@ -35,16 +35,13 @@ var solutionExtendCmd = &cobra.Command{
 Example: 
   fsoc solution extend --add-knowledge=<knowldgetypename>`,
 
-	Run:              addSolutionComponent,
+	Run:              extendSolution,
 	TraverseChildren: true,
 }
 
 // Planned options:
-// --add-service - Flag to add a new service component to the current solution package
-// --add-knowledge - Flag to add a new knowledge type component to the current solution package
 // --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
 // --add-dash-ui - Flag to add a new user experience component to the current solution package
-// --add-metric - Flag to add a new metric type component to the current solution package
 
 func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
@@ -63,13 +60,7 @@ func getSolutionExtendCmd() *cobra.Command {
 
 }
 
-func addSolutionComponent(cmd *cobra.Command, args []string) {
-
-	// manifestFile, err := os.Open("manifest.json")
-	// if err != nil {
-	// 	output.PrintCmdStatus("Can't find the manifest.json, run this command from your solution package root folder")
-	// 	return
-	// }
+func extendSolution(cmd *cobra.Command, args []string) {
 	var err error
 
 	manifestFile := openFile("manifest.json")
@@ -107,41 +98,21 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-service") {
 		componentName, _ := cmd.Flags().GetString("add-service")
 		componentName = strings.ToLower(componentName)
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s service component to %s's solution package folder structure... \n", componentName, manifest.Name))
 		folderName := "services"
-		fileName := fmt.Sprintf("%s.json", componentName)
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
-
-		appendDependency("zodiac", manifest)
-
-		serviceComponentDef := &ComponentDef{
-			Type:        "zodiac:function",
-			ObjectsFile: fmt.Sprintf("services/%s", fileName),
-		}
-
-		manifest.Objects = append(manifest.Objects, *serviceComponentDef)
-		bytes, _ := json.MarshalIndent(manifest, "", "  ")
-		err := os.WriteFile("./manifest.json", bytes, 0644)
-		if err != nil {
-			log.Fatalf("Failed to update manifest.json file to reflect new service component: %v", err)
-		}
-
-		serviceComp := getServiceComponent(componentName)
-		createComponentFile(serviceComp, folderName, fileName)
+		addNewComponent(cmd, manifest, folderName, componentName, "zodiac:function")
 	}
 
 	if cmd.Flags().Changed("add-entity") {
 		componentName, _ := cmd.Flags().GetString("add-entity")
 		componentName = strings.ToLower(componentName)
-		folderName := "model"
-
-		addFmmEntity(cmd, manifest, folderName, componentName)
+		folderName := "model/entities"
+		addNewComponent(cmd, manifest, folderName, componentName, "fmm:entity")
 	}
 
 	if cmd.Flags().Changed("add-resourceMapping") {
 		entityName, _ := cmd.Flags().GetString("add-resourceMapping")
 		entityName = strings.ToLower(entityName)
-		folderName := "model"
+		folderName := "model/entities"
 
 		addFmmResourceMapping(cmd, manifest, folderName, entityName)
 	}
@@ -149,17 +120,16 @@ func addSolutionComponent(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-metric") {
 		componentName, _ := cmd.Flags().GetString("add-metric")
 		componentName = strings.ToLower(componentName)
-		folderName := "model"
-
-		addFmmMetric(cmd, manifest, folderName, componentName)
+		folderName := "model/metrics"
+		addNewComponent(cmd, manifest, folderName, componentName, "fmm:metric")
 	}
 
 	if cmd.Flags().Changed("add-event") {
 		componentName, _ := cmd.Flags().GetString("add-event")
 		componentName = strings.ToLower(componentName)
-		folderName := "model"
+		folderName := "model/events"
 
-		addFmmEvent(cmd, manifest, folderName, componentName)
+		addNewComponent(cmd, manifest, folderName, componentName, "fmm:event")
 	}
 
 }
@@ -233,6 +203,66 @@ func addFmmResourceMapping(cmd *cobra.Command, manifest *Manifest, folderName, e
 	createSolutionManifestFile(".", manifest)
 }
 
+func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, componentName, componentType string) {
+	if strings.Index(componentType, "fmm") >= 0 {
+		checkCreateSolutionNamespace(cmd, manifest, "model/namespaces")
+	}
+	var newComp interface{}
+
+	// Updating manifest to referece new component definition folder
+	addCompDefToManifest(cmd, manifest, componentType, folderName)
+
+	switch componentType {
+	case "zodiac:function":
+		{
+			newComp = getServiceComponent(componentName)
+		}
+	case "fmm:entity":
+		{
+			newComp = getEntityComponent(componentName, manifest.Name)
+		}
+	case "fmm:resourceMapping":
+		{
+			entityName, _ := cmd.Flags().GetString("add-resourceMapping")
+			entityName = strings.ToLower(entityName)
+			newComp = getResourceMap(nil, entityName, manifest)
+		}
+	case "fmm:metric":
+		{
+			newComp = getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name)
+		}
+	case "fmm:event":
+		{
+			newComp = getEventComponent(componentName, manifest.Name)
+		}
+	}
+
+	// Creating the new component definition file
+	fileName := componentName + ".json"
+	createComponentFile(newComp, folderName, fileName)
+	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
+	statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
+	output.PrintCmdStatus(cmd, statusMsg)
+}
+
+func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
+	componentDef := getComponentDef(componentType, manifest)
+	if componentDef.Type == "" {
+		solutionDep := strings.Split(componentType, ":")[0]
+		appendDependency(solutionDep, manifest)
+
+		componentDef := &ComponentDef{
+			Type:       componentType,
+			ObjectsDir: folderName,
+		}
+
+		manifest.Objects = append(manifest.Objects, *componentDef)
+		createSolutionManifestFile(".", manifest)
+		statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+		output.PrintCmdStatus(cmd, statusMsg)
+	}
+}
+
 func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
 	var filePath string
 	checkCreateSolutionNamespace(cmd, manifest, folderName)
@@ -300,6 +330,10 @@ func addFmmEvent(cmd *cobra.Command, manifest *Manifest, folderName, componentNa
 }
 
 func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
+	return nil
+}
+
+func getResourceMapFromArray(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
 	hasEntity := false
 	entityComponentDef := getComponentDef("fmm:entity", manifest)
 	var entitiesArray []*FmmEntity
@@ -383,6 +417,16 @@ func getComponentDef(typeName string, manifest *Manifest) *ComponentDef {
 		}
 	}
 	return &componentDef
+}
+
+func getComponentDefs(typeName string, manifest *Manifest) []ComponentDef {
+	var componentDefs []ComponentDef
+	for _, compDefs := range manifest.Objects {
+		if compDefs.Type == typeName {
+			componentDefs = append(componentDefs, compDefs)
+		}
+	}
+	return componentDefs
 }
 
 func getNamespaceComponent(solutionName string) *FmmNamespace {
@@ -542,21 +586,24 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 }
 
 func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
-	namespaceComponentDef := getComponentDef("fmm:namespace", manifest)
-	if namespaceComponentDef.Type == "" {
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s namespace component to %s's solution package folder structure... \n", manifest.Name, manifest.Name))
-		appendFolder(folderName)
-		appendDependency("fmm", manifest)
-		namespaceCompDef := &ComponentDef{
-			Type:        "fmm:namespace",
-			ObjectsFile: "model/namespace.json",
-		}
-		manifest.Objects = append(manifest.Objects, *namespaceCompDef)
-		namespaceComp := getNamespaceComponent(manifest.Name)
-		createComponentFile(namespaceComp, folderName, "namespace.json")
-		createSolutionManifestFile(".", manifest)
-		output.PrintCmdStatus(cmd, "Added model/namespace.json file to your solution \n")
+	componentType := "fmm:namespace"
+	namespaceName := manifest.Name
+	fileName := namespaceName + ".json"
+	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
+
+	componentDef := getComponentDef(componentType, manifest)
+
+	if componentDef.Type == "" {
+		addCompDefToManifest(cmd, manifest, componentType, folderName)
 	}
+
+	if _, err := os.Stat(objFilePath); os.IsNotExist(err) {
+		namespaceComp := getNamespaceComponent(namespaceName)
+		createComponentFile(namespaceComp, folderName, fileName)
+		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
+		output.PrintCmdStatus(cmd, statusMsg)
+	}
+
 }
 
 func getStringfiedArray(array []string) string {

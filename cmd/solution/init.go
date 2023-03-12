@@ -184,8 +184,9 @@ func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
 }
 
 func createComponentFile(compDef any, folderName string, fileName string) {
+
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
+		if err := os.MkdirAll(folderName, os.ModePerm); err != nil {
 			log.Fatalf("Failed to create solution component directory %q: %v", folderName, err)
 		}
 	}
