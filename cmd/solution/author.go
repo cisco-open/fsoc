@@ -112,11 +112,11 @@ func authorRun(cmd *cobra.Command, cfg *config.Context, dir string, local bool) 
 		}
 	} else {
 		// point to authoring tool in tenant's UI
-		browserUrl = &url.URL{
-			Scheme: "https",
-			Host:   cfg.Server,
-			Path:   authoringToolPath,
+		browserUrl, err = url.Parse(cfg.URL)
+		if err != nil {
+			log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", cfg.URL, err)
 		}
+		browserUrl.Path = authoringToolPath
 	}
 	queryParams := url.Values{
 		"url":      {callbackUrl},

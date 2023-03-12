@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
@@ -37,8 +40,10 @@ var solutionPushCmd = &cobra.Command{
 
 Examples:
   fsoc solution push
+  fsoc solution push -w
+  fsoc solution push -w=60
   fsoc solution push --solution-bundle=mysolution.zip
-  
+
 The first command deploys a solution from the current directory. The second command
 deploys a solution from an existing archive file.`,
 	Args:             cobra.ExactArgs(0),
@@ -50,12 +55,20 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
 
+	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed (not supported when uisng --solution-bundle)")
+	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
+
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	return solutionPushCmd
 
 }
 
 func pushSolution(cmd *cobra.Command, args []string) {
 	manifestPath := ""
+	var solutionName string
+	var solutionVersion string
+
+	waitFlag, _ := cmd.Flags().GetInt("wait")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
 	if solutionBundlePath == "" {
@@ -68,7 +81,9 @@ func pushSolution(cmd *cobra.Command, args []string) {
 			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
 		}
 
-		_, _ = getSolutionManifest(manifestPath)
+		manifest, _ := getSolutionManifest(manifestPath)
+		solutionName = manifest.Name
+		solutionVersion = manifest.SolutionVersion
 
 		solutionArchive := generateZipNoCmd(manifestPath)
 		solutionArchivePath = filepath.Base(solutionArchive.Name())
@@ -120,6 +135,43 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	if err != nil {
 		log.Fatalf("Solution command failed: %v", err)
+	}
+
+	if waitFlag >= 0 && solutionName != "" && solutionVersion != "" {
+		var duration string
+		if waitFlag > 0 {
+			duration = fmt.Sprintf("for %d seconds", waitFlag)
+		} else {
+			duration = "indefinitely"
+		}
+		fmt.Printf("Waiting %s for solution %s version %s to be installed...", duration, solutionName, solutionVersion)
+
+		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s"`, solutionName, solutionVersion)
+		query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filter))
+
+		headers := map[string]string{
+			"layer-type": "TENANT",
+			"layer-id":   config.GetCurrentContext().Tenant,
+		}
+		var statusData StatusData
+		waitStartTime := time.Now()
+		for statusData.SolutionVersion != solutionVersion {
+			if waitFlag > 0 {
+				if time.Since(waitStartTime).Seconds() > float64(waitFlag) {
+					fmt.Println("Timeout")
+					log.Fatalf("Failed to validate solution %s version %s was installed", solutionName, solutionVersion)
+				}
+			}
+			fmt.Printf(".")
+			status := getObject(fmt.Sprintf(getSolutionInstallUrl(), query), headers)
+			statusData = status.StatusData
+			time.Sleep(3 * time.Second)
+		}
+		if !statusData.SuccessfulInstall {
+			fmt.Println("Failed")
+			log.Fatalf("Installation failed: %s", statusData.InstallMessage)
+		}
+		fmt.Println(" Done")
 	}
 	// message = fmt.Sprintf("Solution %s - %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
 	message = fmt.Sprintf("Solution bundle %q was successfully deployed.\n", solutionArchivePath)

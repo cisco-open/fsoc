@@ -27,45 +27,56 @@ import (
 // requiredSettings defines what config.Context fields are required for each authentication method
 var requiredSettings = map[string][]string{
 	config.AuthMethodNone:             {},
-	config.AuthMethodOAuth:            {"Server"},
-	config.AuthMethodServicePrincipal: {"SecretFile"},      // tenant and server can usually be obtained from the file (new, JSON format)
-	config.AuthMethodJWT:              {"Server", "Token"}, // tenant is desired but may not be mandatory for all requests
+	config.AuthMethodLocal:            {"LocalAuthOptions.AppdPty", "LocalAuthOptions.AppdPid", "LocalAuthOptions.AppdTid"},
+	config.AuthMethodOAuth:            {"URL"},
+	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file (new, JSON format)
+	config.AuthMethodJWT:              {"URL", "Token"}, // tenant is desired but may not be mandatory for all requests
 }
 
 // fieldToFlag maps a config.Context field to CLI flag name, so that we can display better
 // help/error message for missing fields
 var fieldToFlag = map[string]string{
-	"Server":     "server",
-	"Token":      "token",
-	"SecretFile": "secret-filer",
-	"AuthMethod": "auth",
-	"Tenant":     "tenant",
+	"Server":                   "server",
+	"Token":                    "token",
+	"SecretFile":               "secret-filer",
+	"AuthMethod":               "auth",
+	"Tenant":                   "tenant",
+	"LocalAuthOptions.AppdPty": "appd-pty",
+	"LocalAuthOptions.AppdPid": "appd-pid",
+	"LocalAuthOptions.AppdTid": "appd-tid",
 }
 
 // Login performs a login into the platform API and saves the provided access token.
 // Login respects different access profile types (when supported) to provide the correct
-// login mechanism for each. Currently, only service principal is supported; in the future
-// we expect to support no-auth (for development environments) and SSO/OAuth login using
-// the same user credentials as the browser login.
+// login mechanism for each.
 func Login() error {
+	callCtx := newCallContext()
+	defer callCtx.stopSpinner(false) // ensure not running when returning
+
+	return login(callCtx)
+}
+
+func login(callCtx *callContext) error {
 	log.Infof("Login is forced in order to get a valid access token")
 
-	// get and check current context for required fields
-	cfg := config.GetCurrentContext()
+	// check current context for required fields
+	cfg := callCtx.cfg
 	if err := checkConfigForAuth(cfg); err != nil {
 		return err
 	}
 
 	var authErr error
 	switch cfg.AuthMethod {
+	case config.AuthMethodLocal:
+		authErr = nil
 	case config.AuthMethodNone:
 		authErr = nil // nothing to do
 	case config.AuthMethodJWT:
 		authErr = nil // nothing to do (TODO: we may check its validity by executing a no-op request)
 	case config.AuthMethodServicePrincipal:
-		authErr = servicePrincipalLogin(cfg)
+		authErr = servicePrincipalLogin(callCtx)
 	case config.AuthMethodOAuth:
-		authErr = oauthLogin(cfg)
+		authErr = oauthLogin(callCtx)
 	default:
 		panic(fmt.Sprintf("bug: unhandled authentication method %q", cfg.AuthMethod))
 	}
@@ -76,6 +87,9 @@ func Login() error {
 	// update current context with logged in credentials (token(s)) to use
 	config.ReplaceCurrentContext(cfg)
 
+	// reload context
+	callCtx.cfg = config.GetCurrentContext()
+
 	return nil
 }
 
@@ -84,10 +98,19 @@ func nonZeroStructFields(theStruct *config.Context) []string {
 		return []string{}
 	}
 	structValue := reflect.ValueOf(*theStruct) // must be a struct, bug otherwise
+	return recursiveWalkThrough("", structValue)
+}
+
+func recursiveWalkThrough(prefix string, value reflect.Value) []string {
 	nonZeroFields := []string{}
-	for _, field := range reflect.VisibleFields(structValue.Type()) {
-		if !structValue.FieldByIndex(field.Index).IsZero() {
-			nonZeroFields = append(nonZeroFields, field.Name)
+	for _, field := range reflect.VisibleFields(value.Type()) {
+		currentField := value.FieldByIndex(field.Index)
+		if !currentField.IsZero() {
+			nonZeroFields = append(nonZeroFields, prefix+field.Name)
+			if currentField.Kind() == reflect.Struct {
+				nestedFields := recursiveWalkThrough(field.Name+".", value.FieldByIndex(field.Index))
+				nonZeroFields = append(nonZeroFields, nestedFields...)
+			}
 		}
 	}
 	return nonZeroFields
