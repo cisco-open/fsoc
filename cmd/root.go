@@ -18,13 +18,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/apex/log/handlers/multi"
+	"github.com/cisco-open/fsoc/platform/api"
 	"os"
 	"path"
 
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/cli"
 	"github.com/apex/log/handlers/json"
-	"github.com/apex/log/handlers/multi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -129,13 +129,16 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	var file *os.File
 	_ = os.Truncate(logLocation, 0)
 	file, _ = os.Create(logLocation)
-	log.SetHandler(multi.New(cli.New(os.Stderr), json.New(file)))
+	jsonHandler := json.New(file)
+	var cliHandler log.Handler
 
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
-		log.SetLevel(log.InfoLevel)
+		cliHandler = api.New(os.Stderr, log.InfoLevel)
 	} else {
-		log.SetLevel(log.WarnLevel)
+		cliHandler = api.New(os.Stderr, log.WarnLevel)
 	}
+	log.SetLevel(log.InfoLevel)
+	log.SetHandler(multi.New(cliHandler, jsonHandler))
 
 	log.WithFields(version.GetVersion()).Info("fsoc version")
 
