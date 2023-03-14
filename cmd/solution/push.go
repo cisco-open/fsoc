@@ -123,6 +123,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	headers := map[string]string{
 		"stage":        "STABLE",
+		"tag":          "stable",
 		"operation":    "UPLOAD",
 		"Content-Type": writer.FormDataContentType(),
 	}
