@@ -18,19 +18,19 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/apex/log/handlers/multi"
-	"github.com/cisco-open/fsoc/platform/api"
 	"os"
 	"path"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
+	"github.com/apex/log/handlers/multi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var cfgFile string

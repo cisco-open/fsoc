@@ -1,9 +1,10 @@
 package api
 
 import (
+	"io"
+
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
-	"io"
 )
 
 type Handler struct {
