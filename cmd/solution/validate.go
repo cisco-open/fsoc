@@ -115,6 +115,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	headers := map[string]string{
 		"stage":        "STABLE",
+		"tag":          "stable",
 		"operation":    "VALIDATE",
 		"Content-Type": writer.FormDataContentType(),
 	}
