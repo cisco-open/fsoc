@@ -140,7 +140,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	file, err := os.Create(logLocation)
 	if err != nil {
 		log.Warnf("failed to create log at %s", logLocation)
-		log.SetHandler(multi.New(cliHandler))
+		log.SetHandler(cliHandler)
 	} else {
 		jsonHandler := json.New(file)
 		log.SetHandler(multi.New(cliHandler, jsonHandler))
