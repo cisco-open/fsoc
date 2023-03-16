@@ -127,12 +127,6 @@ func helperFlagFormatter(fs *pflag.FlagSet) string {
 func preExecHook(cmd *cobra.Command, args []string) {
 	logLocation, _ := cmd.Flags().GetString("log")
 	var file *os.File
-	_ = os.Truncate(logLocation, 0)
-	file, err := os.Create(logLocation)
-	if err != nil {
-		log.Warnf("failed to create log at %s", logLocation)
-	}
-	jsonHandler := json.New(file)
 	var cliHandler log.Handler
 
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
@@ -141,7 +135,16 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		cliHandler = logfilter.New(os.Stderr, log.WarnLevel)
 	}
 	log.SetLevel(log.InfoLevel)
-	log.SetHandler(multi.New(cliHandler, jsonHandler))
+
+	_ = os.Truncate(logLocation, 0)
+	file, err := os.Create(logLocation)
+	if err != nil {
+		log.Warnf("failed to create log at %s", logLocation)
+		log.SetHandler(multi.New(cliHandler))
+	} else {
+		jsonHandler := json.New(file)
+		log.SetHandler(multi.New(cliHandler, jsonHandler))
+	}
 
 	log.WithFields(version.GetVersion()).Info("fsoc version")
 
