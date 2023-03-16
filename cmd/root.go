@@ -30,7 +30,7 @@ import (
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
-	"github.com/cisco-open/fsoc/platform/api"
+	"github.com/cisco-open/fsoc/logfilter"
 )
 
 var cfgFile string
@@ -128,14 +128,17 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	logLocation, _ := cmd.Flags().GetString("log")
 	var file *os.File
 	_ = os.Truncate(logLocation, 0)
-	file, _ = os.Create(logLocation)
+	file, err := os.Create(logLocation)
+	if err != nil {
+		log.Warnf("failed to create log at %s", logLocation)
+	}
 	jsonHandler := json.New(file)
 	var cliHandler log.Handler
 
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
-		cliHandler = api.New(os.Stderr, log.InfoLevel)
+		cliHandler = logfilter.New(os.Stderr, log.InfoLevel)
 	} else {
-		cliHandler = api.New(os.Stderr, log.WarnLevel)
+		cliHandler = logfilter.New(os.Stderr, log.WarnLevel)
 	}
 	log.SetLevel(log.InfoLevel)
 	log.SetHandler(multi.New(cliHandler, jsonHandler))
@@ -161,7 +164,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
 
 	// try to read the config file.and profile
-	err := viper.ReadInConfig()
+	err = viper.ReadInConfig()
 	if err == nil {
 		profile := config.GetCurrentProfileName()
 		exists := config.GetCurrentContext() != nil
