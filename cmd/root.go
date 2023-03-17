@@ -19,14 +19,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/apex/log"
+	"github.com/apex/log/handlers/json"
+	"github.com/apex/log/handlers/multi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
+	"github.com/cisco-open/fsoc/logfilter"
 )
 
 var cfgFile string
@@ -76,6 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
+	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -120,10 +125,25 @@ func helperFlagFormatter(fs *pflag.FlagSet) string {
 // preExecHook is executed after the command line is parsed but
 // before the command's handler is executed
 func preExecHook(cmd *cobra.Command, args []string) {
+	logLocation, _ := cmd.Flags().GetString("log")
+	var file *os.File
+	var cliHandler log.Handler
+
 	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
-		log.SetLevel(log.InfoLevel)
+		cliHandler = logfilter.New(os.Stderr, log.InfoLevel)
 	} else {
-		log.SetLevel(log.WarnLevel)
+		cliHandler = logfilter.New(os.Stderr, log.WarnLevel)
+	}
+	log.SetLevel(log.InfoLevel)
+
+	_ = os.Truncate(logLocation, 0)
+	file, err := os.Create(logLocation)
+	if err != nil {
+		log.Warnf("failed to create log at %s", logLocation)
+		log.SetHandler(cliHandler)
+	} else {
+		jsonHandler := json.New(file)
+		log.SetHandler(multi.New(cliHandler, jsonHandler))
 	}
 
 	log.WithFields(version.GetVersion()).Info("fsoc version")
@@ -147,7 +167,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
 
 	// try to read the config file.and profile
-	err := viper.ReadInConfig()
+	err = viper.ReadInConfig()
 	if err == nil {
 		profile := config.GetCurrentProfileName()
 		exists := config.GetCurrentContext() != nil
