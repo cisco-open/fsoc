@@ -64,6 +64,7 @@ type Context struct {
 	CsvFile          string           `json:"csv_file,omitempty" yaml:"csv_file,omitempty"`
 	SecretFile       string           `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file"`
 	LocalAuthOptions LocalAuthOptions `json:"auth-options,omitempty" yaml:"auth-options,omitempty" mapstructure:"auth-options"`
+	OpenAIApiKey     string           `json:"openai-api-key,omitempty" yaml:"openai-api-key,omitempty" mapstructure:"openai-api-key"`
 }
 
 type LocalAuthOptions struct {

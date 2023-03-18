@@ -17,10 +17,16 @@ package chat
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 )
+
+func init() {
+	// Add the chat command to the root command
+}
 
 var chatCmd = &cobra.Command{
 	Use:   "chat",
@@ -28,7 +34,11 @@ var chatCmd = &cobra.Command{
 	Long:  `This command allows you to interact with ChatGPT by sending messages.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get the API key from the environment variable or config file
-		apiKey := "your token"
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			cfg := config.GetCurrentContext()
+			apiKey = cfg.OpenAIApiKey
+		}
 
 		// Initialize the OpenAI client
 		client := openai.NewClient(apiKey)
@@ -58,18 +68,6 @@ var chatCmd = &cobra.Command{
 
 		fmt.Println(resp.Choices[0].Message.Content)
 	},
-}
-
-func init() {
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// loginCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// loginCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 func NewSubCmd() *cobra.Command {
