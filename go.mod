@@ -72,3 +72,7 @@ require (
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
+
+require (
+	github.com/sashabaranov/go-openai v1.5.3
+)
