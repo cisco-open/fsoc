@@ -37,6 +37,8 @@ const (
 	AuthMethodJWT = "jwt"
 	// Use a service principal
 	AuthMethodServicePrincipal = "service-principal"
+	// Use an agent principal
+	AuthMethodAgentPrincipal = "agent-principal"
 	// Use Session Manager (experimental)
 	AuthMethodSessionManager = "session-manager"
 	// Use for local setup
@@ -86,9 +88,10 @@ type configFileContents struct {
 func GetAuthMethodsStringList() []string {
 	return []string{
 		AuthMethodNone,
-		AuthMethodLocal,
 		AuthMethodOAuth,
-		AuthMethodJWT,
 		AuthMethodServicePrincipal,
+		AuthMethodAgentPrincipal,
+		AuthMethodJWT,
+		AuthMethodLocal,
 	}
 }

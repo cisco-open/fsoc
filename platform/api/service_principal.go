@@ -23,10 +23,10 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
+	"gopkg.in/yaml.v3"
 )
 
 type tokenStruct struct {
@@ -43,11 +43,33 @@ type credentialsStruct struct {
 	Secret   string `json:"Secret"`
 }
 
+type helmCredentialsStruct struct {
+	ClientID     string `yaml:"clientId"`
+	ClientSecret string `yaml:"clientSecret"`
+	DataEndpoint string `yaml:"endpoint"`
+	TokenURL     string `yaml:"tokenUrl"`
+}
+
+type helmSettingsStruct struct {
+	Global      any                   `yaml:"global,omitempty"`
+	Credentials helmCredentialsStruct `yaml:"appdynamics-otel-collector,omitempty"`
+}
+
 // servicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
 func servicePrincipalLogin(ctx *callContext) error {
-	log.Infof("Starting login flow using a service principal")
+	return agentOrServicePrincipalLogin(ctx, "service principal")
+}
 
-	// read service principal credentials file
+// agentPrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
+func agentPrincipalLogin(ctx *callContext) error {
+	return agentOrServicePrincipalLogin(ctx, "agent principal")
+}
+
+// agentOrServicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
+func agentOrServicePrincipalLogin(ctx *callContext, principalType string) error {
+	log.Infof("Starting login flow using %v", principalType)
+
+	// read principal credentials file
 	file := ctx.cfg.SecretFile
 	if file == "" {
 		file = ctx.cfg.CsvFile // implicitly update config schema
@@ -65,7 +87,7 @@ func servicePrincipalLogin(ctx *callContext) error {
 			return fmt.Errorf("Missing tenant ID, please specify using `fsoc config set --tenant=TENANTID`")
 		}
 		ctx.cfg.Tenant = credentials.TenantID // the new JSON credentials format has the tenant
-		log.Infof("Extracted tenant ID %q from the credentials file", ctx.cfg.Tenant)
+		log.WithField("tenantID", ctx.cfg.Tenant).Info("Extracted tenant ID from the credentials file")
 	}
 	if ctx.cfg.URL == "" {
 		if credentials.TokenURL == "" {
@@ -76,11 +98,10 @@ func servicePrincipalLogin(ctx *callContext) error {
 			return fmt.Errorf("Failed to parse server URL from the credentials token URL, %q: %v", credentials.TokenURL, err)
 		}
 		ctx.cfg.URL = urlStruct.Scheme + "://" + urlStruct.Host
-		log.Infof("Extracted server URL %q from the credentials file", ctx.cfg.URL)
+		log.WithField("url", ctx.cfg.URL).Info("Extracted server URL from the credentials file")
 	}
 
 	// create a HTTP request
-
 	url, err := url.Parse(ctx.cfg.URL)
 	if err != nil {
 		log.Fatalf("Failed to parse the url provided in context. URL: %s, err: %s", ctx.cfg.URL, err)
@@ -97,7 +118,7 @@ func servicePrincipalLogin(ctx *callContext) error {
 	req.SetBasicAuth(credentials.ClientID, credentials.Secret)
 
 	// execute request
-	ctx.startSpinner("Exchange service principal for auth token")
+	ctx.startSpinner(fmt.Sprintf("Exchange %v for auth token", principalType))
 	resp, err := client.Do(req)
 	ctx.stopSpinner(err == nil && resp.StatusCode == 200)
 	if err != nil {
@@ -135,12 +156,14 @@ func servicePrincipalLogin(ctx *callContext) error {
 }
 
 func readCredentials(file string) (*credentialsStruct, error) {
-	file = expandPath(file)
-	if strings.ToLower(path.Ext(file)) == ".csv" {
+	ext := strings.ToLower(path.Ext(file))
+	if ext == ".csv" {
 		// handle legacy format (only if .csv extension)
 		return readCsvCredentials(file)
+	} else if ext == ".yaml" { // agent principal from a helm chart
+		return readAgentHelmCredentials(file)
 	} else {
-		// assume new, json format
+		// assume new, json format, service or agent principal
 		return readJsonCredentials(file)
 	}
 }
@@ -148,21 +171,18 @@ func readCredentials(file string) (*credentialsStruct, error) {
 func readJsonCredentials(file string) (*credentialsStruct, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		log.Errorf("Failed to open the credentials JSON file %q: %v", file, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		log.Errorf("Failed to read the credentials JSON file %q: %v", file, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
 	}
 
 	var credentials credentialsStruct
 	if err = json.Unmarshal(data, &credentials); err != nil {
-		log.Errorf("Failed to parse credentials JSON file %q: %v", file, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
 	}
 
 	return &credentials, nil
@@ -211,11 +231,45 @@ func readCsvCredentials(file string) (*credentialsStruct, error) {
 	}, nil
 }
 
-// Expand ~ in the path
-func expandPath(file string) string {
-	if strings.HasPrefix(file, "~/") {
-		dirname, _ := os.UserHomeDir()
-		file = filepath.Join(dirname, file[2:])
+func readAgentHelmCredentials(file string) (*credentialsStruct, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
 	}
-	return file
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
+	}
+
+	// try to read the credentials first in the Service credentials JSON form (fall back on Agent Credentials from Helm)
+	var credentials credentialsStruct
+	if err = json.Unmarshal(data, &credentials); err != nil {
+		// try reading it as a YAML file with helm credentials for an agent
+		var helmVars helmSettingsStruct
+		err = yaml.Unmarshal(data, &helmVars)
+		if err == nil {
+			// extract credentials (incl. best effort to get the tenant ID from the token URL)
+			var tenantID string
+			tokenURL, err := url.Parse(helmVars.Credentials.TokenURL)
+			if err == nil {
+				elements := strings.Split(tokenURL.Path, "/")
+				if len(elements) >= 3 {
+					tenantID = elements[2]
+				}
+			}
+			credentials = credentialsStruct{
+				ClientID: helmVars.Credentials.ClientID,
+				Secret:   helmVars.Credentials.ClientSecret,
+				TokenURL: helmVars.Credentials.TokenURL,
+				TenantID: tenantID,
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+		}
+	}
+
+	return &credentials, nil
 }

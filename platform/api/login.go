@@ -29,7 +29,8 @@ var requiredSettings = map[string][]string{
 	config.AuthMethodNone:             {},
 	config.AuthMethodLocal:            {"LocalAuthOptions.AppdPty", "LocalAuthOptions.AppdPid", "LocalAuthOptions.AppdTid"},
 	config.AuthMethodOAuth:            {"URL"},
-	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file (new, JSON format)
+	config.AuthMethodServicePrincipal: {"SecretFile"},   // tenant and server can usually be obtained from the file
+	config.AuthMethodAgentPrincipal:   {"SecretFile"},   // tenant and server can usually be obtained from the file
 	config.AuthMethodJWT:              {"URL", "Token"}, // tenant is desired but may not be mandatory for all requests
 }
 
@@ -38,7 +39,7 @@ var requiredSettings = map[string][]string{
 var fieldToFlag = map[string]string{
 	"Server":                   "server",
 	"Token":                    "token",
-	"SecretFile":               "secret-filer",
+	"SecretFile":               "secret-file",
 	"AuthMethod":               "auth",
 	"Tenant":                   "tenant",
 	"LocalAuthOptions.AppdPty": "appd-pty",
@@ -75,6 +76,8 @@ func login(callCtx *callContext) error {
 		authErr = nil // nothing to do (TODO: we may check its validity by executing a no-op request)
 	case config.AuthMethodServicePrincipal:
 		authErr = servicePrincipalLogin(callCtx)
+	case config.AuthMethodAgentPrincipal:
+		authErr = agentPrincipalLogin(callCtx)
 	case config.AuthMethodOAuth:
 		authErr = oauthLogin(callCtx)
 	default:
