@@ -316,15 +316,3 @@ func (m *Metric) AddDataPoint(startTime, endTime int64, value float64) *Metric {
 func (m *Metric) ClearDataPoints() {
 	m.DataPoints = []*DataPoint{}
 }
-
-// Credentials - structs for credentials
-type Credentials struct {
-	Token string
-}
-
-// ExportRequest - struct for export request.
-// can put additional attributes here for future use
-type ExportRequest struct {
-	EndPoint    string
-	Credentials Credentials
-}

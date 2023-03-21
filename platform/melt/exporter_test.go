@@ -42,7 +42,6 @@ func TestBuildMetricsPayload(t *testing.T) {
 			otlpAggregationTemporality: metrics.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA,
 		},
 	}
-	expReq := newExportRequest()
 	exp := &Exporter{}
 	for _, test := range tests {
 		e.ClearMetrics()
@@ -52,7 +51,7 @@ func TestBuildMetricsPayload(t *testing.T) {
 		}
 		e.AddMetric(m)
 
-		emsr := exp.buildMetricsPayload(el, expReq)
+		emsr := exp.buildMetricsPayload(el)
 		require.NotNil(t, emsr)
 		for _, rm := range emsr.ResourceMetrics {
 			r := rm.Resource
@@ -95,7 +94,6 @@ func TestBuildLogsPayload(t *testing.T) {
 		{"error log", "error", time.Now().UnixNano(), map[string]string{"key4": "value4"}},
 	}
 
-	expReq := newExportRequest()
 	exp := &Exporter{}
 	for _, test := range tests {
 		e.ClearLogs()
@@ -105,7 +103,7 @@ func TestBuildLogsPayload(t *testing.T) {
 		l.Body = test.body
 		l.Timestamp = test.timestamp
 		l.Attributes = test.attributes
-		elsr := exp.buildLogsPayload(el, expReq)
+		elsr := exp.buildLogsPayload(el)
 		require.NotNil(t, elsr)
 
 		for _, rl := range elsr.ResourceLogs {
@@ -139,7 +137,6 @@ func TestBuildEventsPayload(t *testing.T) {
 		{"mynamespace:event1", time.Now().UnixNano(), map[string]string{"key1": "value1", "key2": "value2"}},
 	}
 
-	expReq := newExportRequest()
 	exp := &Exporter{}
 	for _, test := range tests {
 		e.ClearLogs()
@@ -147,7 +144,7 @@ func TestBuildEventsPayload(t *testing.T) {
 		l := NewEvent(test.typeName)
 		l.Timestamp = test.timestamp
 		l.Attributes = test.attributes
-		elsr := exp.buildLogsPayload(el, expReq)
+		elsr := exp.buildLogsPayload(el)
 		require.NotNil(t, elsr)
 
 		for _, rl := range elsr.ResourceLogs {
@@ -188,13 +185,4 @@ func lookupByKey(key string, kvl []*common.KeyValue) string {
 		}
 	}
 	return ""
-}
-
-func newExportRequest() ExportRequest {
-	return ExportRequest{
-		EndPoint: "https://localhost:8080",
-		Credentials: Credentials{
-			Token: "dummy",
-		},
-	}
 }

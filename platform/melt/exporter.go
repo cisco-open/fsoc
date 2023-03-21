@@ -1,11 +1,9 @@
 package melt
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -18,6 +16,8 @@ import (
 	spans "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 const (
@@ -35,8 +35,8 @@ const (
 type Exporter struct{}
 
 // ExportMetrics - export metrics
-func (exp *Exporter) ExportMetrics(ctx context.Context, req ExportRequest, entities []*Entity) error {
-	emsr := exp.buildMetricsPayload(entities, req)
+func (exp *Exporter) ExportMetrics(ctx context.Context, entities []*Entity) error {
+	emsr := exp.buildMetricsPayload(entities)
 
 	if emsr.ResourceMetrics == nil {
 		log.Info("No metrics to send")
@@ -46,12 +46,12 @@ func (exp *Exporter) ExportMetrics(ctx context.Context, req ExportRequest, entit
 	b, _ := json.Marshal(emsr)
 	log.Debugf("METRICS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathMetrics, req, emsr)
+	return exp.exportHTTP(ctx, pathMetrics, emsr)
 }
 
 // ExportLogs - export resource logs
-func (exp *Exporter) ExportLogs(ctx context.Context, req ExportRequest, entities []*Entity) error {
-	elsr := exp.buildLogsPayload(entities, req)
+func (exp *Exporter) ExportLogs(ctx context.Context, entities []*Entity) error {
+	elsr := exp.buildLogsPayload(entities)
 
 	if elsr.ResourceLogs == nil {
 		log.Info("No logs to send")
@@ -61,18 +61,18 @@ func (exp *Exporter) ExportLogs(ctx context.Context, req ExportRequest, entities
 	b, _ := json.Marshal(elsr)
 	log.Debugf("LOGS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathLogs, req, elsr)
+	return exp.exportHTTP(ctx, pathLogs, elsr)
 }
 
 // ExportEvents - export events as resource logs
 // OTEL does not distibguish between events and logs
-func (exp *Exporter) ExportEvents(ctx context.Context, req ExportRequest, entities []*Entity) error {
-	return exp.ExportLogs(ctx, req, entities)
+func (exp *Exporter) ExportEvents(ctx context.Context, entities []*Entity) error {
+	return exp.ExportLogs(ctx, entities)
 }
 
 // ExportSpans - export resource spans
-func (exp *Exporter) ExportSpans(ctx context.Context, req ExportRequest, entities []*Entity) error {
-	essr := exp.buildSpansPayload(entities, req)
+func (exp *Exporter) ExportSpans(ctx context.Context, entities []*Entity) error {
+	essr := exp.buildSpansPayload(entities)
 
 	if essr.ResourceSpans == nil {
 		log.Info("No spans to send")
@@ -82,26 +82,26 @@ func (exp *Exporter) ExportSpans(ctx context.Context, req ExportRequest, entitie
 	b, _ := json.Marshal(essr)
 	log.Debugf("SPANS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathSpans, req, essr)
+	return exp.exportHTTP(ctx, pathSpans, essr)
 }
 
-func (exp *Exporter) buildMetricsPayload(entities []*Entity, req ExportRequest) *collmetrics.ExportMetricsServiceRequest {
+func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.ExportMetricsServiceRequest {
 	emsr := &collmetrics.ExportMetricsServiceRequest{}
 
 	for _, entity := range entities {
 
 		rm := &metrics.ResourceMetrics{}
 		rm.Resource = &resource.Resource{
-			Attributes: toKeyValueList(entity.Attributes, req),
+			Attributes: toKeyValueList(entity.Attributes),
 		}
 
-		exp.addRelationships(entity.Relationships, rm, req)
+		exp.addRelationships(entity.Relationships, rm)
 
 		ilm := &metrics.ScopeMetrics{}
 
 		ml := []*metrics.Metric{}
 		for _, m := range entity.Metrics {
-			otm := exp.createOtelMetric(req, m)
+			otm := exp.createOtelMetric(m)
 
 			ml = append(ml, otm)
 		}
@@ -119,7 +119,7 @@ func (exp *Exporter) buildMetricsPayload(entities []*Entity, req ExportRequest) 
 	return emsr
 }
 
-func (exp *Exporter) addRelationships(rels []*Relationship, rm *metrics.ResourceMetrics, req ExportRequest) {
+func (exp *Exporter) addRelationships(rels []*Relationship, rm *metrics.ResourceMetrics) {
 	// add relationships
 	if len(rels) > 0 {
 		attrib := &common.KeyValue{
@@ -134,7 +134,7 @@ func (exp *Exporter) addRelationships(rels []*Relationship, rm *metrics.Resource
 			kvlv := &common.AnyValue{
 				Value: &common.AnyValue_KvlistValue{
 					KvlistValue: &common.KeyValueList{
-						Values: toKeyValueList(r.Attributes, req),
+						Values: toKeyValueList(r.Attributes),
 					},
 				},
 			}
@@ -147,7 +147,7 @@ func (exp *Exporter) addRelationships(rels []*Relationship, rm *metrics.Resource
 	}
 }
 
-func (exp *Exporter) buildLogsPayload(entities []*Entity, req ExportRequest) *colllogs.ExportLogsServiceRequest {
+func (exp *Exporter) buildLogsPayload(entities []*Entity) *colllogs.ExportLogsServiceRequest {
 	elsr := &colllogs.ExportLogsServiceRequest{}
 
 	for _, e := range entities {
@@ -158,14 +158,14 @@ func (exp *Exporter) buildLogsPayload(entities []*Entity, req ExportRequest) *co
 		rl := &logs.ResourceLogs{}
 
 		rl.Resource = &resource.Resource{
-			Attributes: toKeyValueList(e.Attributes, req),
+			Attributes: toKeyValueList(e.Attributes),
 		}
 
 		ill := &logs.ScopeLogs{}
 
 		lr := []*logs.LogRecord{}
 		for _, l := range e.Logs {
-			otl := exp.createOtelLog(l, req)
+			otl := exp.createOtelLog(l)
 
 			lr = append(lr, otl)
 		}
@@ -183,7 +183,7 @@ func (exp *Exporter) buildLogsPayload(entities []*Entity, req ExportRequest) *co
 	return elsr
 }
 
-func (exp *Exporter) buildSpansPayload(entities []*Entity, req ExportRequest) *collspans.ExportTraceServiceRequest {
+func (exp *Exporter) buildSpansPayload(entities []*Entity) *collspans.ExportTraceServiceRequest {
 	etsr := &collspans.ExportTraceServiceRequest{}
 
 	for _, e := range entities {
@@ -194,12 +194,12 @@ func (exp *Exporter) buildSpansPayload(entities []*Entity, req ExportRequest) *c
 		rs := &spans.ResourceSpans{}
 
 		rs.Resource = &resource.Resource{
-			Attributes: toKeyValueList(e.Attributes, req),
+			Attributes: toKeyValueList(e.Attributes),
 		}
 
 		sl := []*spans.Span{}
 		for _, s := range e.Spans {
-			sl = append(sl, exp.createOtelSpan(s, req))
+			sl = append(sl, exp.createOtelSpan(s))
 		}
 		ss := &spans.ScopeSpans{
 			Spans: sl,
@@ -215,14 +215,14 @@ func (exp *Exporter) buildSpansPayload(entities []*Entity, req ExportRequest) *c
 	return etsr
 }
 
-func (exp *Exporter) createOtelMetric(req ExportRequest, m *Metric) *metrics.Metric {
+func (exp *Exporter) createOtelMetric(m *Metric) *metrics.Metric {
 	otm := &metrics.Metric{
 		Name: m.TypeName,
 	}
 
 	switch m.ContentType {
 	case "sum":
-		mAttribs := toKeyValueList(m.Attributes, req)
+		mAttribs := toKeyValueList(m.Attributes)
 
 		s := &metrics.Sum{
 			AggregationTemporality: metrics.AggregationTemporality_AGGREGATION_TEMPORALITY_UNSPECIFIED,
@@ -253,7 +253,7 @@ func (exp *Exporter) createOtelMetric(req ExportRequest, m *Metric) *metrics.Met
 		return otm
 
 	case "gauge":
-		mAttribs := toKeyValueList(m.Attributes, req)
+		mAttribs := toKeyValueList(m.Attributes)
 		s := &metrics.Gauge{}
 
 		for _, dp := range m.DataPoints {
@@ -283,14 +283,14 @@ func (exp *Exporter) createOtelMetric(req ExportRequest, m *Metric) *metrics.Met
 	return nil
 }
 
-func (exp *Exporter) createOtelLog(l *Log, req ExportRequest) *logs.LogRecord {
+func (exp *Exporter) createOtelLog(l *Log) *logs.LogRecord {
 	// indicators for events
 	if l.IsEvent {
 		l.Attributes[keyAppdIsEvent] = "true"
 		l.Attributes[keyAppdEventType] = l.TypeName
 	}
 
-	lAttribs := toKeyValueList(l.Attributes, req)
+	lAttribs := toKeyValueList(l.Attributes)
 
 	otl := &logs.LogRecord{
 		Body: &common.AnyValue{
@@ -308,7 +308,7 @@ func (exp *Exporter) createOtelLog(l *Log, req ExportRequest) *logs.LogRecord {
 	return otl
 }
 
-func (exp *Exporter) createOtelSpan(t *Span, req ExportRequest) *spans.Span {
+func (exp *Exporter) createOtelSpan(t *Span) *spans.Span {
 	ots := &spans.Span{
 		Name:              t.Name,
 		TraceId:           []byte(t.TraceID),
@@ -318,7 +318,7 @@ func (exp *Exporter) createOtelSpan(t *Span, req ExportRequest) *spans.Span {
 		Kind:              spans.Span_SpanKind(t.Kind),
 		StartTimeUnixNano: uint64(t.StartTime),
 		EndTimeUnixNano:   uint64(t.EndTime),
-		Attributes:        toKeyValueList(t.Attributes, req),
+		Attributes:        toKeyValueList(t.Attributes),
 	}
 
 	// events
@@ -326,7 +326,7 @@ func (exp *Exporter) createOtelSpan(t *Span, req ExportRequest) *spans.Span {
 		ots.Events = append(ots.Events, &spans.Span_Event{
 			TimeUnixNano: uint64(e.Timestamp),
 			Name:         e.Name,
-			Attributes:   toKeyValueList(e.Attributes, req),
+			Attributes:   toKeyValueList(e.Attributes),
 		})
 	}
 
@@ -336,7 +336,7 @@ func (exp *Exporter) createOtelSpan(t *Span, req ExportRequest) *spans.Span {
 			TraceId:    []byte(l.TraceID),
 			SpanId:     []byte(l.SpanID),
 			TraceState: l.TraceState,
-			Attributes: toKeyValueList(l.Attributes, req),
+			Attributes: toKeyValueList(l.Attributes),
 		})
 	}
 
@@ -350,40 +350,28 @@ func (exp *Exporter) createOtelSpan(t *Span, req ExportRequest) *spans.Span {
 	return ots
 }
 
-func (exp *Exporter) exportHTTP(ctx context.Context, path string, exportReq ExportRequest, m protoreflect.ProtoMessage) error {
-	url := fmt.Sprintf("%s/%s", exportReq.EndPoint, path)
-	log.Debugf("Connecting to ingestion endpoint %s\n", url)
+func (exp *Exporter) exportHTTP(ctx context.Context, path string, m protoreflect.ProtoMessage) error {
+	options := api.Options{
+		Headers: map[string]string{
+			"Content-Type": "application/x-protobuf",
+			"Accept":       "application/x-protobuf",
+		},
+	}
+
 	data, err := proto.Marshal(m)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to marshal MELT data: %w", err)
 	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+
+	err = api.HTTPPost("data/v1/"+path, data, nil, &options)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", exportReq.Credentials.Token))
-	req.Header.Set("Content-Type", "application/x-protobuf")
-	req.Header.Set("Accept", "application/x-protobuf")
-	req.Header.Set("User-Agent", "spacefleet-datagen")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	log.Debug("Sending request...")
-
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("Received non-ok response code from CIS %d", resp.StatusCode)
-	}
-
-	log.Debugf("Response received code[%d], headers[%s]", resp.StatusCode, resp.Header)
 
 	return nil
 }
 
-func toKeyValueList(a map[string]string, req ExportRequest) []*common.KeyValue {
+func toKeyValueList(a map[string]string) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
 	for k, v := range a {
 		key := k
