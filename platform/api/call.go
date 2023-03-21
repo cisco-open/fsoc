@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/moul/http2curl"
 	"io"
 	"net/http"
 	"net/url"
@@ -141,6 +142,8 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add(k, v)
 	}
 
+	command, _ := http2curl.GetCurlCommand(req)
+	log.Infof("curl command equivalent: %s", command)
 	return req, nil
 }
 
