@@ -7,6 +7,7 @@ require (
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/moul/http2curl v1.0.0
 	github.com/muesli/termenv v0.14.0
 	github.com/peterhellberg/link v1.2.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
@@ -29,9 +30,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/smartystreets/goconvey v1.7.2 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	golang.org/x/term v0.6.0 // indirect

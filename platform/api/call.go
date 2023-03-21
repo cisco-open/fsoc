@@ -18,9 +18,9 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/moul/http2curl"
 	"io"
 	"net/http"
 	"net/url"
@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/moul/http2curl"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 )
@@ -142,8 +143,12 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add(k, v)
 	}
 
-	command, _ := http2curl.GetCurlCommand(req)
-	log.Infof("curl command equivalent: %s", command)
+	// log curl command equivalent (with auth header redacted)
+	reqClone := req.Clone(context.Background())
+	reqClone.Header.Set("Authorization", "Bearer REDACTED")
+	command, _ := http2curl.GetCurlCommand(reqClone)
+	log.WithField("command", command).Info("curl command equivalent")
+
 	return req, nil
 }
 
