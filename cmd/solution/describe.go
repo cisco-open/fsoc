@@ -12,7 +12,7 @@ import (
 )
 
 var solutionDescribeCmd = &cobra.Command{
-	Use:   "describe --name=<solution>",
+	Use:   "describe (solution | --solution=<solution>)",
 	Short: "",
 	Long:  ``,
 	Run:   solutionDescribe,
@@ -32,7 +32,7 @@ type Solution struct {
 func getSolutionDescribeCmd() *cobra.Command {
 	solutionDescribeCmd.Flags().
 		String("solution", "", "The name of the solution to describe")
-	_ = solutionDescribeCmd.MarkFlagRequired("solution")
+	//_ = solutionDescribeCmd.MarkFlagRequired("solution")
 
 	return solutionDescribeCmd
 }
@@ -40,6 +40,13 @@ func getSolutionDescribeCmd() *cobra.Command {
 func solutionDescribe(cmd *cobra.Command, args []string) {
 	log.Info("Fetching the details of the specified solutions...")
 	solution, _ := cmd.Flags().GetString("solution")
+	if len(args) > 0 {
+		solution = args[0]
+	} else {
+		if len(solution) == 0 {
+			log.Fatal("A non-empty flag \"--solution\" is required.")
+		}
+	}
 
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant

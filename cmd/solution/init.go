@@ -28,7 +28,7 @@ import (
 )
 
 var solutionInitCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init (name | --name=testSolution)",
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
@@ -55,7 +55,7 @@ the "solution extend" command can be used to add more objects.`,
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
 		String("name", "", "The name of the new solution (required)")
-	_ = solutionInitCmd.MarkFlagRequired("name")
+	//_ = solutionInitCmd.MarkFlagRequired("name")
 
 	solutionInitCmd.Flags().
 		Bool("include-service", true, "Add a service component definition to this solution")
@@ -66,12 +66,14 @@ func getInitSolutionCmd() *cobra.Command {
 }
 
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
-
 	solutionName, _ := cmd.Flags().GetString("name")
 	solutionName = strings.ToLower(solutionName)
-
-	if len(solutionName) == 0 {
-		log.Fatal("A non-empty flag \"--name\" is required.")
+	if len(args) > 0 {
+		solutionName = args[0]
+	} else {
+		if len(solutionName) == 0 {
+			log.Fatal("A non-empty flag \"--name\" is required.")
+		}
 	}
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))

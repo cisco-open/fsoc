@@ -24,28 +24,31 @@ import (
 )
 
 var solutionDownloadCmd = &cobra.Command{
-	Use:   "download --name=SOLUTION",
+	Use:   "download (name | --name=SOLUTION)",
 	Short: "Download solution",
 	Long: `This command allows the current tenant specified in the profile to download a solution bundle archive into the current directory or the directory specified in command argument.
 
 Example: fsoc solution download --name=spacefleet`,
-	Args:             cobra.ExactArgs(0),
+	Args:             cobra.MaximumNArgs(1),
 	Run:              downloadSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionDownloadCmd() *cobra.Command {
 	solutionDownloadCmd.Flags().String("name", "", "name of the solution to download (required)")
-	_ = solutionDownloadCmd.MarkFlagRequired("name")
+	//_ = solutionDownloadCmd.MarkFlagRequired("name")
 	return solutionDownloadCmd
 }
 
 func downloadSolution(cmd *cobra.Command, args []string) {
 	solutionName, _ := cmd.Flags().GetString("name")
-	if solutionName == "" {
-		log.Fatalf("Solution name cannot be empty, use --name=<solution-name>")
+	if len(args) > 0 {
+		solutionName = args[0]
+	} else {
+		if len(solutionName) == 0 {
+			log.Fatalf("Solution name cannot be empty, use --name=<solution-name>")
+		}
 	}
-
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
 
 	headers := map[string]string{
