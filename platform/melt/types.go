@@ -40,6 +40,10 @@ const (
 	SpanStatusCodeError SpanStatusCode = 2
 )
 
+type FsocData struct {
+	Melt []*Entity
+}
+
 // Entity - type for holding entity inforrmation
 type Entity struct {
 	TypeName      string
