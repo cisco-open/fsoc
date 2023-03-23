@@ -47,7 +47,7 @@ type FsocData struct {
 // Entity - type for holding entity inforrmation
 type Entity struct {
 	TypeName      string
-	ID            string
+	ID            string `yaml:"id,omitempty"`
 	Attributes    map[string]string
 	Metrics       []*Metric
 	Logs          []*Log
@@ -57,29 +57,28 @@ type Entity struct {
 
 // Metric - structs for metrics
 type Metric struct {
-	// Kind     string
 	TypeName               string
 	ContentType            string
 	Unit                   string
 	Type                   string
-	Resource               Resource
+	Resource               Resource `yaml:"resource,omitempty"`
 	Attributes             map[string]string
-	DataPoints             []*DataPoint
-	Min                    string
-	Max                    string
-	IsMonotonic            bool
-	AggregationTemporality AggregationTemporality
+	DataPoints             []*DataPoint           `yaml:"datapoints,omitempty"`
+	Min                    string                 `yaml:"min,omitempty"`
+	Max                    string                 `yaml:"max,omitempty"`
+	IsMonotonic            bool                   `yaml:"ismonotonic,omitempty"`
+	AggregationTemporality AggregationTemporality `yaml:"aggregationtemporality,omitempty"`
 }
 
 // Log - structs for logs“
 type Log struct {
-	Resource   Resource
+	Resource   Resource `yaml:"resource,omitempty"`
 	Body       string
 	Severity   string // use for log
-	Timestamp  int64
+	Timestamp  int64  `yaml:"timestamp,omitempty"`
 	Attributes map[string]string
-	IsEvent    bool
-	TypeName   string
+	IsEvent    bool   `yaml:"isevent,omitempty"`
+	TypeName   string `yaml:"typename,omitempty"`
 }
 
 // Resource - structs for data point

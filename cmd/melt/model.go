@@ -120,6 +120,9 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric) [
 		fsocE := melt.NewEntity(fsocEType)
 		fmmAttrs := maps.Keys(fmmE.AttributeDefinitions.Attributes)
 		for _, fmmAttr := range fmmAttrs {
+			if !strings.Contains(fmmAttr, fmmE.Namespace.Name) {
+				fmmAttr = fmt.Sprintf("%s.%s.%s", fmmE.Namespace.Name, fmmE.Name, fmmAttr)
+			}
 			fsocE.SetAttribute(fmmAttr, "")
 		}
 		//adding fsoc metrics to the model
