@@ -217,9 +217,9 @@ func updateContext(ctx *Context) {
 	updateConfigFile(update)
 
 	if contextExists {
-		log.Infof("Updated context %q", ctx.Name)
+		log.WithField("profile", ctx.Name).Info("Updated context")
 	} else {
-		log.Infof("Created context %q", ctx.Name)
+		log.WithField("profile", ctx.Name).Info("Created context")
 	}
 }
 

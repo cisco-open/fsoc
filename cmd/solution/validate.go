@@ -51,7 +51,6 @@ func getSolutionValidateUrl() string {
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	//_ = solutionValidateCmd.MarkFlagRequired("solution-package")
 
 	return solutionValidateCmd
 }
@@ -115,6 +114,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	headers := map[string]string{
 		"stage":        "STABLE",
+		"tag":          "stable",
 		"operation":    "VALIDATE",
 		"Content-Type": writer.FormDataContentType(),
 	}

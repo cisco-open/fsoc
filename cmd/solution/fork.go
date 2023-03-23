@@ -163,6 +163,7 @@ func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName strin
 
 	headers := map[string]string{
 		"stage":            "STABLE",
+		"tag":              "stable",
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}
