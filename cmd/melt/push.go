@@ -10,13 +10,13 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/melt"
 )
 
-// meltCmd represents the login command
-var meltSendCmd = &cobra.Command{
-	Use:   "push",
+var meltPushCmd = &cobra.Command{
+	Use:   "push DATAFILE",
 	Short: "Generates OTLP telemetry based on fsoc telemetry data model .yaml",
 	Long: `This command generates OTLP payload based on a fsoc telemetry data models and sends the data to the FSO Platform Ingestion services.
 	
@@ -26,21 +26,19 @@ var meltSendCmd = &cobra.Command{
 	Then you will use the agent principal profile as part of the command:
 	fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile> `,
 	TraverseChildren: true,
+	Args:             cobra.ExactArgs(1),
 	Run:              meltSend,
 }
 
-func getMeltPushCmd() *cobra.Command {
-	return meltSendCmd
+func init() {
+	meltCmd.AddCommand(meltPushCmd)
 }
 
 func meltSend(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		log.Error("Missing the fsoc telemetry data model .yaml file name!s")
-		return
-	}
-	if !cmd.Flags().Changed("profile") {
-		log.Error("The required --profile <agent-principal-profile> flag is missing!")
-		return
+	ctx := config.GetCurrentContext()
+	if ctx.AuthMethod != config.AuthMethodAgentPrincipal {
+		_ = cmd.Help()
+		log.Fatalf("This command requires a profile with \"agent-principal\" auth method, found %q instead", ctx.AuthMethod)
 	}
 	dataFileName := args[0]
 	sendDataFromFile(cmd, dataFileName)
@@ -49,7 +47,7 @@ func meltSend(cmd *cobra.Command, args []string) {
 func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 	fsoData, err := loadDataFile(dataFileName)
 	if err != nil {
-		log.Fatalf("Can't open the file named %q: %v", dataFileName, err)
+		log.Fatalf("Can't open data file %q: %v", dataFileName, err)
 	}
 
 	for _, entity := range fsoData.Melt {

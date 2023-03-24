@@ -83,7 +83,7 @@ func workloadReport(cmd *cobra.Command, args []string) error {
 func getWorkloadId(workloadName string) (*string, error) {
 
 	// UQL query to retrieve ID via workload.name attribute
-	queryStr := fmt.Sprintf("SINCE -7d FETCH id FROM entities(k8s:workload)[attributes(k8s.workload.name) = '%s']", workloadName)
+	queryStr := fmt.Sprintf("SINCE -7d FETCH id FROM entities(k8s:workload)[isActive = true][attributes(k8s.workload.name) = '%s']", workloadName)
 
 	response, err := uql.ExecuteQuery(&uql.Query{Str: queryStr}, uql.ApiVersion1)
 	if err != nil {

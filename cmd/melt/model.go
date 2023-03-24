@@ -26,8 +26,8 @@ var meltModelCmd = &cobra.Command{
 	Run:              meltModel,
 }
 
-func getMeltModelCmd() *cobra.Command {
-	return meltModelCmd
+func init() {
+	meltCmd.AddCommand(meltModelCmd)
 }
 
 func meltModel(cmd *cobra.Command, args []string) {

@@ -1,7 +1,6 @@
 package melt
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -71,7 +70,7 @@ func (exp *Exporter) ExportEvents(entities []*Entity) error {
 }
 
 // ExportSpans - export resource spans
-func (exp *Exporter) ExportSpans(ctx context.Context, entities []*Entity) error {
+func (exp *Exporter) ExportSpans(entities []*Entity) error {
 	essr := exp.buildSpansPayload(entities)
 
 	if essr.ResourceSpans == nil {

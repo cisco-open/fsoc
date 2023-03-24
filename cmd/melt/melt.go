@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,13 +23,10 @@ var meltCmd = &cobra.Command{
 	Use:              "melt",
 	Short:            "Generates fsoc telemetry data models and sends OTLP payloads to the FSO ingestion services",
 	Long:             "This command generate fsoc telemetry data models and sends the data to the FSO Platform Ingestion services. \nIt helps developers to generate mock telemetry data to test their solution's domain models.",
+	Args:             cobra.ExactArgs(0),
 	TraverseChildren: true,
 }
 
 func NewSubCmd() *cobra.Command {
-
-	// meltCmd.AddCommand(getMeltGenCmd())
-	meltCmd.AddCommand(getMeltPushCmd())
-	meltCmd.AddCommand(getMeltModelCmd())
 	return meltCmd
 }

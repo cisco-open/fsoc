@@ -6,6 +6,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0
+	github.com/google/uuid v1.3.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.14.0
 	github.com/peterhellberg/link v1.2.0
