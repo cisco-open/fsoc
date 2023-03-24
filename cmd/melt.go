@@ -14,7 +14,9 @@
 
 package cmd
 
-import "github.com/cisco-open/fsoc/cmd/melt"
+import (
+	"github.com/cisco-open/fsoc/cmd/melt"
+)
 
 func init() {
 	registerSubsystem(melt.NewSubCmd())
