@@ -36,11 +36,31 @@ type tokenStruct struct {
 	TokenType        string `json:"token_type"`
 }
 
+// json-style solution principal credentials file format
 type credentialsStruct struct {
 	TenantID string `json:"Tenant ID"`
 	TokenURL string `json:"Token URL"`
 	ClientID string `json:"Client ID"`
 	Secret   string `json:"Secret"`
+}
+
+// json response to "/administration/v1beta/clients/agents" request. Only the
+// "id" and "clientSecret" fields are needed; the others can be ignored
+type agentCredentialsStruct struct {
+	ClientID string `json:"id"`
+	Secret   string `json:"clientSecret"`
+	// "displayName": "IAM Collector 1"
+	// "description": "This is collector test agent."
+	// "authType": "client_secret_basic"
+	// "hasRotatedSecrets": false
+	// "createdAt": "2023-03-22T02:04:51.000Z"
+	// "updatedAt": "2023-03-22T02:04:51.757Z"
+}
+
+// agent principal credentials returned as values.yaml for k8s agent helm chart
+type helmSettingsStruct struct {
+	Global      any                   `yaml:"global,omitempty"`
+	Credentials helmCredentialsStruct `yaml:"appdynamics-otel-collector,omitempty"`
 }
 
 type helmCredentialsStruct struct {
@@ -50,48 +70,50 @@ type helmCredentialsStruct struct {
 	TokenURL     string `yaml:"tokenUrl"`
 }
 
-type helmSettingsStruct struct {
-	Global      any                   `yaml:"global,omitempty"`
-	Credentials helmCredentialsStruct `yaml:"appdynamics-otel-collector,omitempty"`
-}
-
 // servicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
 func servicePrincipalLogin(ctx *callContext) error {
-	return agentOrServicePrincipalLogin(ctx, "service principal")
-}
-
-// agentPrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
-func agentPrincipalLogin(ctx *callContext) error {
-	return agentOrServicePrincipalLogin(ctx, "agent principal")
-}
-
-// agentOrServicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
-func agentOrServicePrincipalLogin(ctx *callContext, principalType string) error {
-	log.Infof("Starting login flow using %v", principalType)
-
-	// read principal credentials file
+	// read credentials file
 	file := ctx.cfg.SecretFile
 	if file == "" {
-		file = ctx.cfg.CsvFile // implicitly update config schema
+		file = ctx.cfg.CsvFile // implicitly update config schema (backward compatibility)
 	}
-	credentials, err := readCredentials(file)
+	credentials, err := readServiceCredentials(file)
 	if err != nil {
 		return fmt.Errorf("Failed to read credentials file %q: %v", file, err)
 	}
 
+	return agentOrServicePrincipalLogin(ctx, "service principal", credentials)
+}
+
+// agentPrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
+func agentPrincipalLogin(ctx *callContext) error {
+	// read credentials file
+	file := ctx.cfg.SecretFile
+	credentials, err := readAgentCredentials(file)
+	if err != nil {
+		return fmt.Errorf("Failed to read credentials file %q: %v", file, err)
+	}
+
+	return agentOrServicePrincipalLogin(ctx, "agent principal", credentials)
+}
+
+// agentOrServicePrincipalLogin performs a login into the platform API and updates the token(s) in the provided context
+func agentOrServicePrincipalLogin(ctx *callContext, principalType string, credentials *credentialsStruct) error {
+	log.Infof("Starting login flow using %v", principalType)
+
 	// check/backfill missing fields (the new, JSON, format of the credentials has tenant and server URL)
 	if ctx.cfg.Tenant == "" {
-		// bail if using the old CSV format which does not provide tenant ID
-		// (we can resolve the tenant ID from the server URL but no need to do this for legacy CSV service principal format)
+		// some credentials formats include the tenant, use it if it's provided
 		if credentials.TenantID == "" {
 			return fmt.Errorf("Missing tenant ID, please specify using `fsoc config set --tenant=TENANTID`")
 		}
-		ctx.cfg.Tenant = credentials.TenantID // the new JSON credentials format has the tenant
+		ctx.cfg.Tenant = credentials.TenantID
 		log.WithField("tenantID", ctx.cfg.Tenant).Info("Extracted tenant ID from the credentials file")
 	}
 	if ctx.cfg.URL == "" {
+		// some credentials formats provide the tokenURL from which we can get the server URL
 		if credentials.TokenURL == "" {
-			return fmt.Errorf("Missing Server URL, please specify using `fsoc config set --url=SERVERURL`")
+			return fmt.Errorf("Missing server URL, please specify using `fsoc config set --url=SERVERURL`")
 		}
 		urlStruct, err := url.Parse(credentials.TokenURL)
 		if err != nil {
@@ -155,16 +177,24 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string) error 
 	return nil
 }
 
-func readCredentials(file string) (*credentialsStruct, error) {
+func readServiceCredentials(file string) (*credentialsStruct, error) {
 	ext := strings.ToLower(path.Ext(file))
 	if ext == ".csv" {
 		// handle legacy format (only if .csv extension)
 		return readCsvCredentials(file)
-	} else if ext == ".yaml" { // agent principal from a helm chart
-		return readAgentHelmCredentials(file)
 	} else {
 		// assume new, json format, service or agent principal
 		return readJsonCredentials(file)
+	}
+}
+
+func readAgentCredentials(file string) (*credentialsStruct, error) {
+	ext := strings.ToLower(path.Ext(file))
+	if ext == ".yaml" { // agent principal from a helm chart
+		return readAgentHelmCredentials(file)
+	} else {
+		// assume json format
+		return readAgentJsonCredentials(file)
 	}
 }
 
@@ -243,33 +273,50 @@ func readAgentHelmCredentials(file string) (*credentialsStruct, error) {
 		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
 	}
 
-	// try to read the credentials first in the Service credentials JSON form (fall back on Agent Credentials from Helm)
-	var credentials credentialsStruct
-	if err = json.Unmarshal(data, &credentials); err != nil {
-		// try reading it as a YAML file with helm credentials for an agent
-		var helmVars helmSettingsStruct
-		err = yaml.Unmarshal(data, &helmVars)
-		if err == nil {
-			// extract credentials (incl. best effort to get the tenant ID from the token URL)
-			var tenantID string
-			tokenURL, err := url.Parse(helmVars.Credentials.TokenURL)
-			if err == nil {
-				elements := strings.Split(tokenURL.Path, "/")
-				if len(elements) >= 3 {
-					tenantID = elements[2]
-				}
-			}
-			credentials = credentialsStruct{
-				ClientID: helmVars.Credentials.ClientID,
-				Secret:   helmVars.Credentials.ClientSecret,
-				TokenURL: helmVars.Credentials.TokenURL,
-				TenantID: tenantID,
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+	// read YAML file with helm credentials for an agent
+	var helmVars helmSettingsStruct
+	err = yaml.Unmarshal(data, &helmVars)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+	}
+
+	// extract tenant ID from tokenURL (best effort)
+	var tenantID string
+	tokenURL, err := url.Parse(helmVars.Credentials.TokenURL)
+	if err == nil {
+		elements := strings.Split(tokenURL.Path, "/")
+		if len(elements) >= 3 {
+			tenantID = elements[2]
 		}
 	}
 
-	return &credentials, nil
+	return &credentialsStruct{
+		ClientID: helmVars.Credentials.ClientID,
+		Secret:   helmVars.Credentials.ClientSecret,
+		TokenURL: helmVars.Credentials.TokenURL,
+		TenantID: tenantID,
+	}, nil
+}
+
+func readAgentJsonCredentials(file string) (*credentialsStruct, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
+	}
+
+	var agentCredentials agentCredentialsStruct
+	if err = json.Unmarshal(data, &agentCredentials); err != nil {
+		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+	}
+
+	return &credentialsStruct{
+		ClientID: agentCredentials.ClientID,
+		Secret:   agentCredentials.Secret,
+	}, nil
 }

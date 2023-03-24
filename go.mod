@@ -6,6 +6,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0
+	github.com/google/uuid v1.3.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.14.0
 	github.com/peterhellberg/link v1.2.0
@@ -21,6 +22,7 @@ require (
 	go.pinniped.dev v0.22.0
 	golang.org/x/exp v0.0.0-20230306221820-f0f767cdffd6
 	golang.org/x/oauth2 v0.6.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

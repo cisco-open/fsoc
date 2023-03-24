@@ -1,7 +1,6 @@
 package melt
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -35,7 +34,7 @@ const (
 type Exporter struct{}
 
 // ExportMetrics - export metrics
-func (exp *Exporter) ExportMetrics(ctx context.Context, entities []*Entity) error {
+func (exp *Exporter) ExportMetrics(entities []*Entity) error {
 	emsr := exp.buildMetricsPayload(entities)
 
 	if emsr.ResourceMetrics == nil {
@@ -46,11 +45,11 @@ func (exp *Exporter) ExportMetrics(ctx context.Context, entities []*Entity) erro
 	b, _ := json.Marshal(emsr)
 	log.Debugf("METRICS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathMetrics, emsr)
+	return exp.exportHTTP(pathMetrics, emsr)
 }
 
 // ExportLogs - export resource logs
-func (exp *Exporter) ExportLogs(ctx context.Context, entities []*Entity) error {
+func (exp *Exporter) ExportLogs(entities []*Entity) error {
 	elsr := exp.buildLogsPayload(entities)
 
 	if elsr.ResourceLogs == nil {
@@ -61,17 +60,17 @@ func (exp *Exporter) ExportLogs(ctx context.Context, entities []*Entity) error {
 	b, _ := json.Marshal(elsr)
 	log.Debugf("LOGS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathLogs, elsr)
+	return exp.exportHTTP(pathLogs, elsr)
 }
 
 // ExportEvents - export events as resource logs
 // OTEL does not distibguish between events and logs
-func (exp *Exporter) ExportEvents(ctx context.Context, entities []*Entity) error {
-	return exp.ExportLogs(ctx, entities)
+func (exp *Exporter) ExportEvents(entities []*Entity) error {
+	return exp.ExportLogs(entities)
 }
 
 // ExportSpans - export resource spans
-func (exp *Exporter) ExportSpans(ctx context.Context, entities []*Entity) error {
+func (exp *Exporter) ExportSpans(entities []*Entity) error {
 	essr := exp.buildSpansPayload(entities)
 
 	if essr.ResourceSpans == nil {
@@ -82,13 +81,16 @@ func (exp *Exporter) ExportSpans(ctx context.Context, entities []*Entity) error 
 	b, _ := json.Marshal(essr)
 	log.Debugf("SPANS: %s", string(b))
 
-	return exp.exportHTTP(ctx, pathSpans, essr)
+	return exp.exportHTTP(pathSpans, essr)
 }
 
 func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.ExportMetricsServiceRequest {
 	emsr := &collmetrics.ExportMetricsServiceRequest{}
 
 	for _, entity := range entities {
+		if len(entity.Metrics) == 0 {
+			continue
+		}
 
 		rm := &metrics.ResourceMetrics{}
 		rm.Resource = &resource.Resource{
@@ -350,7 +352,7 @@ func (exp *Exporter) createOtelSpan(t *Span) *spans.Span {
 	return ots
 }
 
-func (exp *Exporter) exportHTTP(ctx context.Context, path string, m protoreflect.ProtoMessage) error {
+func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error {
 	options := api.Options{
 		Headers: map[string]string{
 			"Content-Type": "application/x-protobuf",

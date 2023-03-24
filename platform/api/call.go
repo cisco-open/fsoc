@@ -246,7 +246,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 			if err != nil {
 				return fmt.Errorf("Failed to save the solution archive file as %q: %w", solutionFileName, err)
 			}
-		} else {
+		} else if len(respBytes) > 0 {
 			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
 			if err := json.Unmarshal(respBytes, out); err != nil {
 				return fmt.Errorf("Failed to JSON-parse the response: %w (%q)", err, respBytes)
