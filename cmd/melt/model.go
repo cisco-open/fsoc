@@ -40,13 +40,6 @@ func meltModel(cmd *cobra.Command, args []string) {
 }
 
 func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest) *melt.FsocData {
-	// fsocData := &melt.FsocData{
-	// 	Credentials: &api.AgentPrincipalStruct{
-	// 		ClientID: "",
-	// 		Secret:   "",
-	// 	},
-	// }
-
 	fsocData := &melt.FsocData{}
 	fmmEntities := GetFmmEntities(manifest)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v entities to the fsoc data model\n", len(fmmEntities)))
