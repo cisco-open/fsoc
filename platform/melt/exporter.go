@@ -88,6 +88,9 @@ func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.Export
 	emsr := &collmetrics.ExportMetricsServiceRequest{}
 
 	for _, entity := range entities {
+		if len(entity.Metrics) == 0 {
+			continue
+		}
 
 		rm := &metrics.ResourceMetrics{}
 		rm.Resource = &resource.Resource{

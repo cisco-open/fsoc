@@ -18,15 +18,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// meltCmd represents the melt command
+// meltCmd represents the login command
 var meltCmd = &cobra.Command{
 	Use:              "melt",
-	Short:            "Prepare and send MELT data",
-	Long:             `Prepare and send MELT data`,
-	Example:          `  fsoc melt geometry-test`,
+	Short:            "Generates fsoc telemetry data models and sends OTLP payloads to the FSO ingestion services",
+	Long:             "This command generate fsoc telemetry data models and sends the data to the FSO Platform Ingestion services. \nIt helps developers to generate mock telemetry data to test their solution's domain models.",
 	TraverseChildren: true,
 }
 
 func NewSubCmd() *cobra.Command {
+
+	// meltCmd.AddCommand(getMeltGenCmd())
+	meltCmd.AddCommand(getMeltPushCmd())
+	meltCmd.AddCommand(getMeltModelCmd())
 	return meltCmd
 }

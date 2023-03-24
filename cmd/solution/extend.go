@@ -565,3 +565,20 @@ func getStringfiedArray(array []string) string {
 	prettyArrayString := strings.Replace(strings.Join(tokenized, ", "), "\"", "'", -1)
 	return prettyArrayString
 }
+
+func GetManifest() *Manifest {
+	manifestFile := openFile("manifest.json")
+	defer manifestFile.Close()
+
+	manifestBytes, err := io.ReadAll(manifestFile)
+	if err != nil {
+		log.Fatalf("Failed to read solution manifest: %v", err)
+	}
+
+	var manifest *Manifest
+	err = json.Unmarshal(manifestBytes, &manifest)
+	if err != nil {
+		log.Fatalf("Failed to parse solution manifest: %v", err)
+	}
+	return manifest
+}
