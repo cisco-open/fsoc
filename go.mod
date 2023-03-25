@@ -73,6 +73,4 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
-require (
-	github.com/sashabaranov/go-openai v1.5.3
-)
+require github.com/sashabaranov/go-openai v1.5.4

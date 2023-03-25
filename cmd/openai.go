@@ -15,9 +15,9 @@
 package cmd
 
 import (
-	"github.com/cisco-open/fsoc/cmd/chat"
+	"github.com/cisco-open/fsoc/cmd/openai"
 )
 
 func init() {
-	registerSubsystem(chat.NewSubCmd())
+	registerSubsystem(openai.NewSubCmd())
 }

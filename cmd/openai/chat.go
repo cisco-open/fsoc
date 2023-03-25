@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package chat
+package openai
 
 import (
 	"context"
@@ -70,6 +70,6 @@ var chatCmd = &cobra.Command{
 	},
 }
 
-func NewSubCmd() *cobra.Command {
+func NewChatCmd() *cobra.Command {
 	return chatCmd
 }
