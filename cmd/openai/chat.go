@@ -1,38 +1,101 @@
-// Copyright 2023 Your Company, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package openai
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	// Add the chat command to the root command
+type ChatConversation struct {
+	ID       string
+	Messages []openai.ChatCompletionMessage
+}
+
+var chatConversations = make(map[string]*ChatConversation)
+
+func generateUniqueID() string {
+	return fmt.Sprintf("%d", len(chatConversations)+1)
+}
+
+func startNewChat() string {
+	chatID := generateUniqueID()
+	chatConversations[chatID] = &ChatConversation{
+		ID:       chatID,
+		Messages: []openai.ChatCompletionMessage{},
+	}
+	return chatID
+}
+
+func continueChat(chatID string, message openai.ChatCompletionMessage) error {
+	conversation, ok := chatConversations[chatID]
+	if !ok {
+		return errors.New("conversation not found")
+	}
+	conversation.Messages = append(conversation.Messages, message)
+	return nil
+}
+
+func switchChat(chatID string) error {
+	_, ok := chatConversations[chatID]
+	if !ok {
+		return errors.New("conversation not found")
+	}
+	return nil
 }
 
 var chatCmd = &cobra.Command{
-	Use:   "chat",
+	Use:   "chat [start|continue <chatID>|switch <chatID>] <message>",
 	Short: "Interact with ChatGPT",
 	Long:  `This command allows you to interact with ChatGPT by sending messages.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		action := args[0]
+		var inputMessage string
+		var chatID string
+		var err error
+
+		switch action {
+		case "start":
+			inputMessage = strings.Join(args[1:], " ")
+			chatID = startNewChat()
+		case "continue":
+			if len(args) < 3 {
+				fmt.Println("Please provide a chat ID and a message.")
+				return
+			}
+			chatID = args[1]
+			inputMessage = strings.Join(args[2:], " ")
+			err = continueChat(chatID, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: inputMessage,
+			})
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		case "switch":
+			if len(args) < 2 {
+				fmt.Println("Please provide a chat ID.")
+				return
+			}
+			chatID = args[1]
+			err = switchChat(chatID)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			return
+		default:
+			fmt.Println("Invalid action. Use 'start', 'continue', or 'switch'.")
+			return
+		}
+
 		// Get the API key from the environment variable or config file
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
@@ -43,20 +106,12 @@ var chatCmd = &cobra.Command{
 		// Initialize the OpenAI client
 		client := openai.NewClient(apiKey)
 
-		// Set the input message
-		inputMessage := "your input message"
-
 		// Send the message to ChatGPT
 		resp, err := client.CreateChatCompletion(
 			context.Background(),
 			openai.ChatCompletionRequest{
-				Model: openai.GPT3Dot5Turbo,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    openai.ChatMessageRoleUser,
-						Content: inputMessage,
-					},
-				},
+				Model:    openai.GPT3Dot5Turbo,
+				Messages: chatConversations[chatID].Messages,
 			},
 		)
 
@@ -66,7 +121,15 @@ var chatCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(resp.Choices[0].Message.Content)
+		responseMessage := resp.Choices[0].Message.Content
+		fmt.Println("Chat ID:", chatID)
+		fmt.Println("Response:", responseMessage)
+
+		// Add the response message to the conversation
+		_ = continueChat(chatID, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: responseMessage,
+		})
 	},
 }
 
