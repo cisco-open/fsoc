@@ -2,9 +2,12 @@ package openai
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/cisco-open/fsoc/cmd/config"
@@ -61,6 +64,18 @@ var chatCmd = &cobra.Command{
 				}
 				continue
 			}
+
+			// Add this block to handle commands within backticks
+			regex := regexp.MustCompile("`([^`]*)`")
+			inputMessage = regex.ReplaceAllStringFunc(inputMessage, func(matched string) string {
+				shellCommand := strings.Trim(matched, "`")
+				cmdOutput, err := runShellCommand(shellCommand)
+				if err != nil {
+					fmt.Printf("Error executing command '%s': %v\n", shellCommand, err)
+					return "<error executing command>"
+				}
+				return cmdOutput
+			})
 
 			// Add the input message to the conversation
 			_ = continueChat(chatID, openai.ChatCompletionMessage{
@@ -127,6 +142,18 @@ func continueChat(chatID string, message openai.ChatCompletionMessage) error {
 
 	chatConversations[chatID].Messages = append(chatConversations[chatID].Messages, message)
 	return nil
+}
+
+// Add the runShellCommand function here
+func runShellCommand(command string) (string, error) {
+	cmd := exec.Command("sh", "-c", command)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }
 
 func NewChatCmd() *cobra.Command {
