@@ -1,8 +1,8 @@
 package openai
 
 import (
+	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,90 +12,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type ChatConversation struct {
-	ID       string
-	Messages []openai.ChatCompletionMessage
-}
-
-var chatConversations = make(map[string]*ChatConversation)
-
-func generateUniqueID() string {
-	return fmt.Sprintf("%d", len(chatConversations)+1)
-}
-
-func startNewChat() string {
-	chatID := generateUniqueID()
-	chatConversations[chatID] = &ChatConversation{
-		ID:       chatID,
-		Messages: []openai.ChatCompletionMessage{},
-	}
-	return chatID
-}
-
-func continueChat(chatID string, message openai.ChatCompletionMessage) error {
-	conversation, ok := chatConversations[chatID]
-	if !ok {
-		return errors.New("conversation not found")
-	}
-	conversation.Messages = append(conversation.Messages, message)
-	return nil
-}
-
-func switchChat(chatID string) error {
-	_, ok := chatConversations[chatID]
-	if !ok {
-		return errors.New("conversation not found")
-	}
-	return nil
+func init() {
+	// Add the chat command to the root command
 }
 
 var chatCmd = &cobra.Command{
-	Use:   "chat [start|continue <chatID>|switch <chatID>] <message>",
+	Use:   "chat",
 	Short: "Interact with ChatGPT",
 	Long:  `This command allows you to interact with ChatGPT by sending messages.`,
-	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		action := args[0]
-		var inputMessage string
-		var chatID string
-		var err error
-
-		switch action {
-		case "start":
-			inputMessage = strings.Join(args[1:], " ")
-			chatID = startNewChat()
-		case "continue":
-			if len(args) < 3 {
-				fmt.Println("Please provide a chat ID and a message.")
-				return
-			}
-			chatID = args[1]
-			inputMessage = strings.Join(args[2:], " ")
-			err = continueChat(chatID, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleUser,
-				Content: inputMessage,
-			})
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		case "switch":
-			if len(args) < 2 {
-				fmt.Println("Please provide a chat ID.")
-				return
-			}
-			chatID = args[1]
-			err = switchChat(chatID)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			return
-		default:
-			fmt.Println("Invalid action. Use 'start', 'continue', or 'switch'.")
-			return
-		}
-
 		// Get the API key from the environment variable or config file
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
@@ -106,31 +31,102 @@ var chatCmd = &cobra.Command{
 		// Initialize the OpenAI client
 		client := openai.NewClient(apiKey)
 
-		// Send the message to ChatGPT
-		resp, err := client.CreateChatCompletion(
-			context.Background(),
-			openai.ChatCompletionRequest{
-				Model:    openai.GPT3Dot5Turbo,
-				Messages: chatConversations[chatID].Messages,
-			},
-		)
+		// Initialize the chatID and chatConversations map
+		chatID := newChatID()
+		chatConversations := initChatConversations()
 
-		// Check for errors and print the response
-		if err != nil {
-			fmt.Printf("ChatCompletion error: %v\n", err)
-			return
+		// Set the input message
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Println("You are now in chat ID:", chatID)
+		fmt.Println("Type 'exit' to stop the conversation or 'switch <chatID>' to switch to a different chat.")
+
+		for {
+			// Read input from the user
+			fmt.Print("> ")
+			inputMessage, _ := reader.ReadString('\n')
+			inputMessage = strings.TrimSpace(inputMessage)
+
+			if inputMessage == "exit" {
+				break
+			}
+
+			if strings.HasPrefix(inputMessage, "switch ") {
+				newID := strings.TrimSpace(strings.TrimPrefix(inputMessage, "switch"))
+				if _, exists := chatConversations[newID]; exists {
+					chatID = newID
+					fmt.Println("You have switched to chat ID:", chatID)
+				} else {
+					fmt.Println("Chat ID not found.")
+				}
+				continue
+			}
+
+			// Add the input message to the conversation
+			_ = continueChat(chatID, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: inputMessage,
+			})
+
+			// Send the message to ChatGPT
+			resp, err := client.CreateChatCompletion(
+				context.Background(),
+				openai.ChatCompletionRequest{
+					Model:    openai.GPT3Dot5Turbo,
+					Messages: chatConversations[chatID].Messages,
+				},
+			)
+
+			// Check for errors and print the response
+			if err != nil {
+				fmt.Printf("ChatCompletion error: %v\n", err)
+				return
+			}
+
+			responseMessage := resp.Choices[0].Message.Content
+			fmt.Printf("Assistant: %s\n", responseMessage)
+
+			// Add the response message to the conversation
+			_ = continueChat(chatID, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleAssistant,
+				Content: responseMessage,
+			})
 		}
-
-		responseMessage := resp.Choices[0].Message.Content
-		fmt.Println("Chat ID:", chatID)
-		fmt.Println("Response:", responseMessage)
-
-		// Add the response message to the conversation
-		_ = continueChat(chatID, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleAssistant,
-			Content: responseMessage,
-		})
 	},
+}
+
+// Chat is a struct representing a single chat conversation, which contains an array of ChatCompletionMessage.
+type Chat struct {
+	Messages []openai.ChatCompletionMessage
+}
+
+// chatConversations is a map that stores multiple chat conversations by chatID.
+var chatConversations map[string]*Chat
+
+// newChatID generates a new chat ID based on the length of the chatConversations map.
+// The generated chat ID is a string representation of the incremented map length.
+func newChatID() string {
+	id := fmt.Sprintf("%d", len(chatConversations)+1)
+	return id
+}
+
+// initChatConversations initializes the chatConversations map.
+// This function should be called once at the beginning of the application.
+func initChatConversations() map[string]*Chat {
+	chatConversations = make(map[string]*Chat)
+	return chatConversations
+}
+
+// continueChat appends a new message to an existing chat conversation identified by chatID.
+// If the chatID doesn't exist in the chatConversations map, a new conversation is created.
+// The function takes chatID and message as input parameters.
+func continueChat(chatID string, message openai.ChatCompletionMessage) error {
+	if _, exists := chatConversations[chatID]; !exists {
+		chatConversations[chatID] = &Chat{Messages: []openai.ChatCompletionMessage{}}
+	}
+
+	chatConversations[chatID].Messages = append(chatConversations[chatID].Messages, message)
+	return nil
 }
 
 func NewChatCmd() *cobra.Command {
