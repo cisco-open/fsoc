@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
@@ -39,13 +40,6 @@ func meltModel(cmd *cobra.Command, args []string) {
 }
 
 func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest) *melt.FsocData {
-	// fsocData := &melt.FsocData{
-	// 	Credentials: &api.AgentPrincipalStruct{
-	// 		ClientID: "",
-	// 		Secret:   "",
-	// 	},
-	// }
-
 	fsocData := &melt.FsocData{}
 	fmmEntities := GetFmmEntities(manifest)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v entities to the fsoc data model\n", len(fmmEntities)))
@@ -66,10 +60,22 @@ func GetFmmMetrics(manifest *sol.Manifest) []*sol.FmmMetric {
 			filePath := compDef.ObjectsFile
 			fmmMetrics = append(fmmMetrics, getFmmMetricsFromFile(filePath)...)
 		}
-
-		// if compDef.ObjectsDir != "" {
-
-		// }
+		if compDef.ObjectsDir != "" {
+			filePath := compDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						fmmMetrics = append(fmmMetrics, getFmmMetricsFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
 
 	}
 	return fmmMetrics
@@ -125,6 +131,7 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric) [
 			}
 			fsocE.SetAttribute(fmmAttr, "")
 		}
+
 		//adding fsoc metrics to the model
 		for _, fmmEM := range fmmE.MetricTypes {
 			fsocMetricType := fmmEM
@@ -159,10 +166,22 @@ func GetFmmEntities(manifest *sol.Manifest) []*sol.FmmEntity {
 			filePath := compDef.ObjectsFile
 			fmmEntities = append(fmmEntities, getFmmEntitiesFromFile(filePath)...)
 		}
-
-		// if compDef.ObjectsDir != "" {
-
-		// }
+		if compDef.ObjectsDir != "" {
+			filePath := compDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						fmmEntities = append(fmmEntities, getFmmEntitiesFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
 
 	}
 	return fmmEntities
