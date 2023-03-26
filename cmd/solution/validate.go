@@ -52,6 +52,10 @@ func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
 
+	solutionValidateCmd.Flags().
+		BoolP("bump", "b", false, "Increment the patch version before validation")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+
 	return solutionValidateCmd
 }
 
@@ -68,20 +72,35 @@ Example:
 }
 
 func validateSolution(cmd *cobra.Command, args []string) {
-	manifestPath := ""
-	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	var manifestPath string
 	var solutionArchivePath string
+	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	bumpFlag, _ := cmd.Flags().GetBool("bump")
+
 	if solutionBundlePath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
-			log.Fatal("Please run this command in a folder with a solution or use the --solution-bundle flag")
+			log.Fatal(err.Error())
 		}
 		manifestPath = currentDir
 		if !isSolutionPackageRoot(manifestPath) {
-			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
+			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
 		}
-		_, _ = getSolutionManifest(manifestPath)
+		manifest, err := getSolutionManifest(manifestPath)
+		if err != nil {
+			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+		}
+		if bumpFlag {
+			if err := bumpManifestPatchVersion(manifest); err != nil {
+				log.Fatal(err.Error())
+			}
+			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+			}
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+		}
 
+		// create a temporary solution archive
 		solutionArchive := generateZipNoCmd(manifestPath)
 		solutionArchivePath = filepath.Base(solutionArchive.Name())
 	} else {
