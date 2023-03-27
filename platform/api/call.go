@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/moul/http2curl"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/moul/http2curl"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 )
