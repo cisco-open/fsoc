@@ -35,14 +35,26 @@ var (
 Specifying a name that already exists will merge new fields on top of existing values for those fields.
 if on context name is specified, the current context is created/updated.`
 
-	setContextExample = `# Set the token field on the "prod" context entry without touching other values
-fsoc config set --profile prod --token=top-secret`
+	setContextExample = `
+  # Set oauth credentials (recommended for interactive use)
+  fsoc config set --auth=oauth --url=https://mytenant.observe.appdynamics.com
+
+  # Set service or agent principal credentials (secret file must remain accessible)
+  fsoc config set --auth=service-principal --secret-file=my-service-principal.json
+  fsoc config set --auth=agent-principal --secret-file=agent-helm-values.yaml
+  fsoc config set --auth=agent-principal --secret-file=client-values.json --tenant=123456 --url=https://mytenant.observe.appdynamics.com
+
+  # Set local access
+  fsoc config set --auth=local url=http://localhost --appd-pid=PID --appd-tid=TID --appd-pty=PTY
+
+  # Set the token field on the "prod" context entry without touching other values
+  fsoc config set --profile prod --token=top-secret`
 )
 
 func newCmdConfigSet() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:         "set --profile [CONTEXT] [token=VALUE][tenant=TENANT_ID][secret-file=PATH]",
+		Use:         "set [--profile CONTEXT] --auth=AUTH [flags]",
 		Short:       "Create or modify a context entry in an fsoc config file",
 		Long:        setContextLong,
 		Args:        cobra.MaximumNArgs(1),
@@ -50,16 +62,16 @@ func newCmdConfigSet() *cobra.Command {
 		Annotations: map[string]string{AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
 	}
-	cmd.Flags().String(AppdPid, "", "[Local auth type only]. The pid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
-	cmd.Flags().String(AppdTid, "", "[Local auth type only]. The tid to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
-	cmd.Flags().String(AppdPty, "", "[Local auth type only]. The pty to send with HTTP request. Please provide raw value, and it will be encoded automatically.")
+	cmd.Flags().String(AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
+	cmd.Flags().String(AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
+	cmd.Flags().String(AppdPty, "", "pty to use (local auth type only, provide raw value to be encoded)")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
 	cmd.Flags().String("server", "", "Set server host name")
 	_ = cmd.Flags().MarkDeprecated("server", "The --server flag is deprecated, please use --url instead.")
 	cmd.Flags().String("url", "", "Set server URL (with http or https schema)")
 	cmd.Flags().String("tenant", "", "Set tenant ID")
 	cmd.Flags().String("token", "", "Set token value (use --token=- to get from stdin)")
-	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv)")
+	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv) or agent principal (.yaml)")
 	return cmd
 }
 
@@ -167,6 +179,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	if flags.Changed("secret-file") {
 
 		path, _ := flags.GetString("secret-file")
+		path = expandHomePath(path)
 		var err error
 		ctxPtr.SecretFile, err = filepath.Abs(path)
 		if err != nil {
@@ -207,13 +220,22 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	update := map[string]interface{}{"contexts": cfg.Contexts}
 	if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
 		update["current_context"] = contextName
-		log.Infof("Setting context %q as current", contextName)
+		log.WithField("profile", contextName).Info("Setting context as current")
 	}
 	updateConfigFile(update)
 
 	if contextExists {
-		log.Infof("Updated context %q", contextName)
+		log.WithField("profile", contextName).Info("Updated context")
 	} else {
-		log.Infof("Created context %q", contextName)
+		log.WithField("profile", contextName).Info("Created context")
 	}
+}
+
+// expandHomePath replaces ~ in the path with the absolute home directory
+func expandHomePath(file string) string {
+	if strings.HasPrefix(file, "~/") {
+		dirname, _ := os.UserHomeDir()
+		file = filepath.Join(dirname, file[2:])
+	}
+	return file
 }
