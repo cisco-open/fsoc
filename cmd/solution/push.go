@@ -58,7 +58,12 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed (not supported when uisng --solution-bundle)")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
 
+	solutionPushCmd.Flags().
+		BoolP("bump", "b", false, "Increment the patch version before deploying")
+
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+
 	return solutionPushCmd
 
 }
@@ -69,22 +74,39 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	var solutionVersion string
 
 	waitFlag, _ := cmd.Flags().GetInt("wait")
+	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
+
 	if solutionBundlePath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
-			log.Fatal("Please run this command in a folder with a solution or use the --solution-bundle flag")
+			log.Fatal(err.Error())
 		}
 		manifestPath = currentDir
 		if !isSolutionPackageRoot(manifestPath) {
-			log.Fatal("solution-bundle / current dir path doesn't point to a solution package root folder")
+			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
 		}
 
-		manifest, _ := getSolutionManifest(manifestPath)
+		manifest, err := getSolutionManifest(manifestPath)
+		if err != nil {
+			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+		}
+
+		if bumpFlag {
+			if err := bumpManifestPatchVersion(manifest); err != nil {
+				log.Fatal(err.Error())
+			}
+			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+			}
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+		}
+
 		solutionName = manifest.Name
 		solutionVersion = manifest.SolutionVersion
 
+		// create a temporary solution archive
 		solutionArchive := generateZipNoCmd(manifestPath)
 		solutionArchivePath = filepath.Base(solutionArchive.Name())
 
