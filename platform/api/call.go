@@ -18,6 +18,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/moul/http2curl"
@@ -142,9 +143,32 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add(k, v)
 	}
 
-	command, _ := http2curl.GetCurlCommand(req)
-	log.Infof("curl command equivalent: %s", command)
+	curlCommand, err := getCurlCommandOfRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate curl equivalent command: %s", err)
+	}
+	log.WithField("command", curlCommand).Info("curl command equivalent")
 	return req, nil
+}
+
+func getCurlCommandOfRequest(req *http.Request) (string, error) {
+	reqClone := req.Clone(context.Background())
+	reqClone.Header.Set("Authorization", "Bearer REDACTED")
+
+	if strings.HasPrefix(reqClone.Header.Get("Content-Type"), "multipart/form-data") {
+		reqClone.Body = io.NopCloser(strings.NewReader("@/file/path/REDACTED"))
+	} else if req.Body != nil {
+		buf := &bytes.Buffer{}
+		teeReader := io.TeeReader(req.Body, buf)
+		b, err := io.ReadAll(teeReader)
+		if err != nil {
+			return "", err
+		}
+		req.Body = io.NopCloser(bytes.NewReader(b))
+		reqClone.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+	}
+	command, _ := http2curl.GetCurlCommand(reqClone)
+	return command.String(), nil
 }
 
 func httpRequest(method string, path string, body any, out any, options *Options) error {
