@@ -80,7 +80,7 @@ func GetOutWriter(cmd *cobra.Command) io.Writer {
 
 // PrintJson displays the output in prettified JSON
 func PrintJson(cmd *cobra.Command, v any) error {
-	data, err := json.MarshalIndent(v, "", "   ")
+	data, err := json.MarshalIndent(v, "", GetJsonIndent())
 	if err != nil {
 		return err
 	}

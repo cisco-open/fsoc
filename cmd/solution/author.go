@@ -327,7 +327,7 @@ func (t *templateServer) returnTemplateList(w http.ResponseWriter, r *http.Reque
 
 	itemsList.Items = itemArray
 	itemsList.NumItems = len(files)
-	jsonOutput, err := json.MarshalIndent(&itemsList, "", "  ")
+	jsonOutput, err := json.MarshalIndent(&itemsList, "", output.GetJsonIndent())
 	if err != nil {
 		log.Error(err.Error())
 		return err

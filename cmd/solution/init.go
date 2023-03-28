@@ -32,10 +32,10 @@ var solutionInitCmd = &cobra.Command{
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
-Example: 
+Example:
 
    fsoc solution init --name=testSolution --include-service --include-knowledge
-   
+
 Creates a subdirectory named "testSolution" in the current directory and populates
 it with a solution manifest and objects for it. The optional --include-... flags
 define what objects are added to the solution. Once the solution is created,
@@ -136,7 +136,7 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 
 func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	// marshal manifest into JSON format; do this before creating/truncating the file!
-	manifestJson, err := json.MarshalIndent(manifest, "", "  ")
+	manifestJson, err := json.MarshalIndent(manifest, "", output.GetJsonIndent())
 	if err != nil {
 		return fmt.Errorf("Failed to marshal manifest to JSON: %w", err)
 	}
@@ -215,7 +215,7 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	svcJson, _ := json.MarshalIndent(compDef, "", "  ")
+	svcJson, _ := json.MarshalIndent(compDef, "", output.GetJsonIndent())
 
 	_, _ = svcFile.WriteString(string(svcJson))
 	svcFile.Close()

@@ -41,7 +41,7 @@ var gendocsCmd = &cobra.Command{
 	Short: "Generate docs for fsoc",
 	Long: `Generates markdown documentation for the fsoc command and their usage.
 It will generate a series of files, one for each command; root and sub-root
-commands include relative hyperlinks to individual commands. 
+commands include relative hyperlinks to individual commands.
 The directory should either be empty or not exist.`,
 	Example:          `  fsoc gendocs /tmp/docs`,
 	Args:             cobra.ExactArgs(1),
@@ -122,7 +122,7 @@ func genTableOfContents(cmd *cobra.Command, path string, fs *afero.Afero) error 
 	toc := tocEntry{Items: []tocEntry{*genTOCNode(root)}}
 
 	// marshal to JSON
-	jsToc, err := json.MarshalIndent(toc, "", "  ")
+	jsToc, err := json.MarshalIndent(toc, "", output.GetJsonIndent())
 	if err != nil {
 		return fmt.Errorf("Failed to marshal TOC to JSON: %v", err)
 	}

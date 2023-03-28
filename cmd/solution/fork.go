@@ -149,7 +149,7 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 	}
 	manifest.Name = forkName
 
-	b, _ := json.MarshalIndent(manifest, "", "  ")
+	b, _ := json.MarshalIndent(manifest, "", output.GetJsonIndent())
 
 	err = afero.WriteFile(fileSystem, "./manifest.json", b, 0644)
 	if err != nil {

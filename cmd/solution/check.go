@@ -122,7 +122,7 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 	objStoreUrl := getTypeUrl(compDef.Type)
 	typeDef := Fetch(objStoreUrl, &api.Options{Headers: headers})
 
-	jsonSchema, err := json.MarshalIndent(typeDef["jsonSchema"], "", "  ")
+	jsonSchema, err := json.MarshalIndent(typeDef["jsonSchema"], "", output.GetJsonIndent())
 	if err != nil {
 		log.Errorf("Couldn't marshal schema to json: %v", err)
 	}
@@ -145,7 +145,7 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 			log.Errorf("Failed to parse component: %v", err)
 		}
 		for _, object := range jsonArray {
-			jsonObject, err := json.MarshalIndent(object, "", "  ")
+			jsonObject, err := json.MarshalIndent(object, "", output.GetJsonIndent())
 			if err != nil {
 				log.Errorf("Couldn't marshal object to json: %v", err)
 			}
