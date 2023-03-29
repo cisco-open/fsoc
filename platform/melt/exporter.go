@@ -3,6 +3,7 @@ package melt
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -406,15 +407,28 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 
 func toKeyValueList(a map[string]string) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
+
+	atrValue := &common.AnyValue{}
+
 	for k, v := range a {
 		key := k
+		if intValue, err := strconv.Atoi(v); err == nil {
+			atrValue.Value = &common.AnyValue_IntValue{
+				IntValue: int64(intValue),
+			}
+		} else if doubleValue, err := strconv.ParseFloat(v, 64); err == nil {
+			atrValue.Value = &common.AnyValue_DoubleValue{
+				DoubleValue: doubleValue,
+			}
+		} else {
+			atrValue.Value = &common.AnyValue_StringValue{
+				StringValue: v,
+			}
+		}
+
 		attribs = append(attribs, &common.KeyValue{
-			Key: key,
-			Value: &common.AnyValue{
-				Value: &common.AnyValue_StringValue{
-					StringValue: v,
-				},
-			},
+			Key:   key,
+			Value: atrValue,
 		})
 	}
 	return attribs
