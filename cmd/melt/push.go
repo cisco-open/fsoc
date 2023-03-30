@@ -57,8 +57,8 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 			if len(m.DataPoints) == 0 {
 				for i := 1; i < 6; i++ {
 					st := et.Add(time.Minute * -1)
-					et = st
 					m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*50)
+					et = st
 				}
 			}
 		}
