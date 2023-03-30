@@ -3,6 +3,7 @@ package melt
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -406,16 +407,47 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 
 func toKeyValueList(a map[string]string) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
+
 	for k, v := range a {
 		key := k
-		attribs = append(attribs, &common.KeyValue{
-			Key: key,
-			Value: &common.AnyValue{
-				Value: &common.AnyValue_StringValue{
-					StringValue: v,
+		var value *common.KeyValue
+
+		if intValue, err := strconv.Atoi(v); err == nil {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_IntValue{
+						IntValue: int64(intValue),
+					},
 				},
-			},
-		})
+			}
+		} else if doubleValue, err := strconv.ParseFloat(v, 64); err == nil {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_DoubleValue{
+						DoubleValue: doubleValue,
+					},
+				},
+			}
+
+		} else {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_StringValue{
+						StringValue: v,
+					},
+				},
+			}
+		}
+
+		attribs = append(attribs, value)
+
+		// attribs = append(attribs, &common.KeyValue{
+		// 	Key:   key,
+		// 	Value: atrValue,
+		// })
 	}
 	return attribs
 }
