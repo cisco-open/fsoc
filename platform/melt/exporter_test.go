@@ -174,7 +174,7 @@ func newTestEntity() *Entity {
 	e := NewEntity("geometry:shape")
 	e.SetAttribute("geometry.shape.type", "square")
 	e.SetAttribute("geometry.shape.name", "My Square")
-	e.SetAttribute("geometry.square.side", "10")
+	e.SetAttribute("geometry.square.side", " 10")
 	return e
 }
 
