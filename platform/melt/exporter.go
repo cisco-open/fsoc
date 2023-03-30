@@ -408,28 +408,46 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 func toKeyValueList(a map[string]string) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
 
-	atrValue := &common.AnyValue{}
-
 	for k, v := range a {
 		key := k
+		var value *common.KeyValue
+
 		if intValue, err := strconv.Atoi(v); err == nil {
-			atrValue.Value = &common.AnyValue_IntValue{
-				IntValue: int64(intValue),
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_IntValue{
+						IntValue: int64(intValue),
+					},
+				},
 			}
 		} else if doubleValue, err := strconv.ParseFloat(v, 64); err == nil {
-			atrValue.Value = &common.AnyValue_DoubleValue{
-				DoubleValue: doubleValue,
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_DoubleValue{
+						DoubleValue: doubleValue,
+					},
+				},
 			}
+
 		} else {
-			atrValue.Value = &common.AnyValue_StringValue{
-				StringValue: v,
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_StringValue{
+						StringValue: v,
+					},
+				},
 			}
 		}
 
-		attribs = append(attribs, &common.KeyValue{
-			Key:   key,
-			Value: atrValue,
-		})
+		attribs = append(attribs, value)
+
+		// attribs = append(attribs, &common.KeyValue{
+		// 	Key:   key,
+		// 	Value: atrValue,
+		// })
 	}
 	return attribs
 }
