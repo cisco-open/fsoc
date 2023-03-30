@@ -134,17 +134,34 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 
 }
 
-func createSolutionManifestFile(folderName string, manifest *Manifest) {
-	filepath := fmt.Sprintf("%s/manifest.json", folderName)
-	manifestFile, err := os.Create(filepath)
+func writeSolutionManifest(folderName string, manifest *Manifest) error {
+	// marshal manifest into JSON format; do this before creating/truncating the file!
+	manifestJson, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		log.Fatalf("Failed to create manifest.json: %v", err)
+		return fmt.Errorf("Failed to marshal manifest to JSON: %w", err)
 	}
 
-	manifestJson, _ := json.MarshalIndent(manifest, "", "  ")
+	filepath := fmt.Sprintf("%s/manifest.json", folderName)
+	manifestFile, err := os.Create(filepath) // create new or truncate existing
+	if err != nil {
+		return fmt.Errorf("Failed to create manifest file %q: %w", filepath, err)
+	}
+	defer manifestFile.Close()
 
-	_, _ = manifestFile.WriteString(string(manifestJson))
-	manifestFile.Close()
+	_, err = manifestFile.Write(manifestJson)
+	if err != nil {
+		return fmt.Errorf("Failed to write the manifest into file %q: %w", filepath, err)
+	}
+
+	// the file is closed before returning (see defer above)
+	return nil
+}
+
+// createSolutionManifestFile is a "must succeed" version of writeSolutionManifests
+func createSolutionManifestFile(folderName string, manifest *Manifest) {
+	if err := writeSolutionManifest(folderName, manifest); err != nil {
+		log.Fatalf(err.Error())
+	}
 }
 
 func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
