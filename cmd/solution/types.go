@@ -132,12 +132,13 @@ type FmmNamespace struct {
 
 type FmmMetric struct {
 	*FmmTypeDef
-	Category               FmmMetricCategory    `json:"category"`
-	ContentType            FmmMetricContentType `json:"contentType"`
-	AggregationTemporality string               `json:"aggregationTemporality"`
-	IsMonotonic            bool                 `json:"isMonotonic"`
-	Type                   FmmMetricType        `json:"type"`
-	Unit                   string               `json:"unit"`
+	Category               FmmMetricCategory               `json:"category"`
+	ContentType            FmmMetricContentType            `json:"contentType"`
+	AggregationTemporality string                          `json:"aggregationTemporality"`
+	IsMonotonic            bool                            `json:"isMonotonic"`
+	Type                   FmmMetricType                   `json:"type"`
+	Unit                   string                          `json:"unit"`
+	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
 }
 
 type FmmMetricCategory string
