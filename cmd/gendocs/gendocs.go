@@ -19,8 +19,8 @@
 package gendocs
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -121,21 +121,22 @@ func genTableOfContents(cmd *cobra.Command, path string, fs *afero.Afero) error 
 	// generate TOC in memory
 	toc := tocEntry{Items: []tocEntry{*genTOCNode(root)}}
 
-	// marshal to JSON
-	jsToc, err := json.MarshalIndent(toc, "", output.GetJsonIndent())
-	if err != nil {
-		return fmt.Errorf("Failed to marshal TOC to JSON: %v", err)
-	}
-
 	// display TOC if verbose
 	if verbose, _ := root.Flags().GetBool("verbose"); verbose {
-		output.PrintCmdStatus(cmd, string(jsToc)+"\n")
+		if err := output.PrintJson(cmd, toc); err != nil {
+			return fmt.Errorf("failed to marshal TOC to JSON: %v", err)
+		}
 	}
 
 	// write TOC to file (rw permissions & umask)
 	tocPath := filepath.Join(path, TOCFileName)
-	if err = fs.WriteFile(tocPath, jsToc, 0666); err != nil {
-		return fmt.Errorf("Failed to write TOC file %v: %v", path, err)
+	tocFile, err := fs.OpenFile(tocPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("failed to open TOC file %v: %v", path, err)
+	}
+
+	if err = output.WriteJson(toc, tocFile); err != nil {
+		return fmt.Errorf("failed to write TOC file %v: %v", path, err)
 	}
 
 	return nil

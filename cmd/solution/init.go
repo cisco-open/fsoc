@@ -15,7 +15,6 @@
 package solution
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -135,12 +134,6 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 }
 
 func writeSolutionManifest(folderName string, manifest *Manifest) error {
-	// marshal manifest into JSON format; do this before creating/truncating the file!
-	manifestJson, err := json.MarshalIndent(manifest, "", output.GetJsonIndent())
-	if err != nil {
-		return fmt.Errorf("Failed to marshal manifest to JSON: %w", err)
-	}
-
 	filepath := fmt.Sprintf("%s/manifest.json", folderName)
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
 	if err != nil {
@@ -148,7 +141,7 @@ func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	}
 	defer manifestFile.Close()
 
-	_, err = manifestFile.Write(manifestJson)
+	err = output.WriteJson(manifest, manifestFile)
 	if err != nil {
 		return fmt.Errorf("Failed to write the manifest into file %q: %w", filepath, err)
 	}
@@ -215,10 +208,9 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	svcJson, _ := json.MarshalIndent(compDef, "", output.GetJsonIndent())
-
-	_, _ = svcFile.WriteString(string(svcJson))
-	svcFile.Close()
+	if err = output.WriteJson(compDef, svcFile); err != nil {
+		log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
+	}
 }
 
 func appendFolder(folderName string) {

@@ -37,6 +37,8 @@ const (
 
 	// DetailFieldsAnnotation is the name of the cobra.Command annotation to use to specify the fields JQ query for detail output
 	DetailFieldsAnnotation = "output/detailFields"
+
+	JsonIndent = "    "
 )
 
 type printRequest struct {
@@ -78,15 +80,19 @@ func GetOutWriter(cmd *cobra.Command) io.Writer {
 	}
 }
 
-// PrintJson displays the output in prettified JSON
-func PrintJson(cmd *cobra.Command, v any) error {
-	data, err := json.MarshalIndent(v, "", GetJsonIndent())
+func WriteJson(obj interface{}, w io.Writer) error {
+	data, err := json.MarshalIndent(obj, "", JsonIndent)
 	if err != nil {
 		return err
 	}
+	data = append(data, '\n')
+	_, err = w.Write(data)
+	return err
+}
 
-	println(cmd, string(data))
-	return nil
+// PrintJson displays the output in prettified JSON
+func PrintJson(cmd *cobra.Command, v any) error {
+	return WriteJson(v, GetOutWriter(cmd))
 }
 
 // PrintYaml displays the output in YAML
