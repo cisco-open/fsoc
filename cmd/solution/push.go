@@ -40,7 +40,7 @@ var solutionPushCmd = &cobra.Command{
 
 Examples:
   fsoc solution push
-  fsoc solution push -w
+  fsoc solution push -sw
   fsoc solution push -w=60
   fsoc solution push --solution-bundle=mysolution.zip
 
@@ -61,8 +61,11 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
+	solutionPushCmd.Flags().BoolP("subscribe", "s", false, "Subscribe to solution after installing (not supported when uisng --solution-bundle)")
+
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "subscribe")
 
 	return solutionPushCmd
 
@@ -75,6 +78,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	waitFlag, _ := cmd.Flags().GetInt("wait")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
+	subscribeFlag, _ := cmd.Flags().GetBool("subscribe")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
 
@@ -155,9 +159,12 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	output.PrintCmdStatus(cmd, fmt.Sprintf("%v\n", message))
 
 	err = api.HTTPPost(getSolutionPushUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
-
 	if err != nil {
 		log.Fatalf("Solution command failed: %v", err)
+	}
+
+	if subscribeFlag && solutionName != "" {
+		manageSubscription(cmd, solutionName, true)
 	}
 
 	if waitFlag >= 0 && solutionName != "" && solutionVersion != "" {

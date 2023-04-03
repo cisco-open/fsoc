@@ -58,7 +58,7 @@ func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
 	if isSystemSolution {
 		log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution\n", solutionName)
 	} else {
-		manageSubscription(cmd, args, false)
+		manageSubscription(cmd, solutionName, false)
 	}
 }
 

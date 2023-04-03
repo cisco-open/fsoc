@@ -50,8 +50,7 @@ func getSubscribeSolutionCmd() *cobra.Command {
 
 }
 
-func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
-	solutionName, _ := cmd.Flags().GetString("name")
+func manageSubscription(cmd *cobra.Command, solutionName string, isSubscribed bool) {
 	if solutionName == "" {
 		log.Fatal("Solution name cannot be empty, use --name=<solution>")
 	}
@@ -92,7 +91,8 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 }
 
 func subscribeToSolution(cmd *cobra.Command, args []string) {
-	manageSubscription(cmd, args, true)
+	solutionName, _ := cmd.Flags().GetString("name")
+	manageSubscription(cmd, solutionName, true)
 }
 
 func getSolutionSubscribeUrl() string {
