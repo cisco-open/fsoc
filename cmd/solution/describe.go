@@ -12,7 +12,7 @@ import (
 )
 
 var solutionDescribeCmd = &cobra.Command{
-	Use:   "describe (solution | --solution=<solution>)",
+	Use:   "describe <solution-name>",
 	Short: "",
 	Long:  ``,
 	Run:   solutionDescribe,
@@ -32,6 +32,7 @@ type Solution struct {
 func getSolutionDescribeCmd() *cobra.Command {
 	solutionDescribeCmd.Flags().
 		String("solution", "", "The name of the solution to describe")
+	_ = solutionDescribeCmd.Flags().MarkDeprecated("solution", "The --solution flag is deprecated, please use argument instead.")
 	//_ = solutionDescribeCmd.MarkFlagRequired("solution")
 
 	return solutionDescribeCmd
@@ -44,7 +45,7 @@ func solutionDescribe(cmd *cobra.Command, args []string) {
 		solution = args[0]
 	} else {
 		if len(solution) == 0 {
-			log.Fatal("A non-empty flag \"--solution\" is required.")
+			log.Fatal("A non-empty \"solution-name\" argument is required.")
 		}
 	}
 

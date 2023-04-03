@@ -28,7 +28,7 @@ import (
 )
 
 var solutionInitCmd = &cobra.Command{
-	Use:   "init (name | --name=testSolution)",
+	Use:   "init <name>",
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
@@ -55,7 +55,7 @@ the "solution extend" command can be used to add more objects.`,
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
 		String("name", "", "The name of the new solution (required)")
-	//_ = solutionInitCmd.MarkFlagRequired("name")
+	_ = solutionInitCmd.Flags().MarkDeprecated("name", "The --name flag is deprecated, please use argument instead.")
 
 	solutionInitCmd.Flags().
 		Bool("include-service", true, "Add a service component definition to this solution")
@@ -72,7 +72,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 		solutionName = args[0]
 	} else {
 		if len(solutionName) == 0 {
-			log.Fatal("A non-empty flag \"--name\" is required.")
+			log.Fatal("A non-empty \"name\" argument is required.")
 		}
 	}
 

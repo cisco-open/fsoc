@@ -32,7 +32,7 @@ import (
 )
 
 var solutionForkCmd = &cobra.Command{
-	Use:   "fork (name source-name | --name=<solutionName> --source-name=<source-solution-name>)",
+	Use:   "fork <name> <source-name>",
 	Short: "Fork a solution in the specified folder",
 	Long:  `This command will download the solution into this folder and change the name of the manifest to the specified name`,
 	Run:   solutionForkCommand,
@@ -40,9 +40,9 @@ var solutionForkCmd = &cobra.Command{
 
 func GetSolutionForkCommand() *cobra.Command {
 	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be downloaded")
-	//_ = solutionForkCmd.MarkFlagRequired("source-name")
+	_ = solutionForkCmd.Flags().MarkDeprecated("source-name", "The --source-name flag is deprecated, please use argument instead.")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
-	//_ = solutionForkCmd.MarkFlagRequired("name")
+	_ = solutionForkCmd.Flags().MarkDeprecated("name", "The --name flag is deprecated, please use argument instead.")
 	return solutionForkCmd
 }
 
@@ -52,8 +52,8 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	if len(args) == 2 {
 		solutionName, forkName = args[0], args[1]
 	} else {
-		if solutionName == "" {
-			log.Fatalf("name cannot be empty, use --source-name=<source-solution-name> and --name=<solution-name>")
+		if solutionName == "" || forkName == "" {
+			log.Fatalf("name or source-name cannot be empty")
 		}
 	}
 
