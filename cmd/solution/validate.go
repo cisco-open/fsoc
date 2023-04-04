@@ -51,6 +51,7 @@ func getSolutionValidateUrl() string {
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
+	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "The --solution-bundle flag is deprecated, run this command in package root")
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
@@ -65,7 +66,7 @@ var solutionValidateCmd = &cobra.Command{
 	Long: `This command allows the current tenant specified in the profile to upload the specified solution bundle for the purpose of validating its contents
 
 Example:
-  fsoc solution validate --solution-bundle=mysolution.zip`,
+  fsoc solution validate`,
 	Args:             cobra.ExactArgs(0),
 	Run:              validateSolution,
 	TraverseChildren: true,
