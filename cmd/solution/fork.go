@@ -149,9 +149,12 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 	}
 	manifest.Name = forkName
 
-	b, _ := json.MarshalIndent(manifest, "", "  ")
-
-	err = afero.WriteFile(fileSystem, "./manifest.json", b, 0644)
+	f, err := fileSystem.OpenFile("./manifest.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatalf("Can't open manifest file: %v", err)
+	}
+	defer f.Close()
+	err = output.WriteJson(manifest, f)
 	if err != nil {
 		log.Errorf("Failed to to write to solution manifest: %v", err)
 	}

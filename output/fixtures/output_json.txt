@@ -1,5 +1,5 @@
 {
-   "Field1": "hello",
-   "Field2": 100,
-   "Field3": true
+    "Field1": "hello",
+    "Field2": 100,
+    "Field3": true
 }
