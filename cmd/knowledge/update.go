@@ -29,8 +29,8 @@ import (
 
 var objStoreUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update an existent knowledge object",
-	Long: `This command allows the an existent knowledge object to be updated according to the fields and values provided in a .json file.
+	Short: "Update an existent Knowledge Object",
+	Long: `This command allows the an existent Knowledge Object to be updated according to the fields and values provided in a .json file.
 
 	Usage:
 	fsoc knowledge update --type=<fully-qualified-typename> 
@@ -57,11 +57,11 @@ func getUpdateObjectCmd() *cobra.Command {
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
 
 	objStoreUpdateCmd.Flags().
-		String("object-id", "", "The id of the knowledge object been updated")
+		String("object-id", "", "The id of the Knowledge Object been updated")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
 
 	objStoreUpdateCmd.Flags().
-		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data definition")
+		String("object-file", "", "The fully qualified path to the json file containing the Knowledge Object data definition")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("objectFile")
 
 	objStoreUpdateCmd.Flags().

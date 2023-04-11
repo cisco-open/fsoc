@@ -22,12 +22,12 @@ func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{
 		Use:   "knowledge",
-		Short: "Perform knowledge store interactions.",
+		Short: "Perform Knowledge Store interactions.",
 		Long: `
 
-Perform knowledge store interactions.
+Perform Knowledge Store interactions.
 See <docs url>`,
-		Example: `# Get object type
+		Example: `# Get Knowledge Object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
 # Get object
   fsoc knowledge get --type=<fully-qualified-type-name> --object=<objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER

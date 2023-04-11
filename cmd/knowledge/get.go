@@ -30,10 +30,11 @@ func newGetObjectCmd() *cobra.Command {
 	// getCmd represents the get object command
 	getCmd := &cobra.Command{
 		Use:     "get",
-		Short:   "Fetch an object or a list of objects from the object store.",
+		Short:   "Fetch a Knowledge Object or a list of Knowledge Objects from the Knowledge Store.",
 		Aliases: []string{"g"},
-		Long:    `Fetch an object from object store using set of properties which can uniquely identify it.`,
-		Example: `  # Get object [SERVICE principal]
+		Long:    `Fetch a Knowledge Object from the Knowledge Store using set of properties which can uniquely identify it.`,
+		Example: `  
+  # Get Knowledge Object [SERVICE principal]
   fsoc knowledge get --type=extensibility:solution --object=extensibility --layer-id=extensibility --layer-type=SOLUTION
   
   # Get object [USER principal]
@@ -55,15 +56,15 @@ func newGetObjectCmd() *cobra.Command {
 	// get object
 
 	getCmd.PersistentFlags().
-		String("type", "", "Fully qualified type name. It will be formed by combining the solution which defined the type and the type name.")
+		String("type", "", "Fully qualified type name of Knowledge Object. It will be formed by combining the solution which defined the type and the type name.")
 
-	getCmd.PersistentFlags().String("object", "", "Object ID to fetch.")
-	getCmd.PersistentFlags().String("layer-id", "", "Layer ID object belongs to.")
+	getCmd.PersistentFlags().String("object", "", "Knowledge Object ID to fetch.")
+	getCmd.PersistentFlags().String("layer-id", "", "Layer at which the Knowledge Object exists.")
 
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Valid value: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
 
-	getCmd.PersistentFlags().String("filter", "", "Filter condition in SCIM filter format for getting objects")
+	getCmd.PersistentFlags().String("filter", "", "Filter condition in SCIM filter format for getting Knowledge Objects")
 	_ = getCmd.MarkPersistentFlagRequired("type")
 	// _ = getCmd.MarkPersistentFlagRequired("object")
 	//_ = getCmd.MarkPersistentFlagRequired("layer-id")
@@ -76,9 +77,9 @@ func newGetTypeCmd() *cobra.Command {
 	// getTypeCmd represents the get type command
 	getTypeCmd := &cobra.Command{
 		Use:     "get-type",
-		Short:   "Fetch type from object store.",
+		Short:   "Fetch type from Knowledge Store.",
 		Aliases: []string{"gt"},
-		Long:    `Fetch type from object store using type name`,
+		Long:    `Fetch type from Knowledge Store using type name`,
 		Example: `# Get type by using fully qualified type name
   fsoc knowledge get-type --type extensibility:solution`,
 		Args: cobra.NoArgs,
@@ -90,7 +91,7 @@ func newGetTypeCmd() *cobra.Command {
 
 	// get type
 	getTypeCmd.PersistentFlags().
-		String("type", "", "Fully qualified type name. It will be formed by combining the solution which defined the type and the type name.")
+		String("type", "", "Fully qualified type name of related Knowledge Object. It will be formed by combining the solution which defined the type and the type name.")
 
 	// only get type by fqtn is supported.
 	_ = getTypeCmd.MarkPersistentFlagRequired("type")
