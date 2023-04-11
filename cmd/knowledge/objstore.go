@@ -21,8 +21,9 @@ import (
 func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{
-		Use:   "knowledge",
-		Short: "Perform Knowledge Store interactions.",
+		Use:     "knowledge",
+		Aliases: []string{"obj", "objs", "objstore"},
+		Short:   "Perform Knowledge Store interactions.",
 		Long: `
 
 Perform Knowledge Store interactions.
