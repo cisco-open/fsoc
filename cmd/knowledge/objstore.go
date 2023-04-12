@@ -28,7 +28,7 @@ func NewSubCmd() *cobra.Command {
 
 Perform Knowledge Store interactions.
 See <docs url>`,
-		Example: `# Get Knowledge Object type
+		Example: `# Get knowledge object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
 # Get object
   fsoc knowledge get --type=<fully-qualified-type-name> --object=<objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER

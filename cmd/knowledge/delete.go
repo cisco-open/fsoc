@@ -26,8 +26,8 @@ import (
 
 var objStoreDeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete an existing Knowledge Object",
-	Long: `This command allows an existent Knowledge Object to be deleted.
+	Short: "Delete an existing knowledge object",
+	Long: `This command allows an existent knowledge object to be deleted.
 
 Usage:
   fsoc knowledge delete \
@@ -44,19 +44,19 @@ Usage:
 
 func getDeleteObjectCmd() *cobra.Command {
 	objStoreDeleteCmd.Flags().
-		String("type", "", "The fully qualified type name of the Knowledge Object to delete")
+		String("type", "", "The fully qualified type name of the knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("object-id", "", "The id of the Knowledge Object being updated")
+		String("object-id", "", "The id of the knowledge object being updated")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-type", "", "The layer-type of the updated Knowledge Object")
+		String("layer-type", "", "The layer-type of the updated knowledge object")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("layer-type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-id", "", "The layer-id of the updated Knowledge Object. Optional for TENANT and SOLUTION layers ")
+		String("layer-id", "", "The layer-id of the updated knowledge object. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreDeleteCmd
 
@@ -90,10 +90,10 @@ func deleteObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting  Knowledge Object %q of type %q\n", objId, objType)))
+	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting  knowledge object %q of type %q\n", objId, objType)))
 	err = api.JSONDelete(objectUrl, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Failed to delete Knowledge Object: %v", err)
+		log.Fatalf("Failed to delete knowledge object: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Knowledge object was successfully deleted.\n")
+	output.PrintCmdStatus(cmd, "knowledge object was successfully deleted.\n")
 }
