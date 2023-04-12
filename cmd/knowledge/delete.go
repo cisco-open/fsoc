@@ -48,15 +48,15 @@ func getDeleteObjectCmd() *cobra.Command {
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("object-id", "", "The id of the knowledge object being updated")
+		String("object-id", "", "The id of the knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-type", "", "The layer-type of the updated knowledge object")
+		String("layer-type", "", "The layer-type of knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("layer-type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-id", "", "The layer-id of the updated knowledge object. Optional for TENANT and SOLUTION layers ")
+		String("layer-id", "", "The layer-id of the knowledge object to delete. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreDeleteCmd
 

@@ -35,12 +35,12 @@ func newGetObjectCmd() *cobra.Command {
 		Long:    `Fetch a knowledge object from the Knowledge Store using set of properties which can uniquely identify it.`,
 		Example: `  
   # Get knowledge object [SERVICE principal]
-  fsoc knowledge get --type=extensibility:solution --object=extensibility --layer-id=extensibility --layer-type=SOLUTION
+  fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-id=extensibility --layer-type=SOLUTION
   
   # Get object [USER principal]
-  fsoc knowledge get --type extensibility:solution --object extensibility --layer-type LOCALUSER
+  fsoc knowledge get --type extensibility:solution --object-id extensibility --layer-type LOCALUSER
   
-  # Get list of solution objects that are system solutions
+  # Get list of solution layer knowledge objects that are system solutions
   fsoc knowledge get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
 
   # Get list of objects filtering by a data field
@@ -56,18 +56,16 @@ func newGetObjectCmd() *cobra.Command {
 	// get object
 
 	getCmd.PersistentFlags().
-		String("type", "", "Fully qualified type name of knowledge object. It will be formed by combining the solution which defined the type and the type name.")
+		String("type", "", "Fully qualified type name of knowledge object. It will be formed by combining the solution which defined the type and the type name")
 
-	getCmd.PersistentFlags().String("object", "", "knowledge object ID to fetch.")
-	getCmd.PersistentFlags().String("layer-id", "", "Layer at which the knowledge object exists.")
+	getCmd.PersistentFlags().String("object-id", "", "Object ID of the knowledge object to fetch")
+	getCmd.PersistentFlags().String("layer-id", "", "Layer ID of the related knowledge object to fetch")
 
 	getCmd.Flags().
-		Var(&ltFlag, "layer-type", fmt.Sprintf("Valid value: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
+		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
 
 	getCmd.PersistentFlags().String("filter", "", "Filter condition in SCIM filter format for getting knowledge objects")
 	_ = getCmd.MarkPersistentFlagRequired("type")
-	// _ = getCmd.MarkPersistentFlagRequired("object")
-	//_ = getCmd.MarkPersistentFlagRequired("layer-id")
 	_ = getCmd.MarkPersistentFlagRequired("layer-type")
 
 	return getCmd
@@ -91,7 +89,7 @@ func newGetTypeCmd() *cobra.Command {
 
 	// get type
 	getTypeCmd.PersistentFlags().
-		String("type", "", "Fully qualified type name of related knowledge object. It will be formed by combining the solution which defined the type and the type name.")
+		String("type", "", "Fully qualified type name of of the type to fetch. It will be formed by combining the solution which defined the type and the type name.")
 
 	// only get type by fqtn is supported.
 	_ = getTypeCmd.MarkPersistentFlagRequired("type")
@@ -120,9 +118,9 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 		return fmt.Errorf("error trying to get %q flag value: %w", "type", err)
 	}
 
-	objID, err := cmd.Flags().GetString("object")
+	objID, err := cmd.Flags().GetString("object-id")
 	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "object", err)
+		return fmt.Errorf("error trying to get %q flag value: %w", "object-id", err)
 	}
 
 	var layerType string = string(ltFlag)
