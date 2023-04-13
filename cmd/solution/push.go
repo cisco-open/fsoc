@@ -15,7 +15,7 @@
 package solution
 
 import (
-	"archive/zip"
+	// "archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -107,7 +107,8 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		solutionVersion = manifest.SolutionVersion
 
 		// create a temporary solution archive
-		solutionArchive := generateZipNoCmd(manifestPath)
+		// solutionArchive := generateZipNoCmd(manifestPath)
+		solutionArchive := generateZip(cmd, manifestPath)
 		solutionArchivePath = filepath.Base(solutionArchive.Name())
 
 	} else {
@@ -205,48 +206,48 @@ func getSolutionPushUrl() string {
 	return "solnmgmt/v1beta/solutions"
 }
 
-func generateZipNoCmd(sltnPackagePath string) *os.File {
-	// splitPath := strings.Split(sltnPackagePath, "/")
-	// solutionName := splitPath[len(splitPath)-1]
-	solutionName := filepath.Base(sltnPackagePath)
-	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
-	archive, err := os.Create(archiveFileName)
-	if err != nil {
-		log.Fatalf("Failed to create a bundle archive %q: %v", archiveFileName, err)
-	}
-	defer archive.Close()
-	zipWriter := zip.NewWriter(archive)
+// func generateZipNoCmd(sltnPackagePath string) *os.File {
+// 	// splitPath := strings.Split(sltnPackagePath, "/")
+// 	// solutionName := splitPath[len(splitPath)-1]
+// 	solutionName := filepath.Base(sltnPackagePath)
+// 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
+// 	archive, err := os.Create(archiveFileName)
+// 	if err != nil {
+// 		log.Fatalf("Failed to create a bundle archive %q: %v", archiveFileName, err)
+// 	}
+// 	defer archive.Close()
+// 	zipWriter := zip.NewWriter(archive)
 
-	fsocWorkingDir, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("Couldn't read the working directory: %v", err)
-	}
+// 	fsocWorkingDir, err := os.Getwd()
+// 	if err != nil {
+// 		log.Fatalf("Couldn't read the working directory: %v", err)
+// 	}
 
-	solutionRootFolder := filepath.Dir(sltnPackagePath)
-	err = os.Chdir(solutionRootFolder)
-	if err != nil {
-		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
-	}
+// 	solutionRootFolder := filepath.Dir(sltnPackagePath)
+// 	err = os.Chdir(solutionRootFolder)
+// 	if err != nil {
+// 		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
+// 	}
 
-	defer func() {
-		err := os.Chdir(fsocWorkingDir)
-		if err != nil {
-			log.Fatalf("Couldn't switch working folder back to the original one: %v", err)
-		}
-	}()
+// 	defer func() {
+// 		err := os.Chdir(fsocWorkingDir)
+// 		if err != nil {
+// 			log.Fatalf("Couldn't switch working folder back to the original one: %v", err)
+// 		}
+// 	}()
 
-	err = filepath.Walk(solutionName,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			addFileToZip(zipWriter, path, info)
-			return nil
-		})
-	if err != nil {
-		log.Fatalf("Error traversing the solution folder: %v", err)
-	}
-	zipWriter.Close()
+// 	err = filepath.Walk(solutionName,
+// 		func(path string, info os.FileInfo, err error) error {
+// 			if err != nil {
+// 				return err
+// 			}
+// 			addFileToZip(zipWriter, path, info)
+// 			return nil
+// 		})
+// 	if err != nil {
+// 		log.Fatalf("Error traversing the solution folder: %v", err)
+// 	}
+// 	zipWriter.Close()
 
-	return archive
-}
+// 	return archive
+// }
