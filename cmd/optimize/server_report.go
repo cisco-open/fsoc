@@ -27,8 +27,8 @@ import (
 )
 
 // reportCmd represents the report command
-var diabloReportCmd = &cobra.Command{
-	Use:   "diabloreport",
+var serverReportCmd = &cobra.Command{
+	Use:   "serverreport",
 	Short: "Obtain workload efficiency profile",
 	Long: `Obtain a workload report from the efficiency and risk profiler. The profiler will determine
 opportunities, recommendations, cautions, and blockers for optimizing the workload. By default, called
@@ -43,8 +43,8 @@ reports with deployment type workloads.`,
 }
 
 func init() {
-	optimizeCmd.AddCommand(diabloReportCmd)
-	diabloReportCmd.Flags().StringP("type", "t", "name", "Specifier for workload (name or id)")
+	optimizeCmd.AddCommand(serverReportCmd)
+	serverReportCmd.Flags().StringP("type", "t", "name", "Specifier for workload (name or id)")
 }
 
 func workloadReport(cmd *cobra.Command, args []string) error {
