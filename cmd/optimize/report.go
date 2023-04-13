@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/spf13/cobra"
+
 	"github.com/cisco-open/fsoc/cmd/uql"
 	"github.com/cisco-open/fsoc/output"
-	"github.com/spf13/cobra"
 )
 
 // TODO clarify blocker structure and pre-format
