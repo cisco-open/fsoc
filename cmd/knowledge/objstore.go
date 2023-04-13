@@ -22,7 +22,7 @@ func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{
 		Use:     "knowledge",
-		Aliases: []string{"obj", "objs", "objstore"},
+		Aliases: []string{"obj", "objs", "objstore", "ks"},
 		Short:   "Perform Knowledge Store interactions.",
 		Long: `
 
