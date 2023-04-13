@@ -122,12 +122,12 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 	objStoreUrl := getTypeUrl(compDef.Type)
 	typeDef := Fetch(objStoreUrl, &api.Options{Headers: headers})
 
-	jsonSchema, err := json.MarshalIndent(typeDef["jsonSchema"], "", "  ")
+	w := new(bytes.Buffer)
+	err := output.WriteJson(typeDef["jsonSchema"], w)
 	if err != nil {
 		log.Errorf("Couldn't marshal schema to json: %v", err)
 	}
-
-	schemaLoader := gojsonschema.NewStringLoader(string(jsonSchema))
+	schemaLoader, _ := gojsonschema.NewReaderLoader(w)
 
 	compDefFile := openFile(compDef.ObjectsFile)
 	defer compDefFile.Close()
@@ -145,11 +145,12 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 			log.Errorf("Failed to parse component: %v", err)
 		}
 		for _, object := range jsonArray {
-			jsonObject, err := json.MarshalIndent(object, "", "  ")
+			w := new(bytes.Buffer)
+			err = output.WriteJson(object, w)
 			if err != nil {
 				log.Errorf("Couldn't marshal object to json: %v", err)
 			}
-			documentLoader := gojsonschema.NewStringLoader(string(jsonObject))
+			documentLoader, _ := gojsonschema.NewReaderLoader(w)
 			validate(cmd, schemaLoader, documentLoader, compDef)
 		}
 	} else {

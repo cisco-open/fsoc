@@ -3,6 +3,7 @@ package melt
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -12,6 +13,7 @@ import (
 	logs "go.opentelemetry.io/proto/otlp/logs/v1"
 	metrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resource "go.opentelemetry.io/proto/otlp/resource/v1"
+	v1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	spans "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -97,7 +99,7 @@ func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.Export
 			Attributes: toKeyValueList(entity.Attributes),
 		}
 
-		exp.addRelationships(entity.Relationships, rm)
+		exp.addRelationshipsToMetrics(entity.Relationships, rm)
 
 		ilm := &metrics.ScopeMetrics{}
 
@@ -121,7 +123,35 @@ func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.Export
 	return emsr
 }
 
-func (exp *Exporter) addRelationships(rels []*Relationship, rm *metrics.ResourceMetrics) {
+func (exp *Exporter) addRelationships(rels []*Relationship, r *v1.Resource) {
+	// add relationships
+	if len(rels) > 0 {
+		attrib := &common.KeyValue{
+			Key: keyAppdFMMEntityRelationships,
+		}
+		val := &common.AnyValue_ArrayValue{
+			ArrayValue: &common.ArrayValue{
+				Values: []*common.AnyValue{},
+			},
+		}
+		for _, r := range rels {
+			kvlv := &common.AnyValue{
+				Value: &common.AnyValue_KvlistValue{
+					KvlistValue: &common.KeyValueList{
+						Values: toKeyValueList(r.Attributes),
+					},
+				},
+			}
+			val.ArrayValue.Values = append(val.ArrayValue.Values, kvlv)
+		}
+		attrib.Value = &common.AnyValue{
+			Value: val,
+		}
+		r.Attributes = append(r.Attributes, attrib)
+	}
+}
+
+func (exp *Exporter) addRelationshipsToMetrics(rels []*Relationship, rm *metrics.ResourceMetrics) {
 	// add relationships
 	if len(rels) > 0 {
 		attrib := &common.KeyValue{
@@ -162,6 +192,8 @@ func (exp *Exporter) buildLogsPayload(entities []*Entity) *colllogs.ExportLogsSe
 		rl.Resource = &resource.Resource{
 			Attributes: toKeyValueList(e.Attributes),
 		}
+
+		exp.addRelationships(e.Relationships, rl.Resource)
 
 		ill := &logs.ScopeLogs{}
 
@@ -375,16 +407,47 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 
 func toKeyValueList(a map[string]string) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
+
 	for k, v := range a {
 		key := k
-		attribs = append(attribs, &common.KeyValue{
-			Key: key,
-			Value: &common.AnyValue{
-				Value: &common.AnyValue_StringValue{
-					StringValue: v,
+		var value *common.KeyValue
+
+		if intValue, err := strconv.Atoi(v); err == nil {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_IntValue{
+						IntValue: int64(intValue),
+					},
 				},
-			},
-		})
+			}
+		} else if doubleValue, err := strconv.ParseFloat(v, 64); err == nil {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_DoubleValue{
+						DoubleValue: doubleValue,
+					},
+				},
+			}
+
+		} else {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_StringValue{
+						StringValue: v,
+					},
+				},
+			}
+		}
+
+		attribs = append(attribs, value)
+
+		// attribs = append(attribs, &common.KeyValue{
+		// 	Key:   key,
+		// 	Value: atrValue,
+		// })
 	}
 	return attribs
 }

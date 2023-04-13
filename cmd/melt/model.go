@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
@@ -39,23 +40,93 @@ func meltModel(cmd *cobra.Command, args []string) {
 }
 
 func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest) *melt.FsocData {
-	// fsocData := &melt.FsocData{
-	// 	Credentials: &api.AgentPrincipalStruct{
-	// 		ClientID: "",
-	// 		Secret:   "",
-	// 	},
-	// }
-
 	fsocData := &melt.FsocData{}
 	fmmEntities := GetFmmEntities(manifest)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v entities to the fsoc data model\n", len(fmmEntities)))
+
 	fmmMetrics := GetFmmMetrics(manifest)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v metrics to the fsoc data model\n", len(fmmMetrics)))
 	fsocMetrics := GetFsocMetrics(fmmMetrics)
-	fsocEntities := GetFsocEntities(fmmEntities, fsocMetrics)
+
+	fmmEvents := GetFmmEvents(manifest)
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v events to the fsoc data model\n", len(fmmEvents)))
+	fsocEvents := GetFsocEvents(fmmEvents)
+
+	fsocEntities := GetFsocEntities(fmmEntities, fsocMetrics, fsocEvents)
 	fsocData.Melt = fsocEntities
 
 	return fsocData
+}
+
+func GetFsocEvents(fmmEvents []*sol.FmmEvent) []*melt.Log {
+	fsocEvents := make([]*melt.Log, 0)
+
+	for _, fmmEvt := range fmmEvents {
+		fsocEType := fmt.Sprintf("%s:%s", fmmEvt.Namespace.Name, fmmEvt.Name)
+		fsocEvt := melt.NewEvent(fsocEType)
+		fmmAttrs := maps.Keys(fmmEvt.AttributeDefinitions.Attributes)
+
+		for _, fmmAttr := range fmmAttrs {
+			fsocEvt.SetAttribute(fmmAttr, "")
+		}
+
+		fsocEvents = append(fsocEvents, fsocEvt)
+	}
+	return fsocEvents
+}
+
+func GetFmmEvents(manifest *sol.Manifest) []*sol.FmmEvent {
+	fmmEvents := make([]*sol.FmmEvent, 0)
+	entityComponentDefs := GetComponentDefs("fmm:event", manifest)
+	for _, compDef := range entityComponentDefs {
+		if compDef.ObjectsFile != "" {
+			filePath := compDef.ObjectsFile
+			fmmEvents = append(fmmEvents, getFmmEventsFromFile(filePath)...)
+		}
+		if compDef.ObjectsDir != "" {
+			filePath := compDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						fmmEvents = append(fmmEvents, getFmmEventsFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
+
+	}
+	return fmmEvents
+}
+
+func getFmmEventsFromFile(filePath string) []*sol.FmmEvent {
+	fmmEvents := make([]*sol.FmmEvent, 0)
+	eventsDefFile := openFile(filePath)
+	defer eventsDefFile.Close()
+	eventDefBytes, _ := io.ReadAll(eventsDefFile)
+	eventDefContent := string(eventDefBytes)
+
+	if strings.Index(eventDefContent, "[") == 0 {
+		eventsArray := make([]*sol.FmmEvent, 0)
+		err := json.Unmarshal(eventDefBytes, &eventsArray)
+		if err != nil {
+			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
+		}
+		fmmEvents = append(fmmEvents, eventsArray...)
+	} else {
+		var event *sol.FmmEvent
+		err := json.Unmarshal(eventDefBytes, &event)
+		if err != nil {
+			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
+		}
+		fmmEvents = append(fmmEvents, event)
+	}
+	return fmmEvents
 }
 
 func GetFmmMetrics(manifest *sol.Manifest) []*sol.FmmMetric {
@@ -66,10 +137,22 @@ func GetFmmMetrics(manifest *sol.Manifest) []*sol.FmmMetric {
 			filePath := compDef.ObjectsFile
 			fmmMetrics = append(fmmMetrics, getFmmMetricsFromFile(filePath)...)
 		}
-
-		// if compDef.ObjectsDir != "" {
-
-		// }
+		if compDef.ObjectsDir != "" {
+			filePath := compDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						fmmMetrics = append(fmmMetrics, getFmmMetricsFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
 
 	}
 	return fmmMetrics
@@ -106,13 +189,19 @@ func GetFsocMetrics(fmmMetrics []*sol.FmmMetric) []*melt.Metric {
 	for _, fmmMt := range fmmMetrics {
 		fsocMType := fmt.Sprintf("%s:%s", fmmMt.Namespace.Name, fmmMt.Name)
 		fsocMt := melt.NewMetric(fsocMType, fmmMt.Unit, string(fmmMt.ContentType), string(fmmMt.Type))
+		if fmmMt.AttributeDefinitions != nil {
+			fmmAttrs := maps.Keys(fmmMt.AttributeDefinitions.Attributes)
+			for _, fmmAttr := range fmmAttrs {
+				fsocMt.SetAttribute(fmmAttr, "")
+			}
+		}
 		fsocMetrics = append(fsocMetrics, fsocMt)
 	}
 
 	return fsocMetrics
 }
 
-func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric) []*melt.Entity {
+func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric, fsocEvents []*melt.Log) []*melt.Entity {
 	fsocEntities := make([]*melt.Entity, 0)
 
 	for _, fmmE := range fmmEntities {
@@ -125,6 +214,7 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric) [
 			}
 			fsocE.SetAttribute(fmmAttr, "")
 		}
+
 		//adding fsoc metrics to the model
 		for _, fmmEM := range fmmE.MetricTypes {
 			fsocMetricType := fmmEM
@@ -133,7 +223,16 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric) [
 					fsocE.AddMetric(fsocMt)
 				}
 			}
+		}
 
+		//adding fsoc events to the model
+		for _, fmmEM := range fmmE.EventTypes {
+			fsocEventType := fmmEM
+			for _, fsocEvt := range fsocEvents {
+				if fsocEvt.TypeName == fsocEventType {
+					fsocE.AddLog(fsocEvt)
+				}
+			}
 		}
 
 		// add logs tp the entity
@@ -159,10 +258,22 @@ func GetFmmEntities(manifest *sol.Manifest) []*sol.FmmEntity {
 			filePath := compDef.ObjectsFile
 			fmmEntities = append(fmmEntities, getFmmEntitiesFromFile(filePath)...)
 		}
-
-		// if compDef.ObjectsDir != "" {
-
-		// }
+		if compDef.ObjectsDir != "" {
+			filePath := compDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						fmmEntities = append(fmmEntities, getFmmEntitiesFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
 
 	}
 	return fmmEntities

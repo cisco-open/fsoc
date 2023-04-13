@@ -327,12 +327,10 @@ func (t *templateServer) returnTemplateList(w http.ResponseWriter, r *http.Reque
 
 	itemsList.Items = itemArray
 	itemsList.NumItems = len(files)
-	jsonOutput, err := json.MarshalIndent(&itemsList, "", "  ")
-	if err != nil {
+	if err = output.WriteJson(&itemsList, w); err != nil {
 		log.Error(err.Error())
 		return err
 	}
-	fmt.Fprint(w, string(jsonOutput))
 
 	return nil
 }

@@ -3,6 +3,7 @@ module github.com/cisco-open/fsoc
 go 1.19
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/apex/log v1.9.0
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0

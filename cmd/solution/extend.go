@@ -32,7 +32,7 @@ var solutionExtendCmd = &cobra.Command{
 	Short: "Extends your solution package by adding new components",
 	Long: `This command allows you to easily add new components to your solution package.
 
-Example: 
+Example:
   fsoc solution extend --add-knowledge=<knowldgetypename>`,
 
 	Run:              extendSolution,
@@ -85,8 +85,12 @@ func extendSolution(cmd *cobra.Command, args []string) {
 		fileName := fmt.Sprintf("%s.json", componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
-		bytes, _ := json.MarshalIndent(manifest, "", "  ")
-		err := os.WriteFile("./manifest.json", bytes, 0644)
+		f, err := os.OpenFile("./manifest.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Fatalf("Can't open manifest file: %v", err)
+		}
+		defer f.Close()
+		err = output.WriteJson(manifest, f)
 		if err != nil {
 			log.Fatalf("Failed to update manifest.json file to reflect new knowledge type: %v", err)
 		}

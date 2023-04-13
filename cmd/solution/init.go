@@ -15,7 +15,6 @@
 package solution
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -32,10 +31,10 @@ var solutionInitCmd = &cobra.Command{
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
-Example: 
+Example:
 
    fsoc solution init --name=testSolution --include-service --include-knowledge
-   
+
 Creates a subdirectory named "testSolution" in the current directory and populates
 it with a solution manifest and objects for it. The optional --include-... flags
 define what objects are added to the solution. Once the solution is created,
@@ -134,17 +133,28 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 
 }
 
-func createSolutionManifestFile(folderName string, manifest *Manifest) {
+func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	filepath := fmt.Sprintf("%s/manifest.json", folderName)
-	manifestFile, err := os.Create(filepath)
+	manifestFile, err := os.Create(filepath) // create new or truncate existing
 	if err != nil {
-		log.Fatalf("Failed to create manifest.json: %v", err)
+		return fmt.Errorf("Failed to create manifest file %q: %w", filepath, err)
+	}
+	defer manifestFile.Close()
+
+	err = output.WriteJson(manifest, manifestFile)
+	if err != nil {
+		return fmt.Errorf("Failed to write the manifest into file %q: %w", filepath, err)
 	}
 
-	manifestJson, _ := json.MarshalIndent(manifest, "", "  ")
+	// the file is closed before returning (see defer above)
+	return nil
+}
 
-	_, _ = manifestFile.WriteString(string(manifestJson))
-	manifestFile.Close()
+// createSolutionManifestFile is a "must succeed" version of writeSolutionManifests
+func createSolutionManifestFile(folderName string, manifest *Manifest) {
+	if err := writeSolutionManifest(folderName, manifest); err != nil {
+		log.Fatalf(err.Error())
+	}
 }
 
 func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
@@ -199,10 +209,9 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	svcJson, _ := json.MarshalIndent(compDef, "", "  ")
-
-	_, _ = svcFile.WriteString(string(svcJson))
-	svcFile.Close()
+	if err = output.WriteJson(compDef, svcFile); err != nil {
+		log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
+	}
 }
 
 func appendFolder(folderName string) {
