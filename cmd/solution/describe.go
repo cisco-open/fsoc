@@ -12,11 +12,12 @@ import (
 )
 
 var solutionDescribeCmd = &cobra.Command{
-	Use:   "describe <solution-name>",
-	Args:  cobra.MaximumNArgs(1),
-	Short: "Describe solution",
-	Long:  `Obtain metadata about a solution`,
-	Run:   solutionDescribe,
+	Use:     "describe <solution-name>",
+	Args:    cobra.MaximumNArgs(1),
+	Short:   "Describe solution",
+	Long:    `Obtain metadata about a solution`,
+	Example: `  fsoc solution describe spacefleet`,
+	Run:     solutionDescribe,
 }
 
 type Solution struct {

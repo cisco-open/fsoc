@@ -47,11 +47,9 @@ var solutionStatusCmd = &cobra.Command{
 	Use:   "status <solution-name> [flags]",
 	Args:  cobra.MaximumNArgs(1),
 	Short: "Get the installation/upload status of a solution",
-	Long: `This command provides the ability to see the current installation and upload status of a solution.
-	
-Example:
-  fsoc solution status spacefleet --status-type=all
-`,
+	Long:  `This command provides the ability to see the current installation and upload status of a solution.`,
+	Example: `  fsoc solution status spacefleet
+  fsoc solution status spacefleet --status-type=install`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := getSolutionStatus(cmd, args); err != nil {
 			log.Fatalf(err.Error())

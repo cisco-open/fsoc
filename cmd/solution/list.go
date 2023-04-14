@@ -27,10 +27,9 @@ var solutionListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.ExactArgs(0),
 	Short: "List all solutions available in this tenant",
-	Long: `This command list all the solutions that are deployed in the current tenant specified in the profile.
-
-Usage:
-	fsoc solution list`,
+	Long:  `This command list all the solutions that are deployed in the current tenant specified in the profile.`,
+	Example: `  fsoc solution list
+  fsoc solution list -o json`,
 	Run:              getSolutionList,
 	TraverseChildren: true,
 	Annotations: map[string]string{

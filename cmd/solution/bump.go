@@ -28,10 +28,8 @@ var solutionBumpCmd = &cobra.Command{
 	Use:   "bump",
 	Short: "Increment the patch version of the solution",
 	Long: `Increment the patch version of the solution in the manifest to prepare
-it for validation or push.
-
-Example:
-  fsoc solution bump`,
+it for validation or push.`,
+	Example:          `  fsoc solution bump`,
 	Args:             cobra.ExactArgs(0),
 	Run:              bumpSolutionVersion,
 	TraverseChildren: true,

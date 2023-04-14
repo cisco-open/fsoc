@@ -32,11 +32,12 @@ import (
 )
 
 var solutionForkCmd = &cobra.Command{
-	Use:   "fork <solution-name> <target-name>",
-	Args:  cobra.MaximumNArgs(2),
-	Short: "Fork a solution into the specified folder",
-	Long:  `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
-	Run:   solutionForkCommand,
+	Use:     "fork <solution-name> <target-name>",
+	Args:    cobra.MaximumNArgs(2),
+	Short:   "Fork a solution into the specified folder",
+	Long:    `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
+	Example: `  fsoc solution fork spacefleet myfleet`,
+	Run:     solutionForkCommand,
 }
 
 func GetSolutionForkCommand() *cobra.Command {
@@ -54,7 +55,7 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		solutionName, forkName = args[0], args[1]
 	} else if len(args) != 0 {
 		_ = cmd.Help()
-		log.Fatal("Invalid arguments")
+		log.Fatal("Exactly 2 arguments required.")
 	}
 	if solutionName == "" || forkName == "" {
 		log.Fatalf("<solution-name> and <target-name> cannot be empty")
