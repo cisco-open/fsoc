@@ -101,7 +101,8 @@ func validateSolution(cmd *cobra.Command, args []string) {
 		}
 
 		// create a temporary solution archive
-		solutionArchive := generateZipNoCmd(manifestPath)
+		// solutionArchive := generateZipNoCmd(manifestPath)
+		solutionArchive := generateZip(cmd, manifestPath)
 		solutionArchivePath = filepath.Base(solutionArchive.Name())
 	} else {
 		solutionArchivePath = solutionBundlePath

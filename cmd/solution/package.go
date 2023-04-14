@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -78,8 +79,6 @@ func packageSolution(cmd *cobra.Command, args []string) {
 }
 
 func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
-	// splitPath := strings.Split(sltnPackagePath, "/")
-	// solutionName := splitPath[len(splitPath)-1]
 	solutionName := filepath.Base(sltnPackagePath)
 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating %s archive... \n", archiveFileName))
@@ -113,7 +112,9 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 			if err != nil {
 				return err
 			}
-			addFileToZip(zipWriter, path, info)
+			if isAllowedPath(path, info) {
+				addFileToZip(zipWriter, path, info)
+			}
 			return nil
 		})
 	if err != nil {
@@ -122,6 +123,30 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	zipWriter.Close()
 
 	return archive
+}
+
+func isAllowedPath(path string, info os.FileInfo) bool {
+	fileInclude := []string{".json", ".md"}
+	excludePath := []string{".git"}
+	allow := false
+
+	if info.IsDir() {
+		for _, exclP := range excludePath {
+			if strings.Contains(path, exclP) {
+				return allow
+			}
+		}
+		allow = true
+	} else {
+		ext := filepath.Ext(path)
+		for _, inclExt := range fileInclude {
+			if ext == inclExt {
+				allow = true
+			}
+		}
+	}
+
+	return allow
 }
 
 func addFileToZip(zipWriter *zip.Writer, fileName string, info os.FileInfo) {
