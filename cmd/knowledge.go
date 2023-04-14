@@ -12,27 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objstore
+package cmd
 
 import (
-	"strings"
-
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/cmd/knowledge"
 )
 
-func getCorrectLayerID(layerType string, fqtn string) string {
-	cfg := config.GetCurrentContext()
-	var layerID string
-
-	if layerType == "TENANT" {
-		layerID = cfg.Tenant
-	} else if layerType == "SOLUTION" {
-		layerID = strings.Split(fqtn, ":")[0]
-	} else if layerType == "LOCALUSER" || layerType == "GLOBALUSER" {
-		layerID = cfg.User
-	} else {
-		layerID = ""
-	}
-
-	return layerID
+func init() {
+	registerSubsystem(knowledge.NewSubCmd())
 }

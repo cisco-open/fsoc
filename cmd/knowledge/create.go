@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objstore
+package knowledge
 
 import (
 	"encoding/json"
@@ -29,11 +29,11 @@ import (
 
 var objStoreInsertCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a new object of a given type",
-	Long: `This command allows the creation of a new object of a given type in the Object Store.
+	Short: "Create a new knowledge object of a given type",
+	Long: `This command allows the creation of a new knowledge object of a given type in the Knowledge Store.
 
 Example:
-  fsoc objstore create --type<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=<valid-layer-type> [--layer-id=<valid-layer-id>]
+  fsoc knowledge create --type<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=<valid-layer-type> [--layer-id=<valid-layer-id>]
 `,
 
 	Args:             cobra.ExactArgs(0),
@@ -43,19 +43,19 @@ Example:
 
 func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
-		String("type", "", "The fully qualified type name of the object")
+		String("type", "", "The fully qualified type name of the knowledge object to create")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("type")
 
 	objStoreInsertCmd.Flags().
-		String("object-file", "", "The fully qualified path to the json file containing the object data")
+		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("objectFile")
 
 	objStoreInsertCmd.Flags().
-		String("layer-type", "", "The layer-type that the created object will be added to")
+		String("layer-type", "", "The layer-type that the created knowledge object will be added to")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("layer-type")
 
 	objStoreInsertCmd.Flags().
-		String("layer-id", "", "The layer-id that the created object will be added to. Optional for TENANT and SOLUTION layers ")
+		String("layer-id", "", "The layer-id that the created knowledge object will be added to. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreInsertCmd
 
@@ -67,7 +67,7 @@ func insertObject(cmd *cobra.Command, args []string) {
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
 	if err != nil {
-		log.Fatalf("Can't find the object definition file named %q", objJsonFilePath)
+		log.Fatalf("Can't find the knowledge object definition file named %q", objJsonFilePath)
 	}
 	defer objectFile.Close()
 
@@ -75,7 +75,7 @@ func insertObject(cmd *cobra.Command, args []string) {
 	var objectStruct map[string]interface{}
 	err = json.Unmarshal(objectBytes, &objectStruct)
 	if err != nil {
-		log.Fatalf("Failed to parse object data from file %q: %v. Make sure the object definition has all the required field and is valid according to the type definition.", objJsonFilePath, err)
+		log.Fatalf("Failed to parse knowledge object data from file %q: %v. Make sure the knowledge object definition has all the required field and is valid according to the type definition.", objJsonFilePath, err)
 	}
 
 	layerType, _ := cmd.Flags().GetString("layer-type")
@@ -100,9 +100,9 @@ func insertObject(cmd *cobra.Command, args []string) {
 	// objJsonStr, err := json.Marshal(objectStruct)
 	err = api.JSONPost(getObjStoreObjectUrl()+"/"+objType, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Failed to create object: %v", err)
+		log.Fatalf("Failed to create knowledge object: %v", err)
 	} else {
-		log.Infof("Successfully created a %q object", objType)
+		log.Infof("Successfully created a knowledge object of type: %q", objType)
 	}
 }
 
@@ -112,12 +112,12 @@ func getObjStoreObjectUrl() string {
 
 var objStoreInsertPatchedObjectCmd = &cobra.Command{
 	Use:   "create-patch",
-	Short: "Create a new patched object of a given type",
-	Long: `This command allows the creation of a new patched object of a given type in the Object Store.
-A patched object inherits values from an object that exists at a higher layer and can also override mutable fields when needed.
+	Short: "Create a new patched knowledge object of a given type",
+	Long: `This command allows the creation of a new patched knowledge object of a given type in the Knowledge Store.
+A patched knowledge object inherits values from separate object that exists at a higher layer and can also override mutable fields when needed.
 
 Example:
-  fsoc objstore create-patch --type<fully-qualified-typename> --object-file=<fully-qualified-path> --target-layer-type=<valid-layer-type> --target-object-id=<valid-object-id>`,
+  fsoc knowledge create-patch --type<fully-qualified-typename> --object-file=<fully-qualified-path> --target-layer-type=<valid-layer-type> --target-object-id=<valid-object-id>`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              insertPatchObject,
@@ -126,19 +126,19 @@ Example:
 
 func getCreatePatchObjectCmd() *cobra.Command {
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("type", "", "The fully qualified type name of the object")
+		String("type", "", "The fully qualified type name of the knowledge object")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("type")
 
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("target-object-id", "", "The id of the object for which you want to create a patched object at a lower layer")
+		String("target-object-id", "", "The id of the object for which you want to create a patched knowledge object at a lower layer")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-object-id")
 
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("object-file", "", "The fully qualified path to the json file containing the object definition")
-	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("objectFile")
+		String("object-file", "", "The fully qualified path to the json file containing the knowledge object definition")
+	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("object-file")
 
 	objStoreInsertPatchedObjectCmd.Flags().
-		String("target-layer-type", "", "The layer-type at which the patch object will be created. For inheritance purposes, this should always be a `lower` layer than the target object's layer")
+		String("target-layer-type", "", "The layer-type at which the patch knowledge object will be created. For inheritance purposes, this should always be a `lower` layer than the target object's layer")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-layer-type")
 
 	return objStoreInsertPatchedObjectCmd
@@ -151,7 +151,7 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
 	if err != nil {
-		log.Fatalf("Can't find the object definition file %q", objJsonFilePath)
+		log.Fatalf("Can't find the knowledge object definition file %q", objJsonFilePath)
 		return
 	}
 	defer objectFile.Close()
@@ -160,7 +160,7 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 	var objectStruct map[string]interface{}
 	err = json.Unmarshal(objectBytes, &objectStruct)
 	if err != nil {
-		log.Fatalf("Failed to parse object data from file %q: %v. Make sure the object definition has all the required fields and is valid according to the type definition.", objJsonFilePath, err)
+		log.Fatalf("Failed to parse knowledge object data from file %q: %v. Make sure the knowledge object definition has all the required fields and is valid according to the type definition.", objJsonFilePath, err)
 	}
 
 	layerType, _ := cmd.Flags().GetString("target-layer-type")
@@ -174,9 +174,9 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 	var res any
 	err = api.JSONPatch(getObjStoreObjectUrl()+"/"+objType+"/"+parentObjId, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Failed to create object: %v", err)
+		log.Fatalf("Failed to create knowledge object: %v", err)
 		return
 	} else {
-		output.PrintCmdOutput(cmd, fmt.Sprintf("Successfully created a patched %q object at the %s layer.\n", objType, layerType))
+		output.PrintCmdOutput(cmd, fmt.Sprintf("Successfully created a patched knowledge object of type: %q the %s layer.\n", objType, layerType))
 	}
 }
