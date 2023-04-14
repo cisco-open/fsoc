@@ -29,6 +29,7 @@ import (
 
 var solutionExtendCmd = &cobra.Command{
 	Use:   "extend",
+	Args:  cobra.ExactArgs(0),
 	Short: "Extends your solution package by adding new components",
 	Long: `This command allows you to easily add new components to your solution package.
 

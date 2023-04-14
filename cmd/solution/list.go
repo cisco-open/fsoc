@@ -25,6 +25,7 @@ import (
 
 var solutionListCmd = &cobra.Command{
 	Use:   "list",
+	Args:  cobra.ExactArgs(0),
 	Short: "List all solutions available in this tenant",
 	Long: `This command list all the solutions that are deployed in the current tenant specified in the profile.
 

@@ -44,24 +44,26 @@ type ResponseBlob struct {
 }
 
 var solutionStatusCmd = &cobra.Command{
-	Use:   "status [flags]",
+	Use:   "status <solution-name> [flags]",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Get the installation/upload status of a solution",
 	Long: `This command provides the ability to see the current installation and upload status of a solution.
 	
 Example:
-  fsoc solution status --name spacefleet --status-type=all
+  fsoc solution status spacefleet --status-type=all
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return getSolutionStatus(cmd, args)
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := getSolutionStatus(cmd, args); err != nil {
+			log.Fatalf(err.Error())
+		}
 	},
-	Args:             cobra.ExactArgs(0),
 	TraverseChildren: true,
 }
 
 func getSolutionStatusCmd() *cobra.Command {
 	solutionStatusCmd.Flags().
 		String("name", "", "The name of the solution for which you would like to retrieve the upload status")
-	_ = solutionStatusCmd.MarkFlagRequired("name")
+	_ = solutionStatusCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 
 	solutionStatusCmd.Flags().
 		String("solution-version", "", "The version of the solution for which you would like to retrieve the upload status")
@@ -129,15 +131,11 @@ func fetchValuesAndPrint(operation string, query string, requestHeaders map[stri
 }
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {
-	var err error
 	var filterQuery string
 	cfg := config.GetCurrentContext()
 
 	layerType := "TENANT"
-	solutionName, err := cmd.Flags().GetString("name")
-	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "name", err)
-	}
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 
 	headers := map[string]string{
 		"layer-type": layerType,

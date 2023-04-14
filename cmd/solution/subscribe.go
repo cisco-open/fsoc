@@ -30,13 +30,11 @@ type subscriptionStruct struct {
 }
 
 var solutionSubscribeCmd = &cobra.Command{
-	Use:   "subscribe",
-	Short: "Subscribe to a solution",
-	Long: `This command allows the current tenant specified in the profile to subscribe to a solution.
-
-Example:
-	fsoc solution subscribe --name=spacefleet`,
-	Args:             cobra.ExactArgs(0),
+	Use:              "subscribe <solution-name>",
+	Args:             cobra.MaximumNArgs(1),
+	Short:            "Subscribe to a solution",
+	Long:             `This command allows the current tenant specified in the profile to subscribe to a solution.`,
+	Example:          `	fsoc solution subscribe spacefleet`,
 	Run:              subscribeToSolution,
 	TraverseChildren: true,
 }
@@ -44,17 +42,14 @@ Example:
 func getSubscribeSolutionCmd() *cobra.Command {
 	solutionSubscribeCmd.Flags().
 		String("name", "", "The name of the solution the tenant is subscribing to")
-	_ = solutionSubscribeCmd.MarkFlagRequired("name")
+	_ = solutionSubscribeCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 
 	return solutionSubscribeCmd
 
 }
 
 func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
-	solutionName, _ := cmd.Flags().GetString("name")
-	if solutionName == "" {
-		log.Fatal("Solution name cannot be empty, use --name=<solution>")
-	}
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 
 	var message string
 	if isSubscribed {
@@ -62,9 +57,7 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 	} else {
 		message = "Unsubscribing from solution"
 	}
-	log.WithFields(log.Fields{
-		"solution": solutionName,
-	}).Info(message)
+	log.WithField("solution", solutionName).Info(message)
 
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant
