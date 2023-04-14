@@ -51,7 +51,11 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 	}
 
 	for _, entity := range fsoData.Melt {
-		entity.SetAttribute("telemetry.sdk.name", "fsoc-melt")
+		if _, ok := entity.Attributes["telemetry.sdk.name"]; ok {
+			log.Info("telemetry.sdk.name already set, skipping...")
+		} else {
+			entity.SetAttribute("telemetry.sdk.name", "fsoc-melt")
+		}
 		for _, m := range entity.Metrics {
 			et := time.Now()
 			if len(m.DataPoints) == 0 {
