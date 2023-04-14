@@ -26,8 +26,8 @@ func NewSubCmd() *cobra.Command {
 		Short:   "Perform Knowledge Store interactions.",
 		Long: `
 
-Perform Knowledge Store interactions.
-See <docs url>`,
+Perform Knowledge Store interactions. See https://developer.cisco.com/docs/fso/#!use-the-knowledge-store-introduction 
+for more information on the Knowledge Store. `,
 		Example: `# Get knowledge object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
 # Get object

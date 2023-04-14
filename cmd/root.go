@@ -42,17 +42,17 @@ var outputFormat string
 var rootCmd = &cobra.Command{
 	Use:   "fsoc",
 	Short: "fsoc - Cisco FSO Platform Control Tool",
-	Long: `fsoc is an internal Cisco utility that serves as an entry point for developers on the 
-Full Stack Observability (FSO) Platform.
+	Long: `fsoc is an open source utility that serves as an entry point for developers on the Cisco
+Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
+
 It allows developers to interact with the product environments--developer, test and production--in a
-uniform way and to perform common tasks. fsoc targets developers building the platform itself, as well
-as developers building solutions on the platform.
+uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
 Examples:
-$ fsoc login
-$ fsoc uql query "FETCH id, type, attributes FROM entities(k8s:workload)"
-$ fsoc solution list
-$ fsoc solution list -o json
+  fsoc login
+  fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
+  fsoc solution list
+  fsoc solution list -o json
 
 For more information, see https://github.com/cisco-open/fsoc 
 
