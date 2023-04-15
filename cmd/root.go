@@ -31,6 +31,7 @@ import (
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
 	"github.com/cisco-open/fsoc/logfilter"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var cfgFile string
@@ -80,6 +81,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
+	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
@@ -129,7 +131,13 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	var file *os.File
 	var cliHandler log.Handler
 
-	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+	// process logging level flags (verbose and curl)
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	if curlify, _ := cmd.Flags().GetBool("curl"); curlify {
+		api.FlagCurlifyRequests = true
+		verbose = true // force verbose
+	}
+	if verbose {
 		cliHandler = logfilter.New(os.Stderr, log.InfoLevel)
 	} else {
 		cliHandler = logfilter.New(os.Stderr, log.WarnLevel)
