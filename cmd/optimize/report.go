@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,108 +15,210 @@
 package optimize
 
 import (
-	"encoding/base32"
+	"bytes"
 	"fmt"
 	"strings"
+	"text/template"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/uql"
-	"github.com/cisco-open/fsoc/cmdkit"
+	"github.com/cisco-open/fsoc/output"
 )
+
+// TODO clarify blocker structure and pre-format
+type reportRow struct {
+	WorkloadId         string
+	WorkloadAttributes map[string]any
+	ProfileAttributes  map[string]any
+	ProfileTimestamp   time.Time
+}
+
+type templateValues struct {
+	WorkloadId      string
+	Eligible        bool
+	WorkloadFilters string
+}
+
+var (
+	tempVals     templateValues
+	cluster      string
+	namespace    string
+	workloadName string
+)
+
+var reportTemplate = template.Must(template.New("").Parse(`
+SINCE -1w 
+FETCH id, attributes, events(optimize:profile){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes} 
+FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFilters}}[{{.}}]{{end}} 
+LIMITS events.count(1)
+`))
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
 	Use:   "report",
-	Short: "Obtain workload efficiency profile",
-	Long: `Obtain a workload report from the efficiency and risk profiler. The profiler will determine
-opportunities, recommendations, cautions, and blockers for optimizing the workload. By default, called
-with workload name, but can be called via id (full or partial) by setting --type=id. Can only generate
-reports with deployment type workloads.`,
-	Example: `  fsoc optimize report "frontend"
-  fsoc optimize report "H4uJtAA+MciSmzMDFeAueA" --type=id
-  fsoc optimize report "k8s:deployment:H4uJtAA+MciSmzMDFeAueA" --type=id`,
-	Args:             cobra.ExactArgs(1),
-	RunE:             workloadReport,
+	Short: "List workloads and optimization eligibility",
+	Long: `
+List workloads and optimization eligibility
+	
+If no flags are provided, all deployment workloads will be listed
+You can optionally filter worklaods to by cluster, namespace and/or name
+You may specify also particular workloadId to fetch details for a single workload (recommended with -o detail or -o yaml)
+`,
+	Example:          `fsoc optimize report --namespace kube-system`,
+	Args:             cobra.NoArgs,
+	RunE:             listReports,
 	TraverseChildren: true,
+	Annotations: map[string]string{
+		output.TableFieldsAnnotation:  "WorkloadId: .WorkloadId, Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], LastProfiled: .ProfileTimestamp",
+		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: .ProfileAttributes | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
+	},
 }
 
 func init() {
 	optimizeCmd.AddCommand(reportCmd)
-	reportCmd.Flags().StringP("type", "t", "name", "Specifier for workload (name or id)")
+	reportCmd.Flags().StringVarP(&cluster, "cluster", "c", "", "Filter reports by kubernetes cluster name")
+	reportCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Filter reports by kubernetes namespace")
+	reportCmd.Flags().StringVarP(&workloadName, "workload-name", "w", "", "Filter reports by name of kubernetes workload")
+
+	reportCmd.Flags().StringVarP(&tempVals.WorkloadId, "workload-id", "i", "", "Retrieve a specific report by its workload's ID (best used with -o detail)")
+	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "cluster")
+	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "namespace")
+	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "workload-name")
+
+	reportCmd.Flags().BoolVarP(&tempVals.Eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
 }
 
-func workloadReport(cmd *cobra.Command, args []string) error {
+func listReports(cmd *cobra.Command, args []string) error {
+	filtersList := make([]string, 0, 3)
+	if cluster != "" {
+		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.cluster.name\") = %q", cluster))
+	}
+	if namespace != "" {
+		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.namespace.name\") = %q", namespace))
+	}
+	if workloadName != "" {
+		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", workloadName))
+	}
+	tempVals.WorkloadFilters = strings.Join(filtersList, " && ")
 
-	log.WithFields(log.Fields{"targetWorkload": args[0]}).Info("requesting workload report")
+	var query string
+	var buff bytes.Buffer
+	if err := reportTemplate.Execute(&buff, tempVals); err != nil {
+		return fmt.Errorf("reportTemplate.Execute: %w", err)
+	}
+	query = buff.String()
 
-	byType, err := cmd.Flags().GetString("type")
+	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
 	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "by", err)
+		return fmt.Errorf("uql.ExecuteQuery: %w", err)
 	}
 
-	targetWorkload := args[0]
-
-	// fetch workload ID if calling via name
-	var workloadId *string
-	if byType == "id" {
-		if strings.Contains(targetWorkload, "k8s:deployment") {
-			formattedWorkload := formatAppDIdentifier(targetWorkload)
-			workloadId = &formattedWorkload
-		} else {
-			workloadId = &targetWorkload
-		}
-	} else if byType == "name" {
-		workloadId, err = getWorkloadId(targetWorkload)
-		if err != nil {
-			log.Fatalf("error retrieving workload ID: %v", err)
+	if resp.HasErrors() {
+		log.Error("Execution of report query encountered errors. Returned data may not be complete!")
+		for _, e := range resp.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
 		}
 	}
-	encodedWorkloadId := base32.StdEncoding.EncodeToString([]byte(*workloadId))
 
-	// fetch data and display
-	cmdkit.FetchAndPrint(cmd, "/ignite/v1beta/reports/workloads/"+encodedWorkloadId, nil)
+	reportRows, err := extractReportData(resp)
+	if err != nil {
+		return fmt.Errorf("extractReportData: %w", err)
+	}
+
+	output.PrintCmdOutput(cmd, struct {
+		Items []reportRow `json:"items"`
+		Total int         `json:"total"`
+	}{Items: reportRows, Total: len(reportRows)})
+
 	return nil
 }
 
-func getWorkloadId(workloadName string) (*string, error) {
-
-	// UQL query to retrieve ID via workload.name attribute
-	queryStr := fmt.Sprintf("SINCE -7d FETCH id FROM entities(k8s:workload)[isActive = true][attributes(k8s.workload.name) = '%s']", workloadName)
-
-	response, err := uql.ExecuteQuery(&uql.Query{Str: queryStr}, uql.ApiVersion1)
-	if err != nil {
-		return nil, err
-	}
-	workloadIds := columnValues(response.Main(), 0)
-
-	// Check if either none or multiple workload IDs found
-	if len(workloadIds) < 1 {
-		return nil, fmt.Errorf("no workloads with name %q found", workloadName)
-	} else if len(workloadIds) > 1 {
-		log.Warnf("Multiple workloads with name \"%v\" found: %v", workloadName, strings.Join(workloadIds[:], ", "))
-		log.Warn("Consider specifying report with 'optimize report \"workloadID\" --type=id' instead")
-		log.Warnf("Retrieving report for first workload ID in list: %v", workloadIds[0])
-	}
-
-	workloadId := formatAppDIdentifier(workloadIds[0])
-	return &workloadId, nil
-}
-
-func columnValues(dataset *uql.DataSet, colIdx int) (res []string) {
-	for _, row := range dataset.Values() {
-		val, ok := row[colIdx].(string)
-		if !ok {
+func extractReportData(response *uql.Response) ([]reportRow, error) {
+	resp_data := &response.Main().Data
+	results := make([]reportRow, 0, len(*resp_data))
+	for index, row := range *resp_data {
+		if len(row) < 3 {
+			log.Warnf("Returned data is not complete. Main dataset had incomplete row at index %v: %+v", index, row)
 			continue
 		}
-		res = append(res, val)
+		workloadId, ok := row[0].(string)
+		if !ok {
+			return results, fmt.Errorf("entity id string type assertion failed on main dataset row %v: %+v", index, row)
+		}
+		reportRow := reportRow{WorkloadId: workloadId}
+
+		workloadAttributeDataset, ok := row[1].(*uql.DataSet)
+		if !ok {
+			return results, fmt.Errorf("workload entity attributes uql.DataSet type assertion failed (main dataset row %v): %+v", index, row)
+		}
+		var err error
+		reportRow.WorkloadAttributes, err = sliceToMap(workloadAttributeDataset.Data)
+		if err != nil {
+			return results, fmt.Errorf("(main dataset row %v) sliceToMap(workloadAttributeDataset.Data): %w", index, err)
+		}
+
+		profileAttributesDataSet, ok := row[2].(*uql.DataSet)
+		if !ok {
+			return results, fmt.Errorf("profile event attributes uql.DataSet type assertion failed (main dataset row %v): %+v", index, row)
+		}
+		if len(profileAttributesDataSet.Data) > 0 {
+			// uql LIMITS events.count(1) means we're only interested in the first (and only) row of returned events
+			firstRow := profileAttributesDataSet.Data[0]
+			if len(firstRow) < 2 {
+				log.Warnf("optimize:profile dataset had incomplete row at index %s: %+v", index, firstRow)
+				continue
+			}
+			firstRowComplexData, ok := firstRow[0].(uql.ComplexData)
+			if !ok {
+				return results, fmt.Errorf("uql.ComplexData type assertion failed on profile event attributes (main dataset row %v): %+v", index, firstRow)
+			}
+			reportRow.ProfileAttributes, err = sliceToMap(firstRowComplexData.Data)
+			if err != nil {
+				return results, fmt.Errorf("row %v sliceToMap(firstRowComplexData.Data): %w", index, err)
+			}
+			reportRow.ProfileTimestamp, ok = firstRow[1].(time.Time)
+			if !ok {
+				log.Warnf("Returned data is not complete. Type assertion failed for profile event timestamp (main dataset row %v): %+v", index, firstRow)
+			}
+		} else if tempVals.Eligible {
+			continue // filter out workloads with no eligible event returned
+		}
+
+		results = append(results, reportRow)
 	}
-	return res
+	return results, nil
 }
 
-func formatAppDIdentifier(s string) (res string) {
-	split := strings.Split(s, ":")
-	identifier := split[len(split)-1]
-	return identifier
+// sliceToMap converts a list of lists (slice [][2]any) to a dictionary for table output jq support
+// eg.
+//
+//	[
+//		["k8s.cluster.name", "ignite-test"],
+//		["k8s.namespace.name", "kube-system"],
+//		["k8s.workload.kind", "Deployment"],
+//		["k8s.workload.name", "coredns"]
+//	]
+//
+// to
+//
+//	k8s.cluster.name: ignite-test
+//	k8s.namespace.name: kube-system
+//	k8s.workload.kind: Deployment
+//	k8s.workload.name: coredns
+func sliceToMap(slice [][]any) (map[string]any, error) {
+	results := make(map[string]any)
+	for index, subslice := range slice {
+		if len(subslice) < 2 {
+			return results, fmt.Errorf("subslice (at index %v) too short to construct key value pair: %+v", index, subslice)
+		}
+		key, ok := subslice[0].(string)
+		if !ok {
+			return results, fmt.Errorf("string type assertion failed on first subslice item (at index %v): %+v", index, subslice)
+		}
+		results[key] = subslice[1]
+	}
+	return results, nil
 }
