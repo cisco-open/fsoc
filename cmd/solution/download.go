@@ -31,6 +31,9 @@ var solutionDownloadCmd = &cobra.Command{
 	Example:          `  fsoc solution download spacefleet`,
 	Run:              downloadSolution,
 	TraverseChildren: true,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+	},
 }
 
 func getSolutionDownloadCmd() *cobra.Command {

@@ -38,6 +38,13 @@ var solutionForkCmd = &cobra.Command{
 	Long:    `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
 	Example: `  fsoc solution fork spacefleet myfleet`,
 	Run:     solutionForkCommand,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) >= 1 {
+			return nil, cobra.ShellCompDirectiveDefault
+		} else {
+			return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+		}
+	},
 }
 
 func GetSolutionForkCommand() *cobra.Command {

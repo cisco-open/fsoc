@@ -15,12 +15,15 @@
 package solution
 
 import (
+	"strings"
+
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmdkit"
 	"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var solutionListCmd = &cobra.Command{
@@ -55,4 +58,25 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 
 func getSolutionListUrl() string {
 	return "objstore/v1beta/objects/extensibility:solution"
+}
+
+func getSolutionNames(prefix string) (names []string) {
+	headers := map[string]string{
+		"layer-type": "TENANT",
+		"layer-id":   config.GetCurrentContext().Tenant,
+	}
+	httpOptions := &api.Options{Headers: headers}
+
+	var res SolutionList
+	err := api.JSONGet(getSolutionListUrl(), &res, httpOptions)
+	if err != nil {
+		return names
+	}
+
+	for _, s := range res.Items {
+		if strings.HasPrefix(s.ID, prefix) {
+			names = append(names, s.ID)
+		}
+	}
+	return names
 }
