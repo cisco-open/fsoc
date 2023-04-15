@@ -30,53 +30,15 @@ import (
 )
 
 var solutionPackageCmd = &cobra.Command{
-	Use:   "package",
-	Short: "Build and package a solution",
-	Long: `This command allows the current tenant specified in the profile to build and package a solution bundle to be deployed into the FSO Platform.
-
-Usage:
-	fsoc solution package --solution-package=<solution-package-root-path>`,
-	Args:             cobra.ExactArgs(0),
-	Run:              packageSolution,
-	TraverseChildren: true,
+	Use:        "package",
+	Deprecated: `please use "push" or "validate" directly.`,
 }
 
 func getSolutionPackageCmd() *cobra.Command {
-	solutionPackageCmd.Flags().
-		String("solution-package", "", "The fully qualified path name for the solution package .zip file")
-	_ = solutionPackageCmd.MarkFlagRequired("solution-package")
-
 	return solutionPackageCmd
-
 }
 
-func packageSolution(cmd *cobra.Command, args []string) {
-
-	solutionPackagePath, _ := cmd.Flags().GetString("solution-package")
-	if solutionPackagePath == "" {
-		log.Fatal("solution-package cannot be empty, use --solution-package=<solution-package-file-path>")
-	}
-	if !isSolutionPackageRoot(solutionPackagePath) {
-		log.Fatal("solution-package path doesn't point to a solution package root folder")
-	}
-	manifest, err := getSolutionManifest(solutionPackagePath)
-	if err != nil {
-		log.Fatalf("Failed to read solution manifest: %v", err)
-	}
-
-	var message string
-	message = fmt.Sprintf("Generating solution %s - %s bundle archive \n", manifest.Name, manifest.SolutionVersion)
-	log.WithFields(log.Fields{
-		"solution-package": solutionPackagePath,
-	}).Info(message)
-
-	output.PrintCmdStatus(cmd, message)
-	solutionArchive := generateZip(cmd, solutionPackagePath)
-	solutionArchive.Close()
-
-	message = fmt.Sprintf("Solution %s - %s bundle is ready. \n", manifest.Name, manifest.SolutionVersion)
-	output.PrintCmdStatus(cmd, message)
-}
+// Helper functions for managing solution directory and zip bundle
 
 func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	solutionName := filepath.Base(sltnPackagePath)

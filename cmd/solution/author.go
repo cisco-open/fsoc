@@ -63,6 +63,7 @@ type apiItemList struct {
 
 var authorCmd = &cobra.Command{
 	Use:    "author [flags]",
+	Args:   cobra.ExactArgs(0),
 	Short:  "Open authoring tool for editing template files",
 	Long:   "This command provides access to the FSO platform user interface authoring tool for editing a solution's templates interactively. It starts a background web server to provide access to the template files and opens the authoring tool in your default browser. This command currently works only with localhost-based development environments.",
 	Run:    authorRunWrapper,

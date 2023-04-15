@@ -27,18 +27,16 @@ import (
 )
 
 var solutionInitCmd = &cobra.Command{
-	Use:   "init <name>",
+	Use:   "init <solution-name>",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
-Example:
-
-   fsoc solution init --name=testSolution --include-service --include-knowledge
-
-Creates a subdirectory named "testSolution" in the current directory and populates
+It creates a subdirectory named <solution-name> in the current directory and populates
 it with a solution manifest and objects for it. The optional --include-... flags
 define what objects are added to the solution. Once the solution is created,
 the "solution extend" command can be used to add more objects.`,
+	Example:          `  fsoc solution init --name=testSolution --include-service --include-knowledge`,
 	Run:              generateSolutionPackage,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
@@ -54,7 +52,7 @@ the "solution extend" command can be used to add more objects.`,
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
 		String("name", "", "The name of the new solution (required)")
-	_ = solutionInitCmd.Flags().MarkDeprecated("name", "The --name flag is deprecated, please use argument instead.")
+	_ = solutionInitCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 
 	solutionInitCmd.Flags().
 		Bool("include-service", true, "Add a service component definition to this solution")
@@ -65,20 +63,13 @@ func getInitSolutionCmd() *cobra.Command {
 }
 
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
-	solutionName, _ := cmd.Flags().GetString("name")
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionName = strings.ToLower(solutionName)
-	if len(args) > 0 {
-		solutionName = args[0]
-	} else {
-		if len(solutionName) == 0 {
-			log.Fatal("A non-empty \"name\" argument is required.")
-		}
-	}
 
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the %s solution package folder structure... \n", solutionName))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution folder structure for %q... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
-		log.Fatalf("Solution init failed - %v", err)
+		log.Fatal(err.Error())
 	}
 
 	manifest := createInitialSolutionManifest(solutionName)
