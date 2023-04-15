@@ -112,19 +112,19 @@ func getConfig() configFileContents {
 	return c
 }
 
-// listContexts returns a list of context names which begin with `toComplete`,
+// ListContexts returns a list of context names which begin with `prefix`,
 // used for the command line autocompletion
-// func listContexts(toComplete string) []string {
-// 	config := getConfig()
-// 	var ret []string
-// 	for _, c := range config.Contexts {
-// 		name := c.Name
-// 		if strings.HasPrefix(name, toComplete) {
-// 			ret = append(ret, name)
-// 		}
-// 	}
-// 	return ret
-// }
+func ListContexts(prefix string) []string {
+	config := getConfig()
+	var ret []string
+	for _, c := range config.Contexts {
+		name := c.Name
+		if strings.HasPrefix(name, prefix) {
+			ret = append(ret, name)
+		}
+	}
+	return ret
+}
 
 func updateConfigFile(keyValues map[string]interface{}) {
 	var err error

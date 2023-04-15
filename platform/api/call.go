@@ -18,6 +18,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,9 +28,12 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/moul/http2curl"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 )
+
+var FlagCurlifyRequests bool
 
 // --- Public Interface -----------------------------------------------------
 
@@ -141,7 +145,35 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add(k, v)
 	}
 
+	if FlagCurlifyRequests { // global --curl flag
+		curlCommand, err := getCurlCommandOfRequest(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate curl equivalent command: %s", err)
+		}
+		log.WithField("command", curlCommand).Info("curl command equivalent")
+	}
+
 	return req, nil
+}
+
+func getCurlCommandOfRequest(req *http.Request) (string, error) {
+	reqClone := req.Clone(context.Background())
+	reqClone.Header.Set("Authorization", "Bearer REDACTED")
+
+	if strings.HasPrefix(reqClone.Header.Get("Content-Type"), "multipart/form-data") {
+		reqClone.Body = io.NopCloser(strings.NewReader("@/file/path/REDACTED"))
+	} else if req.Body != nil {
+		buf := &bytes.Buffer{}
+		teeReader := io.TeeReader(req.Body, buf)
+		b, err := io.ReadAll(teeReader)
+		if err != nil {
+			return "", err
+		}
+		req.Body = io.NopCloser(bytes.NewReader(b))
+		reqClone.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+	}
+	command, _ := http2curl.GetCurlCommand(reqClone)
+	return command.String(), nil
 }
 
 func httpRequest(method string, path string, body any, out any, options *Options) error {
