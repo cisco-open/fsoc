@@ -33,6 +33,8 @@ import (
 	"github.com/cisco-open/fsoc/cmd/config"
 )
 
+var FlagCurlifyRequests bool
+
 // --- Public Interface -----------------------------------------------------
 
 type Options struct {
@@ -143,11 +145,14 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		req.Header.Add(k, v)
 	}
 
-	curlCommand, err := getCurlCommandOfRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate curl equivalent command: %s", err)
+	if FlagCurlifyRequests { // global --curl flag
+		curlCommand, err := getCurlCommandOfRequest(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate curl equivalent command: %s", err)
+		}
+		log.WithField("command", curlCommand).Info("curl command equivalent")
 	}
-	log.WithField("command", curlCommand).Info("curl command equivalent")
+
 	return req, nil
 }
 
