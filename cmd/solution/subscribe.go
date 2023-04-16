@@ -37,6 +37,9 @@ var solutionSubscribeCmd = &cobra.Command{
 	Example:          `	fsoc solution subscribe spacefleet`,
 	Run:              subscribeToSolution,
 	TraverseChildren: true,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+	},
 }
 
 func getSubscribeSolutionCmd() *cobra.Command {

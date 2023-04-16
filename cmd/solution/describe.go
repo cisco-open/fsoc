@@ -18,17 +18,9 @@ var solutionDescribeCmd = &cobra.Command{
 	Long:    `Obtain metadata about a solution`,
 	Example: `  fsoc solution describe spacefleet`,
 	Run:     solutionDescribe,
-}
-
-type Solution struct {
-	ID             string `json:"id"`
-	LayerID        string `json:"layerId"`
-	LayerType      string `json:"layerType"`
-	ObjectMimeType string `json:"objectMimeType"`
-	TargetObjectId string `json:"targetObjectId"`
-	CreatedAt      string `json:"createdAt"`
-	UpdatedAt      string `json:"updatedAt"`
-	DisplayName    string `json:"displayName"`
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+	},
 }
 
 func getSolutionDescribeCmd() *cobra.Command {
