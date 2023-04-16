@@ -87,10 +87,13 @@ func init() {
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
 
-	rootCmd.RegisterFlagCompletionFunc("profile",
+	err := rootCmd.RegisterFlagCompletionFunc("profile",
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return config.ListContexts(toComplete), cobra.ShellCompDirectiveDefault
 		})
+	if err != nil {
+		log.Warnf("(likely bug) Failed to register completion function for --profile: %v", err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
