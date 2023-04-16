@@ -55,7 +55,7 @@ Examples:
   fsoc solution list
   fsoc solution list -o json
 
-For more information, see https://github.com/cisco-open/fsoc 
+For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
@@ -86,6 +86,11 @@ func init() {
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
+
+	rootCmd.RegisterFlagCompletionFunc("profile",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return config.ListContexts(toComplete), cobra.ShellCompDirectiveDefault
+		})
 }
 
 // initConfig reads in config file and ENV variables if set.
