@@ -108,9 +108,9 @@ func initConfig() {
 
 		// Search config in home directory with name ".fsoc" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
 		viper.SetConfigName(".fsoc")
 	}
+	viper.SetConfigType("yaml")
 
 	viper.AutomaticEnv() // read in environment variables that match
 }
