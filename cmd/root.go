@@ -31,6 +31,7 @@ import (
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
 	"github.com/cisco-open/fsoc/logfilter"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var cfgFile string
@@ -42,19 +43,19 @@ var outputFormat string
 var rootCmd = &cobra.Command{
 	Use:   "fsoc",
 	Short: "fsoc - Cisco FSO Platform Control Tool",
-	Long: `fsoc is an internal Cisco utility that serves as an entry point for developers on the 
-Full Stack Observability (FSO) Platform.
+	Long: `fsoc is an open source utility that serves as an entry point for developers on the Cisco
+Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
+
 It allows developers to interact with the product environments--developer, test and production--in a
-uniform way and to perform common tasks. fsoc targets developers building the platform itself, as well
-as developers building solutions on the platform.
+uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
 Examples:
-$ fsoc login
-$ fsoc uql query "FETCH id, type, attributes FROM entities(k8s:workload)"
-$ fsoc solution list
-$ fsoc solution list -o json
+  fsoc login
+  fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
+  fsoc solution list
+  fsoc solution list -o json
 
-For more information, see https://github.com/cisco-open/fsoc 
+For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
@@ -80,10 +81,19 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
+	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
+
+	err := rootCmd.RegisterFlagCompletionFunc("profile",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return config.ListContexts(toComplete), cobra.ShellCompDirectiveDefault
+		})
+	if err != nil {
+		log.Warnf("(likely bug) Failed to register completion function for --profile: %v", err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -98,9 +108,9 @@ func initConfig() {
 
 		// Search config in home directory with name ".fsoc" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
 		viper.SetConfigName(".fsoc")
 	}
+	viper.SetConfigType("yaml")
 
 	viper.AutomaticEnv() // read in environment variables that match
 }
@@ -129,7 +139,13 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	var file *os.File
 	var cliHandler log.Handler
 
-	if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
+	// process logging level flags (verbose and curl)
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	if curlify, _ := cmd.Flags().GetBool("curl"); curlify {
+		api.FlagCurlifyRequests = true
+		verbose = true // force verbose
+	}
+	if verbose {
 		cliHandler = logfilter.New(os.Stderr, log.InfoLevel)
 	} else {
 		cliHandler = logfilter.New(os.Stderr, log.WarnLevel)

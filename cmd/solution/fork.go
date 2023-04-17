@@ -32,26 +32,42 @@ import (
 )
 
 var solutionForkCmd = &cobra.Command{
-	Use:   "fork --name=<solutionName> --source-name=<sourceSolutionName>",
-	Short: "Fork a solution in the specified folder",
-	Long:  `This command will download the solution into this folder and change the name of the manifest to the specified name`,
-	Run:   solutionForkCommand,
+	Use:     "fork <solution-name> <target-name>",
+	Args:    cobra.MaximumNArgs(2),
+	Short:   "Fork a solution into the specified folder",
+	Long:    `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
+	Example: `  fsoc solution fork spacefleet myfleet`,
+	Run:     solutionForkCommand,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) >= 1 {
+			return nil, cobra.ShellCompDirectiveDefault
+		} else {
+			return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+		}
+	},
 }
 
 func GetSolutionForkCommand() *cobra.Command {
 	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be downloaded")
-	_ = solutionForkCmd.MarkFlagRequired("source-name")
+	_ = solutionForkCmd.Flags().MarkDeprecated("source-name", "please use argument instead.")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
-	_ = solutionForkCmd.MarkFlagRequired("name")
+	_ = solutionForkCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 	return solutionForkCmd
 }
 
 func solutionForkCommand(cmd *cobra.Command, args []string) {
 	solutionName, _ := cmd.Flags().GetString("source-name")
 	forkName, _ := cmd.Flags().GetString("name")
-	if solutionName == "" {
-		log.Fatalf("name cannot be empty, use --source-name=<solution-name>")
+	if len(args) == 2 {
+		solutionName, forkName = args[0], args[1]
+	} else if len(args) != 0 {
+		_ = cmd.Help()
+		log.Fatal("Exactly 2 arguments required.")
 	}
+	if solutionName == "" || forkName == "" {
+		log.Fatalf("<solution-name> and <target-name> cannot be empty")
+	}
+	forkName = strings.ToLower(forkName)
 
 	currentDirectory, err := filepath.Abs(".")
 	if err != nil {

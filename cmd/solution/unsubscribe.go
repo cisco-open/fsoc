@@ -25,38 +25,36 @@ import (
 )
 
 var solutionUnsubscribeCmd = &cobra.Command{
-	Use:   "unsubscribe",
-	Short: "Unsubscribe from a solution",
-	Long: `This command allows the current tenant specified in the profile to unsubscribe from a solution.
-
-Example:
-  fsoc solution unsubscribe --name=spacefleet`,
-	Args:             cobra.ExactArgs(0),
+	Use:              "unsubscribe <solution-name>",
+	Args:             cobra.MaximumNArgs(1),
+	Short:            "Unsubscribe from a solution",
+	Long:             `This command allows the current tenant specified in the profile to unsubscribe from a solution.`,
+	Example:          `  fsoc solution unsubscribe spacefleet`,
 	Run:              unsubscribeFromSolution,
 	TraverseChildren: true,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+	},
 }
 
 func getUnsubscribeSolutionCmd() *cobra.Command {
 	solutionUnsubscribeCmd.Flags().
 		String("name", "", "The name of the solution the tenant is unsubscribing from")
-	_ = solutionUnsubscribeCmd.MarkFlagRequired("name")
+	_ = solutionUnsubscribeCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 
 	return solutionUnsubscribeCmd
 
 }
 
 func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
-	solutionName, _ := cmd.Flags().GetString("name")
-	if solutionName == "" {
-		log.Fatal("Solution name cannot be empty, use --name=<solution>")
-	}
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 
 	isSystemSolution, err := isSystemSolution(solutionName)
 	if err != nil {
 		log.Fatalf("Failed to get solution status: %v", err)
 	}
 	if isSystemSolution {
-		log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution\n", solutionName)
+		log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution", solutionName)
 	} else {
 		manageSubscription(cmd, args, false)
 	}

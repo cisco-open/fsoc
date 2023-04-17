@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,29 +24,28 @@ import (
 )
 
 var solutionDownloadCmd = &cobra.Command{
-	Use:   "download --name=SOLUTION",
-	Short: "Download solution",
-	Long: `This command allows the current tenant specified in the profile to download a solution bundle archive into the current directory or the directory specified in command argument.
-
-Example: fsoc solution download --name=spacefleet`,
-	Args:             cobra.ExactArgs(0),
+	Use:              "download <solution-name>",
+	Args:             cobra.MaximumNArgs(1),
+	Short:            "Download solution",
+	Long:             `This downloads the indicated solution into the current directory. Also see the "fork" command.`,
+	Example:          `  fsoc solution download spacefleet`,
 	Run:              downloadSolution,
 	TraverseChildren: true,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
+	},
 }
 
 func getSolutionDownloadCmd() *cobra.Command {
 	solutionDownloadCmd.Flags().String("name", "", "name of the solution to download (required)")
-	_ = solutionDownloadCmd.MarkFlagRequired("name")
+	_ = solutionDownloadCmd.Flags().MarkDeprecated("name", "please use argument instead.")
+
 	return solutionDownloadCmd
 }
 
 func downloadSolution(cmd *cobra.Command, args []string) {
-	solutionName, _ := cmd.Flags().GetString("name")
-	if solutionName == "" {
-		log.Fatalf("Solution name cannot be empty, use --name=<solution-name>")
-	}
-
-	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
+	solutionNameWithZipExtension := getSolutionNameWithZip(solutionName)
 
 	headers := map[string]string{
 		"stage":            "STABLE",

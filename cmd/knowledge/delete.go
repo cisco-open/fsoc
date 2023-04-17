@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objstore
+package knowledge
 
 import (
 	"fmt"
@@ -26,11 +26,11 @@ import (
 
 var objStoreDeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete an existent knowledge object",
+	Short: "Delete an existing knowledge object",
 	Long: `This command allows an existent knowledge object to be deleted.
 
 Usage:
-  fsoc objstore delete \
+  fsoc knowledge delete \
     --type=<fully-qualified-typename> \
     --object-id=<object id> \
     --layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER] \
@@ -44,19 +44,19 @@ Usage:
 
 func getDeleteObjectCmd() *cobra.Command {
 	objStoreDeleteCmd.Flags().
-		String("type", "", "The fully qualified type name of the object")
+		String("type", "", "The fully qualified type name of the knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("object-id", "", "The id of the knowledge object been updated")
+		String("object-id", "", "The id of the knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-type", "", "The layer-type of the updated object")
+		String("layer-type", "", "The layer-type of knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("layer-type")
 
 	objStoreDeleteCmd.Flags().
-		String("layer-id", "", "The layer-id of the updated object. Optional for TENANT and SOLUTION layers ")
+		String("layer-id", "", "The layer-id of the knowledge object to delete. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreDeleteCmd
 
@@ -90,10 +90,10 @@ func deleteObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting object %q of type %q\n", objId, objType)))
+	output.PrintCmdStatus(cmd, (fmt.Sprintf("Deleting  knowledge object %q of type %q\n", objId, objType)))
 	err = api.JSONDelete(objectUrl, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Failed to delete object: %v", err)
+		log.Fatalf("Failed to delete knowledge object: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Object was successfully deleted.\n")
+	output.PrintCmdStatus(cmd, "knowledge object was successfully deleted.\n")
 }

@@ -22,10 +22,10 @@ import (
 var solutionCmd = &cobra.Command{
 	Use:   "solution",
 	Short: "Perform solution lifecycle operations",
-	Long: `This command has a list of subcommands that allow you to execute solution lifecycle operations with the FSO Platform.
+	Long: `Perform solution lifecycle operations with the FSO Platform.
 
-Usage:
-	fsoc solution`,
+For more information on FSO solutions, see https://developer.cisco.com/docs/fso/#!create-a-solution-introduction`,
+	Example:          `  fsoc solution list`,
 	TraverseChildren: true,
 }
 

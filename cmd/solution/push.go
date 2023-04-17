@@ -35,25 +35,19 @@ import (
 
 var solutionPushCmd = &cobra.Command{
 	Use:   "push",
+	Args:  cobra.ExactArgs(0),
 	Short: "Deploy your solution",
 	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
-
-Examples:
+The solution manifest for the solution must be in the current directory.`,
+	Example: `
   fsoc solution push
   fsoc solution push -w
-  fsoc solution push -w=60
-  fsoc solution push --solution-bundle=mysolution.zip
-
-The first command deploys a solution from the current directory. The second command
-deploys a solution from an existing archive file.`,
-	Args:             cobra.ExactArgs(0),
+  fsoc solution push -w=60`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionPushCmd() *cobra.Command {
-	solutionPushCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
 
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed (not supported when uisng --solution-bundle)")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
@@ -61,6 +55,9 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
+	solutionPushCmd.Flags().
+		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
+	_ = solutionPushCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 
@@ -78,50 +75,44 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
 
-	if solutionBundlePath == "" {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		manifestPath = currentDir
-		if !isSolutionPackageRoot(manifestPath) {
-			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
-		}
-
-		manifest, err := getSolutionManifest(manifestPath)
-		if err != nil {
-			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-		}
-
-		if bumpFlag {
-			if err := bumpManifestPatchVersion(manifest); err != nil {
-				log.Fatal(err.Error())
-			}
-			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-			}
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
-		}
-
-		solutionName = manifest.Name
-		solutionVersion = manifest.SolutionVersion
-
-		// create a temporary solution archive
-		// solutionArchive := generateZipNoCmd(manifestPath)
-		solutionArchive := generateZip(cmd, manifestPath)
-		solutionArchivePath = filepath.Base(solutionArchive.Name())
-
-	} else {
-		manifestPath = solutionBundlePath
-		solutionArchivePath = manifestPath
+	if solutionBundlePath != "" {
+		log.Fatalf("The --solution-bundle flag is no longer available; please use direct push instead.")
 	}
 
-	//message := fmt.Sprintf("Deploying solution %s - %s", manifest.Name, manifest.SolutionVersion)
-	message := "Deploying solution"
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	manifestPath = currentDir
+	if !isSolutionPackageRoot(manifestPath) {
+		log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
+	}
 
-	log.WithFields(log.Fields{
-		"solution-package": solutionBundlePath,
-	}).Info(message)
+	manifest, err := getSolutionManifest(manifestPath)
+	if err != nil {
+		log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+	}
+
+	if bumpFlag {
+		if err := bumpManifestPatchVersion(manifest); err != nil {
+			log.Fatal(err.Error())
+		}
+		if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+			log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+		}
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+	}
+
+	solutionName = manifest.Name
+	solutionVersion = manifest.SolutionVersion
+
+	// create a temporary solution archive
+	// solutionArchive := generateZipNoCmd(manifestPath)
+	solutionArchive := generateZip(cmd, manifestPath)
+	solutionArchivePath = filepath.Base(solutionArchive.Name())
+
+	message := fmt.Sprintf("Deploying solution %s version %s", manifest.Name, manifest.SolutionVersion)
+	log.WithFields(log.Fields{"solution": manifest.Name, "version": manifest.SolutionVersion}).Info("Deploying solution")
 
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
@@ -197,57 +188,10 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	// message = fmt.Sprintf("Solution %s - %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
-	message = fmt.Sprintf("Solution bundle %q was successfully deployed.\n", solutionArchivePath)
+	message = fmt.Sprintf("Solution %s version %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
 	output.PrintCmdStatus(cmd, message)
 }
 
 func getSolutionPushUrl() string {
 	return "solnmgmt/v1beta/solutions"
 }
-
-// func generateZipNoCmd(sltnPackagePath string) *os.File {
-// 	// splitPath := strings.Split(sltnPackagePath, "/")
-// 	// solutionName := splitPath[len(splitPath)-1]
-// 	solutionName := filepath.Base(sltnPackagePath)
-// 	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
-// 	archive, err := os.Create(archiveFileName)
-// 	if err != nil {
-// 		log.Fatalf("Failed to create a bundle archive %q: %v", archiveFileName, err)
-// 	}
-// 	defer archive.Close()
-// 	zipWriter := zip.NewWriter(archive)
-
-// 	fsocWorkingDir, err := os.Getwd()
-// 	if err != nil {
-// 		log.Fatalf("Couldn't read the working directory: %v", err)
-// 	}
-
-// 	solutionRootFolder := filepath.Dir(sltnPackagePath)
-// 	err = os.Chdir(solutionRootFolder)
-// 	if err != nil {
-// 		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
-// 	}
-
-// 	defer func() {
-// 		err := os.Chdir(fsocWorkingDir)
-// 		if err != nil {
-// 			log.Fatalf("Couldn't switch working folder back to the original one: %v", err)
-// 		}
-// 	}()
-
-// 	err = filepath.Walk(solutionName,
-// 		func(path string, info os.FileInfo, err error) error {
-// 			if err != nil {
-// 				return err
-// 			}
-// 			addFileToZip(zipWriter, path, info)
-// 			return nil
-// 		})
-// 	if err != nil {
-// 		log.Fatalf("Error traversing the solution folder: %v", err)
-// 	}
-// 	zipWriter.Close()
-
-// 	return archive
-// }

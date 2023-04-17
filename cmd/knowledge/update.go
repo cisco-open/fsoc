@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objstore
+package knowledge
 
 import (
 	"encoding/json"
@@ -33,18 +33,18 @@ var objStoreUpdateCmd = &cobra.Command{
 	Long: `This command allows the an existent knowledge object to be updated according to the fields and values provided in a .json file.
 
 	Usage:
-	fsoc objstore update --type=<fully-qualified-typename> 
+	fsoc knowledge update --type=<fully-qualified-typename> 
 	--object-id=<object id>
 	--object-file=<fully-qualified-path> 
 	--layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER]
 	--layer-id=<respective-layer-id>
 	
 	Flags/Options:
-	--type - Flag to indicate the fully qualified type name of the object that you would like to update
-	--object-id - Flag to indicate the ID of the object that you want to update
-	--object-file - Flag to indicate the fully qualified path (from your root directory) to the file containing the definition of the object that you want to update. Please note that update internally calls HTTP PUT so you will need to specify all fields in the object (even if you are updating just one field)
-	--layer-type - Flag to indicate the layer at which the object you would like to update exists
-	--layer-id - OPTIONAL Flag to specify a custom layer ID for the object that you would like to update.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
+	--type - Flag to indicate the fully qualified type name of the knowldge object that you would like to update
+	--object-id - Flag to indicate the ID of the knowledge object that you want to update
+	--object-file - Flag to indicate the fully qualified path (from your root directory) to the file containing the definition of the knowledge object that you want to update. Please note that update internally calls HTTP PUT so you will need to specify all fields in the knowledge object (even if you are updating just one field)
+	--layer-type - Flag to indicate the layer at which the knowledge object you would like to update exists
+	--layer-id - OPTIONAL Flag to specify a custom layer ID for the knowledge object that you would like to update.  This is calculated automatically for all layers currently supported but can be overridden with this flag`,
 
 	Args:             cobra.ExactArgs(0),
 	Run:              updateObject,
@@ -53,23 +53,23 @@ var objStoreUpdateCmd = &cobra.Command{
 
 func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
-		String("type", "", "The fully qualified type name of the object")
+		String("type", "", "The fully qualified type name of the related knowledge object to update")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
 
 	objStoreUpdateCmd.Flags().
-		String("object-id", "", "The id of the knowledge object been updated")
+		String("object-id", "", "The id of the knowledge object to update")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
 
 	objStoreUpdateCmd.Flags().
-		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data definition")
+		String("object-file", "", "The fully qualified path to the json file containing the updated knowledge object data definition")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("objectFile")
 
 	objStoreUpdateCmd.Flags().
-		String("layer-type", "", "The layer-type of the updated object")
+		String("layer-type", "", "The layer-type of the knowledge object to update")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("layer-type")
 
 	objStoreUpdateCmd.Flags().
-		String("layer-id", "", "The layer-id of the updated object. Optional for TENANT and SOLUTION layers ")
+		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreUpdateCmd
 
@@ -81,7 +81,7 @@ func updateObject(cmd *cobra.Command, args []string) {
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
 	if err != nil {
-		log.Fatalf("Can't find the object definition file named %s", objJsonFilePath)
+		log.Fatalf("Can't find the knowledge object definition file named %s", objJsonFilePath)
 	}
 	defer objectFile.Close()
 
@@ -89,7 +89,7 @@ func updateObject(cmd *cobra.Command, args []string) {
 	var objectStruct map[string]interface{}
 	err = json.Unmarshal(objectBytes, &objectStruct)
 	if err != nil {
-		log.Fatalf("Can't parse file %q. Make sure the object definition has all the required field and is valid according to the type definition.", objJsonFilePath)
+		log.Fatalf("Can't parse file %q. Make sure the knowledge object definition has all the required field and is valid according to the type definition.", objJsonFilePath)
 	}
 
 	layerType, _ := cmd.Flags().GetString("layer-type")
@@ -115,10 +115,10 @@ func updateObject(cmd *cobra.Command, args []string) {
 	urlStrf := getObjStoreObjectUrl() + "/%s/%s"
 	objectUrl := fmt.Sprintf(urlStrf, objType, objId)
 
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing object %q with the new data from %q \n", objId, objJsonFilePath))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Replacing knowledge object %q with the new data from %q \n", objId, objJsonFilePath))
 	err = api.JSONPut(objectUrl, objectStruct, &res, &api.Options{Headers: headers})
 	if err != nil {
-		log.Fatalf("Object update failed: %v", err)
+		log.Fatalf("Knowledge object update failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Object updated successfully.\n")
+	output.PrintCmdStatus(cmd, "Knowlege object updated successfully.\n")
 }

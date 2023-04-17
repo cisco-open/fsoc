@@ -170,3 +170,18 @@ const (
 	Temp_Delta FmmTemporality = "delta"
 	Temp_False FmmTemporality = "unspecified"
 )
+
+type Solution struct {
+	ID             string `json:"id"`
+	LayerID        string `json:"layerId"`
+	LayerType      string `json:"layerType"`
+	ObjectMimeType string `json:"objectMimeType"`
+	TargetObjectId string `json:"targetObjectId"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
+	DisplayName    string `json:"displayName"`
+}
+
+type SolutionList struct {
+	Items []Solution `json:"items"`
+}

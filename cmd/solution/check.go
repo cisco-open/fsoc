@@ -31,13 +31,11 @@ import (
 )
 
 var solutionCheckCmd = &cobra.Command{
-	Use:   "check",
-	Short: "Validate your solution component definitions",
-	Long: `This command allows the current tenant specified in the profile to build and package a solution bundle to be deployed into the FSO Platform.
-
-Example:
-  fsoc solution check --entities --metrics`,
+	Use:              "check",
 	Args:             cobra.ExactArgs(0),
+	Short:            "Validate your solution component definitions",
+	Long:             `This command allows the current tenant specified in the profile to build and package a solution bundle to be deployed into the FSO Platform.`,
+	Example:          `  fsoc solution check --entities --metrics`,
 	Run:              checkSolution,
 	TraverseChildren: true,
 }

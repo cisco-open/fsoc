@@ -48,27 +48,26 @@ func getSolutionValidateUrl() string {
 	return "solnmgmt/v1beta/solutions"
 }
 
-func getSolutionValidateCmd() *cobra.Command {
-	solutionValidateCmd.Flags().
-		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-
-	solutionValidateCmd.Flags().
-		BoolP("bump", "b", false, "Increment the patch version before validation")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
-
-	return solutionValidateCmd
-}
-
 var solutionValidateCmd = &cobra.Command{
-	Use:   "validate",
-	Short: "Validate your solution package",
-	Long: `This command allows the current tenant specified in the profile to upload the specified solution bundle for the purpose of validating its contents
-
-Example:
-  fsoc solution validate --solution-bundle=mysolution.zip`,
+	Use:              "validate",
 	Args:             cobra.ExactArgs(0),
+	Short:            "Validate solution",
+	Long:             `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.`,
+	Example:          `  fsoc solution validate`,
 	Run:              validateSolution,
 	TraverseChildren: true,
+}
+
+func getSolutionValidateCmd() *cobra.Command {
+	solutionValidateCmd.Flags().
+		BoolP("bump", "b", false, "Increment the patch version before validation")
+
+	solutionValidateCmd.Flags().
+		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
+	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+
+	return solutionValidateCmd
 }
 
 func validateSolution(cmd *cobra.Command, args []string) {
@@ -77,36 +76,36 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 
-	if solutionBundlePath == "" {
-		currentDir, err := os.Getwd()
-		if err != nil {
+	if solutionBundlePath != "" {
+		log.Fatalf("The --solution-bundle flag is no longer available; please use direct validate instead.")
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	manifestPath = currentDir
+	if !isSolutionPackageRoot(manifestPath) {
+		log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
+	}
+	manifest, err := getSolutionManifest(manifestPath)
+	if err != nil {
+		log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+	}
+	if bumpFlag {
+		if err := bumpManifestPatchVersion(manifest); err != nil {
 			log.Fatal(err.Error())
 		}
-		manifestPath = currentDir
-		if !isSolutionPackageRoot(manifestPath) {
-			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
+		if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+			log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
 		}
-		manifest, err := getSolutionManifest(manifestPath)
-		if err != nil {
-			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-		}
-		if bumpFlag {
-			if err := bumpManifestPatchVersion(manifest); err != nil {
-				log.Fatal(err.Error())
-			}
-			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-			}
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
-		}
-
-		// create a temporary solution archive
-		// solutionArchive := generateZipNoCmd(manifestPath)
-		solutionArchive := generateZip(cmd, manifestPath)
-		solutionArchivePath = filepath.Base(solutionArchive.Name())
-	} else {
-		solutionArchivePath = solutionBundlePath
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
 	}
+
+	// create a temporary solution archive
+	// solutionArchive := generateZipNoCmd(manifestPath)
+	solutionArchive := generateZip(cmd, manifestPath)
+	solutionArchivePath = filepath.Base(solutionArchive.Name())
 
 	var message string
 
@@ -147,7 +146,8 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	}
 
 	if res.Valid {
-		message = fmt.Sprintf("Solution bundle %s validated successfully.\n", solutionArchivePath)
+		message = fmt.Sprintf("Solution %s version %s was successfully validated.\n", manifest.Name, manifest.SolutionVersion)
+		//message = fmt.Sprintf("Solution bundle %s validated successfully.\n", solutionArchivePath)
 	} else {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}
