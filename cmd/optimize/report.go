@@ -129,7 +129,7 @@ func listReports(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(reportRows) < 1 {
-		cmd.Println("No results found for given input")
+		output.PrintCmdStatus(cmd, "No results found for given input\n")
 		return nil
 	}
 
