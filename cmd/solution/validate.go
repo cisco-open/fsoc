@@ -65,7 +65,7 @@ func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
 	solutionValidateCmd.Flags().
-		String("solution-tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
+		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 
@@ -77,7 +77,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	var solutionArchivePath string
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
-	solutionTagFlag, _ := cmd.Flags().GetString("solution-tag")
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 
 	if solutionBundlePath != "" {
 		log.Fatalf("The --solution-bundle flag is no longer available; please use direct validate instead.")

@@ -43,7 +43,7 @@ The solution manifest for the solution must be in the current directory.`,
   fsoc solution push
   fsoc solution push -w
   fsoc solution push -w=60
-  fsoc solution push --solution-tag=dev`,
+  fsoc solution push -tag=dev`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
@@ -57,7 +57,7 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("solution-tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
+		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
@@ -76,7 +76,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	waitFlag, _ := cmd.Flags().GetInt("wait")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
-	solutionTagFlag, _ := cmd.Flags().GetString("solution-tag")
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
 
