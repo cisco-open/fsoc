@@ -64,7 +64,7 @@ func getSolutionValidateCmd() *cobra.Command {
 
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	solutionPushCmd.Flags().
+	solutionValidateCmd.Flags().
 		String("solution-tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
