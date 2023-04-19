@@ -19,10 +19,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmdkit"
 	"github.com/cisco-open/fsoc/output"
-	"github.com/spf13/cobra"
 )
 
 type statusFlags struct {
@@ -40,9 +41,15 @@ func init() {
 func NewCmdStatus() *cobra.Command {
 	flags := statusFlags{}
 	statusCmd := &cobra.Command{
-		Use:              "status",
-		Short:            "List onboarded optimizer configuration and status",
-		Long:             `TODO`,
+		Use:   "status",
+		Short: "List onboarded optimizer configuration and status",
+		Long: `
+List optimization status and configuration
+	
+If no flags are provided, all onboarded optimizations will be listed
+You can optionally filter optimizations by cluster, namespace and/or workload name
+You may also specify a particular optimizer ID to fetch details for a single optimization (recommended with -o detail or -o yaml)
+`,
 		Example:          "fsoc optimize status --workload-name frontend",
 		Args:             cobra.NoArgs,
 		RunE:             listStatus(&flags),
