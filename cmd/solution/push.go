@@ -42,7 +42,8 @@ The solution manifest for the solution must be in the current directory.`,
 	Example: `
   fsoc solution push
   fsoc solution push -w
-  fsoc solution push -w=60`,
+  fsoc solution push -w=60
+  fsoc solution push -tag=dev`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
@@ -54,6 +55,9 @@ func getSolutionPushCmd() *cobra.Command {
 
 	solutionPushCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
+
+	solutionPushCmd.Flags().
+		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
@@ -72,6 +76,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 
 	waitFlag, _ := cmd.Flags().GetInt("wait")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
 
@@ -111,7 +116,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	solutionArchive := generateZip(cmd, manifestPath)
 	solutionArchivePath = filepath.Base(solutionArchive.Name())
 
-	message := fmt.Sprintf("Deploying solution %s version %s", manifest.Name, manifest.SolutionVersion)
+	message := fmt.Sprintf("Deploying solution %s version %s with tag %s", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
 	log.WithFields(log.Fields{"solution": manifest.Name, "version": manifest.SolutionVersion}).Info("Deploying solution")
 
 	file, err := os.Open(solutionArchivePath)
@@ -136,8 +141,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	writer.Close()
 
 	headers := map[string]string{
-		"stage":        "STABLE",
-		"tag":          "stable",
+		"tag":          solutionTagFlag,
 		"operation":    "UPLOAD",
 		"Content-Type": writer.FormDataContentType(),
 	}
