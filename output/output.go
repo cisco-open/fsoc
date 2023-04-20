@@ -318,6 +318,23 @@ func createTable(v any, fields string) (*Table, error) {
 	// init empty custom table
 	table := Table{Headers: []string{}, Lines: [][]string{}}
 
+	// check for empty input to prevent panic logging and present an empty table using fields to derive the headers.
+	// only works on canonicalized input
+	if map_v, ok := v.(map[string]any); ok {
+		if items, ok := map_v["items"]; ok {
+			if array_items, ok := items.([]any); ok {
+				if len(array_items) == 0 {
+					split_fields := strings.Split(fields, ",")
+					table.Headers = make([]string, 0, len(split_fields))
+					for _, single_field := range split_fields {
+						table.Headers = append(table.Headers, strings.Split(single_field, ":")[0])
+					}
+					return &table, nil
+				}
+			}
+		}
+	}
+
 	// build order index to undo JQ's alphabetizing
 	orderIndex := makeFieldOrderIndex(fields)
 
