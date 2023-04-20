@@ -73,7 +73,7 @@ You may specify also particular workloadId to fetch details for a single workloa
 	TraverseChildren: true,
 	Annotations: map[string]string{
 		output.TableFieldsAnnotation:  "WorkloadId: .WorkloadId, Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], LastProfiled: .ProfileTimestamp",
-		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: .ProfileAttributes | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
+		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: (.ProfileAttributes // {}) | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
 	},
 }
 
@@ -126,6 +126,11 @@ func listReports(cmd *cobra.Command, args []string) error {
 	reportRows, err := extractReportData(resp)
 	if err != nil {
 		return fmt.Errorf("extractReportData: %w", err)
+	}
+
+	if len(reportRows) < 1 {
+		output.PrintCmdStatus(cmd, "No results found for given input\n")
+		return nil
 	}
 
 	output.PrintCmdOutput(cmd, struct {
