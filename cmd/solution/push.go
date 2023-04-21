@@ -40,10 +40,9 @@ var solutionPushCmd = &cobra.Command{
 	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
 The solution manifest for the solution must be in the current directory.`,
 	Example: `
-  fsoc solution push
-  fsoc solution push -w
-  fsoc solution push -w=60
-  fsoc solution push -tag=dev`,
+  fsoc solution push --tag stable
+  fsoc solution push --tag stable -w
+  fsoc solution push --tag stable -w=60`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
@@ -57,11 +56,12 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
+		String("tag", "", "Tag to associate with provided solution bundle")
 
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
 	_ = solutionPushCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
+	_ = solutionPushCmd.MarkPersistentFlagRequired("tag")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 

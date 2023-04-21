@@ -36,7 +36,7 @@ It creates a subdirectory named <solution-name> in the current directory and pop
 it with a solution manifest and objects for it. The optional --include-... flags
 define what objects are added to the solution. Once the solution is created,
 the "solution extend" command can be used to add more objects.`,
-	Example:          `  fsoc solution init --name=testSolution --include-service --include-knowledge`,
+	Example:          `  fsoc solution init testSolution --include-service --include-knowledge`,
 	Run:              generateSolutionPackage,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
