@@ -53,7 +53,7 @@ var solutionValidateCmd = &cobra.Command{
 	Args:             cobra.ExactArgs(0),
 	Short:            "Validate solution",
 	Long:             `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.`,
-	Example:          `  fsoc solution validate`,
+	Example:          `  fsoc solution validate --tag stable`,
 	Run:              validateSolution,
 	TraverseChildren: true,
 }
