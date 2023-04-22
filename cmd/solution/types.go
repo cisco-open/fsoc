@@ -185,3 +185,32 @@ type Solution struct {
 type SolutionList struct {
 	Items []Solution `json:"items"`
 }
+
+type SolutionTestObjects struct {
+	Tests []SolutionTestObject `json:"tests,omitempty"`
+}
+
+type SolutionTestObject struct {
+	Name        string                  `json:"name,omitempty"`
+	Type        string                  `json:"type,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	Setup       SolutionTestSetup       `json:"setup,omitempty"`
+	Assertions  []SolutionTestAssertion `json:"assertions,omitempty"`
+}
+
+type SolutionTestSetup struct {
+	Type     string `json:"type,omitempty"`
+	Input    string `json:"input,omitempty"`
+	Location string `json:"location,omitempty"`
+}
+
+type SolutionTestAssertion struct {
+	UQL        string                           `json:"uql,omitempty"`
+	Transforms []SolutionTestAssertionTransform `json:"transforms,omitempty"`
+}
+
+type SolutionTestAssertionTransform struct {
+	Type       string `json:"type,omitempty"`
+	Expression string `json:"expression,omitempty"`
+	Location   string `json:"location,omitempty"`
+}
