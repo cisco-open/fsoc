@@ -62,7 +62,7 @@ var solutionValidateCmd = &cobra.Command{
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
 		String("tag", "stable", "Tag to associate with provided solution.  If no value is provided, it will default to 'stable'.")
-	solutionValidateCmd.Flags().MarkHidden("tag") // WIP
+	_ = solutionValidateCmd.Flags().MarkHidden("tag") // WIP
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")

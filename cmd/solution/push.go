@@ -51,7 +51,7 @@ The solution manifest for the solution must be in the current directory.`,
 func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		String("tag", "stable", "Tag to associate with provided solution.  If no value is provided, it will default to 'stable'.")
-	solutionPushCmd.Flags().MarkHidden("tag") // WIP
+	_ = solutionPushCmd.Flags().MarkHidden("tag") // WIP
 
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
