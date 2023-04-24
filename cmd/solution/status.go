@@ -17,7 +17,6 @@ package solution
 import (
 	"fmt"
 	"net/url"
-	"reflect"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -26,23 +25,6 @@ import (
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
-
-type SubscriptionStatusData struct {
-	IsDeleted    string `json:"isDeleted,omitempty"`
-	SolutionID   string `json:"solutionID,omitempty"`
-	SolutionName string `json:"solutionName,omitempty"`
-	Tag          string `json:"tag,omitempty"`
-	TenantId     string `json:"tenantId,omitempty"`
-}
-
-type SubscriptionStatusItem struct {
-	SubscriptionStatusData SubscriptionStatusData `json:"data"`
-	CreatedAt              string                 `json:"createdAt"`
-}
-
-type SubscriptionStatusResponseBlob struct {
-	Items []SubscriptionStatusItem `json:"items"`
-}
 
 type StatusData struct {
 	InstallTime       string `json:"installTime,omitempty"`
@@ -109,45 +91,20 @@ func getObject(url string, headers map[string]string) StatusItem {
 	}
 }
 
-func getEnvironmentSubscriptionObject(url string, headers map[string]string) SubscriptionStatusItem {
-	var res SubscriptionStatusResponseBlob
-	var emptyData SubscriptionStatusItem
-
-	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
-
-	if err != nil {
-		log.Fatalf("Error fetching environment:subscription object %q: %v", url, err)
-	}
-
-	if len(res.Items) > 0 {
-		return res.Items[0]
-	} else {
-		return emptyData
-	}
-}
-
-func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, subscriptionStatusQuery string, solutionName string, requestHeaders map[string]string, cmd *cobra.Command) {
-	uploadStatusItem := getObject(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
-	installStatusItem := getObject(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
-	subscriptionStatusItem := getEnvironmentSubscriptionObject(fmt.Sprintf(getEnvironmentSubscriptionUrl(), subscriptionStatusQuery), requestHeaders)
+func fetchValuesAndPrint(operation string, query string, requestHeaders map[string]string, cmd *cobra.Command) {
+	uploadStatusItem := getObject(fmt.Sprintf(getSolutionReleaseUrl(), query), requestHeaders)
+	installStatusItem := getObject(fmt.Sprintf(getSolutionInstallUrl(), query), requestHeaders)
 
 	installStatusData := installStatusItem.StatusData
 	uploadStatusData := uploadStatusItem.StatusData
 	uploadStatusTimestamp := uploadStatusItem.CreatedAt
-	isTenantSubscribedToSolution := (!subscriptionStatusItem.IsEmpty() && subscriptionStatusItem.SubscriptionStatusData.IsDeleted == "false")
 
 	headers := []string{"Solution Name"}
-	values := []string{solutionName}
+	values := []string{uploadStatusData.SolutionName}
 
 	appendValue := func(header, value string) {
 		headers = append(headers, header)
 		values = append(values, value)
-	}
-
-	if isTenantSubscribedToSolution {
-		appendValue("Solution Subscription Status", "Subscribed")
-	} else {
-		appendValue("Solution Subscription Status", "Not Subscribed")
 	}
 
 	if operation == "upload" {
@@ -155,22 +112,14 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 		appendValue("Upload Timestamp", uploadStatusTimestamp)
 	} else if operation == "install" {
 		appendValue("Solution Install Version", installStatusData.SolutionVersion)
-		if isTenantSubscribedToSolution {
-			appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
-		} else {
-			appendValue("Solution Install Successful?", "")
-		}
+		appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
 		appendValue("Solution Install Time", installStatusData.InstallTime)
 		appendValue("Solution Install Message", installStatusData.InstallMessage)
 	} else {
 		appendValue("Solution Upload Version", uploadStatusData.SolutionVersion)
 		appendValue("Upload Timestamp", uploadStatusTimestamp)
 		appendValue("Solution Install Version", installStatusData.SolutionVersion)
-		if isTenantSubscribedToSolution {
-			appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
-		} else {
-			appendValue("Solution Install Successful?", "")
-		}
+		appendValue("Solution Install Successful?", fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
 		appendValue("Solution Install Time", installStatusData.InstallTime)
 		appendValue("Solution Install Message", installStatusData.InstallMessage)
 	}
@@ -183,10 +132,7 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 }
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {
-	var solutionVersionFilter string
-	var solutionNameFilter string
-	var solutionNameAndVersionFilter string
-	var solutionNameAndTenantIdFilter string
+	var filterQuery string
 	cfg := config.GetCurrentContext()
 
 	layerType := "TENANT"
@@ -198,26 +144,18 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	}
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
 	statusTypeToFetch, _ := cmd.Flags().GetString("status-type")
-	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
-	solutionNameFilter = fmt.Sprintf(`data.solutionName eq "%s"`, solutionName)
 
 	if solutionVersion != "" {
-		solutionNameAndVersionFilter = fmt.Sprintf(`%s and %s`, solutionNameFilter, solutionVersionFilter)
+		filterQuery = fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s"`, solutionName, solutionVersion)
 	} else {
-		solutionNameAndVersionFilter = solutionNameFilter
+		filterQuery = fmt.Sprintf(`data.solutionName eq "%s"`, solutionName)
 	}
-	solutionNameAndTenantIdFilter = fmt.Sprintf(`%s and data.tenantId eq "%s"`, solutionNameFilter, cfg.Tenant)
 
-	solutionNameAndVersionQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionNameAndVersionFilter))
-	solutionNameAndTenantIdQuery := fmt.Sprintf("?order=%s&filter=%s", url.QueryEscape("desc"), url.QueryEscape(solutionNameAndTenantIdFilter))
+	query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filterQuery))
 
-	fetchValuesAndPrint(statusTypeToFetch, solutionNameAndVersionQuery, solutionNameAndTenantIdQuery, solutionName, headers, cmd)
+	fetchValuesAndPrint(statusTypeToFetch, query, headers, cmd)
 
 	return nil
-}
-
-func (s SubscriptionStatusItem) IsEmpty() bool {
-	return reflect.DeepEqual(s, SubscriptionStatusItem{})
 }
 
 func getSolutionReleaseUrl() string {
@@ -226,8 +164,4 @@ func getSolutionReleaseUrl() string {
 
 func getSolutionInstallUrl() string {
 	return "objstore/v1beta/objects/extensibility:solutionInstall%s"
-}
-
-func getEnvironmentSubscriptionUrl() string {
-	return "objstore/v1beta/objects/environment:subscription%s"
 }
