@@ -21,6 +21,8 @@ import (
 	"os"
 
 	"github.com/apex/log"
+	"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 	"github.com/spf13/cobra"
 )
 
@@ -102,6 +104,12 @@ func testSolution(cmd *cobra.Command, args []string) {
 	fmt.Printf("\nTest Objects file:- %s", testObjectsStr)
 
 	// Send this payload to Test Runner and print the id returned by it
+	var res SolutionTestResult
+	err = api.JSONPut(getSolutionTestUrl(), testObjects, &res, nil)
+	if err != nil {
+		log.Fatalf("Solution Test request failed: %v", err)
+	}
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution Test data sent to test-runner successfully. Test ID - %s", res.ID))
 }
 
 func isTestPackageRoot(path string) bool {
@@ -143,4 +151,8 @@ func readFileLocation(path string) (string, error) {
 		return "", err
 	}
 	return string(jsonStr), nil
+}
+
+func getSolutionTestUrl() string {
+	return "rest/kirby-solution-testing-poc/kirby-solution-testing-poc-function/solution/v1/test"
 }
