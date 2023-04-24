@@ -218,3 +218,7 @@ type SolutionTestAssertionTransform struct {
 type SolutionTestResult struct {
 	ID string `json:"testId"`
 }
+
+type SolutionTestStatusResult struct {
+	Status string
+}
