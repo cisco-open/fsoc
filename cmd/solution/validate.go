@@ -49,23 +49,26 @@ func getSolutionValidateUrl() string {
 }
 
 var solutionValidateCmd = &cobra.Command{
-	Use:              "validate",
-	Args:             cobra.ExactArgs(0),
-	Short:            "Validate solution",
-	Long:             `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.`,
-	Example:          `  fsoc solution validate`,
+	Use:   "validate",
+	Args:  cobra.ExactArgs(0),
+	Short: "Validate solution",
+	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.`,
+	Example: `  fsoc solution validate
+  fsoc solution validate --bump`,
 	Run:              validateSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
+		String("tag", "stable", "Tag to associate with provided solution.  If no value is provided, it will default to 'stable'.")
+	solutionValidateCmd.Flags().MarkHidden("tag") // WIP
+
+	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	solutionValidateCmd.Flags().
-		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 

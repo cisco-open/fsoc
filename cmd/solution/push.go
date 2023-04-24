@@ -41,23 +41,23 @@ var solutionPushCmd = &cobra.Command{
 The solution manifest for the solution must be in the current directory.`,
 	Example: `
   fsoc solution push
-  fsoc solution push -w
-  fsoc solution push -w=60
-  fsoc solution push -tag=dev`,
+  fsoc solution push --wait
+  fsoc solution push --bump --wait=60`,
+	//`fsoc solution push --tag=dev`,  // WIP
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionPushCmd() *cobra.Command {
+	solutionPushCmd.Flags().
+		String("tag", "stable", "Tag to associate with provided solution.  If no value is provided, it will default to 'stable'.")
+	solutionPushCmd.Flags().MarkHidden("tag") // WIP
 
-	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed (not supported when uisng --solution-bundle)")
+	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
 
 	solutionPushCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
-
-	solutionPushCmd.Flags().
-		String("tag", "stable", "Tag to associate with provided solution bundle.  If no value is provided, it will default to 'stable'.")
 
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
@@ -66,7 +66,6 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 
 	return solutionPushCmd
-
 }
 
 func pushSolution(cmd *cobra.Command, args []string) {
