@@ -55,7 +55,7 @@ func testSolution(cmd *cobra.Command, args []string) {
 	} else {
 		testBundleDir = testBundlePath
 	}
-	fmt.Printf("\nTest Bundle Directory - %s", testBundleDir)
+	// fmt.Printf("\nTest Bundle Directory - %s", testBundleDir)
 
 	// Read Test Objects JSON
 	if !isTestPackageRoot(testBundleDir) {
@@ -97,11 +97,11 @@ func testSolution(cmd *cobra.Command, args []string) {
 		testObjects.Tests[i] = testObj
 	}
 
-	testObjectsStr, err := json.MarshalIndent(testObjects, "", "  ")
-	if err != nil {
-		log.Fatalf("Failed to marshal testObjects into a JSON string: %v", err)
-	}
-	fmt.Printf("\nTest Objects file:- %s", testObjectsStr)
+	// testObjectsStr, err := json.MarshalIndent(testObjects, "", "  ")
+	// if err != nil {
+	// 	log.Fatalf("Failed to marshal testObjects into a JSON string: %v", err)
+	// }
+	// fmt.Printf("\nTest Objects file:- %s", testObjectsStr)
 
 	// Send this payload to Test Runner and print the id returned by it
 	var res SolutionTestResult
