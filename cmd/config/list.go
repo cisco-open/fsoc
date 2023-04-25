@@ -63,11 +63,11 @@ func configListContexts(cmd *cobra.Command, args []string) error {
 		// }
 		contexts = append(contexts, []string{current, c.Name, c.AuthMethod, c.URL, c.User})
 	}
-
+	filter := output.CreateFilter("", []int{})
 	output.PrintCmdOutputCustom(cmd, cfg, &output.Table{
 		Headers: headers,
 		Lines:   contexts,
-		Detail:  false})
+		Detail:  false}, filter)
 
 	return nil
 }

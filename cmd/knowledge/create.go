@@ -224,6 +224,7 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create knowledge object: %v", err)
 		return
 	} else {
-		output.PrintCmdOutput(cmd, fmt.Sprintf("Successfully created a patched knowledge object of type: %q the %s layer.\n", objType, layerType))
+		filter := output.CreateFilter("", []int{})
+		output.PrintCmdOutput(cmd, fmt.Sprintf("Successfully created a patched knowledge object of type: %q the %s layer.\n", objType, layerType), filter)
 	}
 }

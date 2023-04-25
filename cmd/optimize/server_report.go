@@ -24,6 +24,7 @@ import (
 
 	"github.com/cisco-open/fsoc/cmd/uql"
 	"github.com/cisco-open/fsoc/cmdkit"
+	"github.com/cisco-open/fsoc/output"
 )
 
 // reportCmd represents the report command
@@ -75,8 +76,10 @@ func workloadReport(cmd *cobra.Command, args []string) error {
 	}
 	encodedWorkloadId := base32.StdEncoding.EncodeToString([]byte(*workloadId))
 
+	filter := output.CreateFilter("", []int{})
+
 	// fetch data and display
-	cmdkit.FetchAndPrint(cmd, "/ignite/v1beta/reports/workloads/"+encodedWorkloadId, nil)
+	cmdkit.FetchAndPrint(cmd, "/ignite/v1beta/reports/workloads/"+encodedWorkloadId, nil, filter)
 	return nil
 }
 

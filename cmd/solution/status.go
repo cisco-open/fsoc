@@ -175,11 +175,13 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 		appendValue("Solution Install Message", installStatusData.InstallMessage)
 	}
 
+	filter := output.CreateFilter("", []int{})
+
 	output.PrintCmdOutputCustom(cmd, installStatusData, &output.Table{
 		Headers: headers,
 		Lines:   [][]string{values},
 		Detail:  true,
-	})
+	}, filter)
 }
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {

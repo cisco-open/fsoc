@@ -40,8 +40,7 @@ type FetchAndPrintOptions struct {
 // If a human format is requested/assumed but no table is provided, it displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
 // In addition, if the fetch API command fails, this function prints the error and exits with failure.
-func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOptions) {
-	// finalize override fields
+func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOptions, filter output.Filter) { // finalize override fields
 	method := "GET"
 	if options != nil && options.Method != nil {
 		method = *options.Method
@@ -74,5 +73,5 @@ func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOption
 	}
 
 	// print command output data
-	output.PrintCmdOutput(cmd, res)
+	output.PrintCmdOutput(cmd, res, filter)
 }

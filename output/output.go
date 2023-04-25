@@ -41,6 +41,20 @@ const (
 	JsonIndent = "    "
 )
 
+// Filter type which contains indexes and the value that the index should have
+type Filter struct {
+	indexes []int
+	value   string
+}
+
+// createFilter creates a filter from a string and list of ints
+func CreateFilter(filter string, indexes []int) Filter {
+	return Filter{
+		indexes: indexes,
+		value:   filter,
+	}
+}
+
 type printRequest struct {
 	cmd         *cobra.Command
 	format      string
@@ -129,8 +143,8 @@ type Table struct {
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
-func PrintCmdOutput(cmd *cobra.Command, v any) {
-	PrintCmdOutputCustom(cmd, v, nil)
+func PrintCmdOutput(cmd *cobra.Command, v any, filter Filter) {
+	PrintCmdOutputCustom(cmd, v, nil, filter)
 }
 
 // PrintCmdOutputCustom displays the output of a command in the user-selected output format
@@ -138,7 +152,7 @@ func PrintCmdOutput(cmd *cobra.Command, v any) {
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
-func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table) {
+func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table, filter Filter) {
 	// extract format, assume default if no command or no -o flag
 	format := ""
 	if cmd != nil {
@@ -152,10 +166,10 @@ func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table) {
 	//        - for machine formats, don't filter by fields
 	fields, _ := cmd.Flags().GetString("fields") // since --fields doesn't have default, non-empty means explicitly set
 	pr := printRequest{cmd: cmd, format: format, fields: fields, annotations: cmd.Annotations}
-	printCmdOutputCustom(pr, v, table)
+	printCmdOutputCustom(pr, v, table, filter)
 }
 
-func printCmdOutputCustom(pr printRequest, v any, table *Table) {
+func printCmdOutputCustom(pr printRequest, v any, table *Table, filter Filter) {
 	// if no field spec is given on the command line and built-in specs are available, use them
 	if pr.fields == "" && pr.annotations != nil {
 		// choose which annotations to use and in what priority order
@@ -222,7 +236,7 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	// format table if a transform is provided or there is no custom table
 	if pr.fields != "" || table == nil || len(table.Headers) == 0 {
 		var err error
-		table, err = createTable(v, pr.fields) // replaces the table
+		table, err = createTable(v, pr.fields, filter) // replaces the table
 		if err != nil {
 			log.Warnf("Failed to convert output data to a table: %v; reverting to YAML output", err)
 			if err := PrintYaml(pr.cmd, v); err != nil {
@@ -314,7 +328,7 @@ func printDetail(cmd *cobra.Command, t *Table) {
 // createTable automatically creates a table from the structure of the data.
 // For now, it relies on a fields specification being provided in the form of a JQ query.
 // The fields specification selects what fields should be output, with what names and in what order
-func createTable(v any, fields string) (*Table, error) {
+func createTable(v any, fields string, filter Filter) (*Table, error) {
 	// init empty custom table
 	table := Table{Headers: []string{}, Lines: [][]string{}}
 
@@ -351,7 +365,9 @@ func createTable(v any, fields string) (*Table, error) {
 		if !ok {
 			break
 		}
-
+		if !passesFilter(filter, toArray(row, orderIndex)) {
+			continue
+		}
 		// skip row and log error if the row failed to convert
 		if err, ok := row.(error); ok {
 			log.Errorf("error at data row %v : %v; likely a bug; use --output json or yaml for now", index-1, err) // index-1 to compensate for header row
@@ -471,4 +487,14 @@ func canonicalizeData(v any) any {
 	out["total"] = 1
 
 	return out
+}
+
+// return true if all indexes in the filter adhere to the value
+func passesFilter(filter Filter, arr []string) bool {
+	for _, index := range filter.indexes {
+		if arr[index] != filter.value {
+			return false
+		}
+	}
+	return true
 }

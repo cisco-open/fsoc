@@ -50,7 +50,8 @@ func TestPrintJSONAndYaml(t *testing.T) {
 		pr := printRequest{format: tt.format}
 		outExpected, err := test.ReadFileToString(tt.fixture)
 		require.Nil(t, err)
-		outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, obj, nil) }, t)
+		filter := CreateFilter("", []int{})
+		outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, obj, nil, filter) }, t)
 		require.Equal(t, outExpected, outActual)
 	}
 }
@@ -61,7 +62,8 @@ func TestPrintSimple(t *testing.T) {
 	// simple
 	outExpected, err := test.ReadFileToString("./fixtures/output_text.txt")
 	require.Nil(t, err)
-	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, "test string", nil) }, t)
+	filter := CreateFilter("", []int{})
+	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, "test string", nil, filter) }, t)
 	require.Equal(t, outExpected, outActual)
 }
 
@@ -84,6 +86,7 @@ func TestPrintTable(t *testing.T) {
 	}
 	outExpected, err := test.ReadFileToString("./fixtures/output_table.txt")
 	require.Nil(t, err)
-	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, nil, table) }, t)
+	filter := CreateFilter("", []int{})
+	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, nil, table, filter) }, t)
 	require.Equal(t, outExpected, outActual)
 }

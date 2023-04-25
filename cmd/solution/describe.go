@@ -48,7 +48,9 @@ func solutionDescribe(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Cannot get solution details: %v", err)
 	}
-	output.PrintCmdOutput(cmd, res)
+	filter := output.CreateFilter("", []int{})
+
+	output.PrintCmdOutput(cmd, res, filter)
 }
 
 func getSolutionDescribeUrl(id string) string {

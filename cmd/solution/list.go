@@ -27,7 +27,7 @@ import (
 )
 
 var solutionListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list (--subscribed | --unsubscribed)",
 	Args:  cobra.ExactArgs(0),
 	Short: "List all solutions available in this tenant",
 	Long:  `This command list all the solutions that are deployed in the current tenant specified in the profile.`,
@@ -41,9 +41,25 @@ var solutionListCmd = &cobra.Command{
 	},
 }
 
+func getSubscribeListCmd() *cobra.Command {
+	solutionListCmd.Flags().
+		Bool("subscribed", false, "")
+	solutionListCmd.Flags().
+		Bool("unsubscribed", false, "")
+
+	return solutionListCmd
+
+}
+
 func getSolutionList(cmd *cobra.Command, args []string) {
 	log.Info("Fetching the list of solutions...")
+	// get subscribe and unsubscribe flags
+	subscribed := cmd.Flags().Lookup("subscribed").Changed
+	unsubscribed := cmd.Flags().Lookup("unsubscribed").Changed
 
+	if subscribed && unsubscribed {
+		log.Fatalf("Cannot have both subscribed and unsubscribed set")
+	}
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant
 
@@ -52,8 +68,16 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 		"layer-id":   layerID,
 	}
 
-	// get data and display
-	cmdkit.FetchAndPrint(cmd, getSolutionListUrl(), &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
+	// get data and displays
+	var filter output.Filter
+	if subscribed {
+		filter = output.CreateFilter("true", []int{2})
+	} else if unsubscribed {
+		filter = output.CreateFilter("false", []int{2})
+	} else {
+		filter = output.CreateFilter("", []int{})
+	}
+	cmdkit.FetchAndPrint(cmd, getSolutionListUrl(), &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true}, filter)
 }
 
 func getSolutionListUrl() string {

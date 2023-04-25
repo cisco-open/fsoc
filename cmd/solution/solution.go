@@ -42,7 +42,7 @@ func init() {
 }
 
 func NewSubCmd() *cobra.Command {
-	solutionCmd.AddCommand(solutionListCmd)
+	solutionCmd.AddCommand(getSubscribeListCmd())
 	solutionCmd.AddCommand(getInitSolutionCmd())
 	solutionCmd.AddCommand(getSubscribeSolutionCmd())
 	solutionCmd.AddCommand(getUnsubscribeSolutionCmd())

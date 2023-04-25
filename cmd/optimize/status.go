@@ -99,7 +99,9 @@ func listStatus(flags *statusFlags) func(cmd *cobra.Command, args []string) erro
 			objStoreUrl = objStoreUrl + "?" + query
 		}
 
-		cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
+		filter := output.CreateFilter("", []int{})
+
+		cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true}, filter)
 		return nil
 	}
 }

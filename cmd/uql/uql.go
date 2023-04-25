@@ -164,7 +164,8 @@ func printResponse(cmd *cobra.Command, response *Response, output format) error 
 		}
 		return fsoc.PrintYaml(cmd, json)
 	case rawFormat:
-		fsoc.PrintCmdOutput(cmd, string(*response.raw))
+		filter := fsoc.CreateFilter("", []int{})
+		fsoc.PrintCmdOutput(cmd, string(*response.raw), filter)
 	}
 	return nil
 }
