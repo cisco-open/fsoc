@@ -20,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -44,6 +46,7 @@ type configureFlags struct {
 	filePath     string
 	create       bool
 	start        bool
+	solutionName string
 }
 
 var optimizerConfigNotFoundError = errors.New("optimizer config not found")
@@ -82,6 +85,11 @@ func NewCmdConfigure() *cobra.Command {
 
 	configureCmd.MarkFlagsMutuallyExclusive("optimizer-id", "create")
 
+	configureCmd.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
+	if err := configureCmd.LocalFlags().MarkHidden("solution-name"); err != nil {
+		log.Warnf("Failed to set solution-name flag hidden: %v", err)
+	}
+
 	return configureCmd
 }
 
@@ -99,7 +107,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		var workloadId string
 
 		if flags.optimizerId != "" {
-			optimizerConfig, optimizerConfigError = getOptimizerConfig(flags.optimizerId, "")
+			optimizerConfig, optimizerConfigError = getOptimizerConfig(flags.optimizerId, "", flags.solutionName)
 			if optimizerConfigError != nil {
 				return fmt.Errorf("Unable to get config for existing optimizer. getOptimizerConfig: %w", optimizerConfigError)
 			}
@@ -120,7 +128,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				return fmt.Errorf("flags.workloadId getProfilerReport: %w", err)
 			}
 
-			optimizerConfig, optimizerConfigError = getOptimizerConfig("", workloadId)
+			optimizerConfig, optimizerConfigError = getOptimizerConfig("", workloadId, flags.solutionName)
 
 		} else if flags.Cluster != "" { //note MarkFlagsRequiredTogether is checking namespace and workloadName
 			var query string
@@ -153,7 +161,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				return fmt.Errorf("flags.Cluster getProfilerReport: %w", err)
 			}
 
-			optimizerConfig, optimizerConfigError = getOptimizerConfig("", workloadId)
+			optimizerConfig, optimizerConfigError = getOptimizerConfig("", workloadId, flags.solutionName)
 
 		} else {
 			return errors.New("No identifying information provided for workload/optimizer to be configured")
@@ -201,15 +209,25 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Config = Config{}
 		newOptimizerConfig.Config.Guardrails = Guardrails{}
 		newOptimizerConfig.Config.Guardrails.CPU = CPU{}
-		cpuRequest := profilerReport["report_support_data.cpu_requests"].(float64)
+		cpuRequest, err := strconv.ParseFloat(profilerReport["report_support_data.cpu_requests"].(string), 64)
+		if err != nil {
+			return fmt.Errorf("Unable to parse profiler report_support_data.cpu_requests into float64: %w", err)
+		}
 		newOptimizerConfig.Config.Guardrails.CPU.Max = cpuRequest * 1.5
 		newOptimizerConfig.Config.Guardrails.CPU.Min = cpuRequest * 0.5
 		newOptimizerConfig.Config.Guardrails.CPU.Pinned = false
 		newOptimizerConfig.Config.Guardrails.Mem = Mem{}
-		memRequest := profilerReport["report_support_data.memory_requests"].(float64)
+		memRequest, err := strconv.ParseFloat(profilerReport["report_support_data.memory_requests"].(string), 64)
+		if err != nil {
+			return fmt.Errorf("Unable to parse profiler report_support_data.memory_requests into float64: %w", err)
+		}
+		// convert from bytes to GiB
+		memRequest = memRequest / math.Pow(1024, 3)
 		newOptimizerConfig.Config.Guardrails.Mem.Max = memRequest * 1.5
 		newOptimizerConfig.Config.Guardrails.Mem.Min = memRequest * 0.5
 		newOptimizerConfig.Config.Guardrails.Mem.Pinned = false
+		// Set suspensions to empty object
+		newOptimizerConfig.Suspensions = make(map[string]Suspension)
 
 		// config file overrides
 		if flags.filePath != "" {
@@ -228,19 +246,25 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		}
 
 		// write new config to ORION
-		var res any
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/optimize:optimizer/%v", newOptimizerConfig.OptimizerID)
 		headers := map[string]string{
 			"layer-type": "TENANT",
 			"layer-id":   config.GetCurrentContext().Tenant,
 		}
-		err = api.JSONPost(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers})
-		if err != nil {
-			return fmt.Errorf("Failed to create knowledge object: %v", err)
+		var res any
+
+		if flags.create {
+			urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer", flags.solutionName)
+			if err = api.JSONPost(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers}); err != nil {
+				return fmt.Errorf("Failed to create knowledge object for optimizer configuration: %w", err)
+			}
+		} else {
+			urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, newOptimizerConfig.OptimizerID)
+			if err = api.JSONPut(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers}); err != nil {
+				return fmt.Errorf("Failed to update knowledge object with new optimizer configuration: %w", err)
+			}
 		}
 
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer configured with ID %q", newOptimizerConfig.OptimizerID))
-
 		return nil
 	}
 }
@@ -266,7 +290,7 @@ func optimizerConfigNotFoundErrorWrapper(extraDetail string) error {
 	return fmt.Errorf("%w: %v", optimizerConfigNotFoundError, extraDetail)
 }
 
-func getOptimizerConfig(optimizerId string, workloadId string) (OptimizerConfiguration, error) {
+func getOptimizerConfig(optimizerId string, workloadId string, solutionName string) (OptimizerConfiguration, error) {
 	var optimizerConfig OptimizerConfiguration
 	headers := map[string]string{
 		"layer-type": "TENANT",
@@ -275,17 +299,19 @@ func getOptimizerConfig(optimizerId string, workloadId string) (OptimizerConfigu
 
 	// TODO allow configuration of solution defining type to allow solution copies to work under this command
 	if optimizerId != "" {
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/optimize:optimizer/%v", optimizerId)
+		var response configJsonStoreItem
 
-		err := api.JSONGet(urlStr, &optimizerConfig, &api.Options{Headers: headers})
+		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", solutionName, optimizerId)
+		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
 			// TODO return optimizerConfigNotFoundError if 404
 			return optimizerConfig, fmt.Errorf("unable to fetch existing config by optimizer ID. api.JSONGet: %w", err)
 		}
+		optimizerConfig = response.Data
 	} else if workloadId != "" {
 		var configPage configJsonStorePage
-		queryStr := url.QueryEscape(fmt.Sprintf("data.optimizer.target.k8sDeployment.workloadId eq %q", workloadId))
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/optimize:optimizer%v", queryStr)
+		queryStr := url.QueryEscape(fmt.Sprintf("data.target.k8sDeployment.workloadId eq %q", workloadId))
+		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer?filter=%v", solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
 		if err != nil {
