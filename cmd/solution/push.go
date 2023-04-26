@@ -37,12 +37,11 @@ var solutionPushCmd = &cobra.Command{
 	Use:   "push",
 	Args:  cobra.ExactArgs(0),
 	Short: "Deploy your solution",
-	// TODO: update link for tagging to official documentation when available
 	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
 The solution manifest for the solution must be in the current directory.  A few more important details:
 (1) The 'tags' flag is a free-form flag which means you can provide any string as a value. That being said, 'stable' is a reserved key-word for production-ready bundles.
 (2) Use caution when supplying the tag value to the solution bundle to upload as typos can result in misleading validation results.
-(3) For more info on tags, please visit: 
+(3) For more info on tags, please visit: https://developer.cisco.com/docs/fso/#!tag-a-solution
 `,
 	Example: `
   fsoc solution push
