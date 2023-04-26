@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// [--cluster cluster --namespace namespace --name deployment | --optimizer-id id | --report-id id] [--file /path/to/config.json] [--create] [--start]
 type configureFlags struct {
 	Cluster      string
 	Namespace    string
@@ -49,7 +48,9 @@ type configureFlags struct {
 	solutionName string
 }
 
-var optimizerConfigNotFoundError = errors.New("optimizer config not found")
+var optimizerConfigNotFoundError = errors.New("Optimizer config not found")
+var profilerMissingDataError = errors.New("Missing data in profiler report")
+var profilerInvalidDataError = errors.New("Invalid data found in profiler report")
 
 func init() {
 	// TODO move this logic to optimize root when implementing unit tests
@@ -142,7 +143,6 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			if err != nil {
 				return fmt.Errorf("uql.ExecuteQuery: %w", err)
 			}
-
 			if resp.HasErrors() {
 				log.Error("Execution of report query encountered errors. Returned data may not be complete!")
 				for _, e := range resp.Errors() {
@@ -151,16 +151,17 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			}
 
 			if workloadIdsFound := len(resp.Main().Data); workloadIdsFound != 1 {
-				return errors.New(fmt.Sprintf("Unable to configure optimizer. Found %v workload IDs for the given criteria.", workloadIdsFound))
+				return fmt.Errorf("Unable to configure optimizer. Found %v workload IDs for the given criteria.", workloadIdsFound)
+			}
+			workloadId, ok := resp.Main().Data[0][0].(string)
+			if !ok {
+				return fmt.Errorf("Unable to convert workloadId query value %q to string", resp.Main().Data[0][0])
 			}
 
-			// TODO check type cast
-			workloadId = resp.Main().Data[0][0].(string)
 			profilerReport, err = getProfilerReport(workloadId)
 			if err != nil {
 				return fmt.Errorf("flags.Cluster getProfilerReport: %w", err)
 			}
-
 			optimizerConfig, optimizerConfigError = getOptimizerConfig("", workloadId, flags.solutionName)
 
 		} else {
@@ -183,7 +184,13 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			}
 		}
 
-		// TODO check OK on type casts
+		// I'm not sure if theres a more idiomatic way to do this but it was the least boilerplatey
+		// solution I could think of to check for missing data and prevent panics
+		validateProfilerReportConfigData(&profilerReport, []string{
+			"resource_metadata.namespace_name", "resource_metadata.workload_name", "k8s.deployment.uid",
+			"resource_metadata.cluster_id", "resource_metadata.cluster_name", "report_contents.main_container_name",
+			"report_support_data.cpu_requests", "report_support_data.memory_requests",
+		})
 		var newOptimizerConfig OptimizerConfiguration = OptimizerConfiguration{}
 		newOptimizerConfig.OptimizerID = buildOptimizerId(
 			profilerReport["resource_metadata.namespace_name"].(string),
@@ -197,8 +204,6 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			newOptimizerConfig.DesiredState = "stopped"
 		}
 		// Target
-		newOptimizerConfig.Target = Target{}
-		newOptimizerConfig.Target.K8SDeployment = K8SDeployment{}
 		newOptimizerConfig.Target.K8SDeployment.ClusterID = profilerReport["resource_metadata.cluster_id"].(string)
 		newOptimizerConfig.Target.K8SDeployment.ClusterName = profilerReport["resource_metadata.cluster_name"].(string)
 		newOptimizerConfig.Target.K8SDeployment.ContainerName = profilerReport["report_contents.main_container_name"].(string)
@@ -206,9 +211,6 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Target.K8SDeployment.WorkloadID = workloadId
 		newOptimizerConfig.Target.K8SDeployment.WorkloadName = profilerReport["resource_metadata.workload_name"].(string)
 		// Config
-		newOptimizerConfig.Config = Config{}
-		newOptimizerConfig.Config.Guardrails = Guardrails{}
-		newOptimizerConfig.Config.Guardrails.CPU = CPU{}
 		cpuRequest, err := strconv.ParseFloat(profilerReport["report_support_data.cpu_requests"].(string), 64)
 		if err != nil {
 			return fmt.Errorf("Unable to parse profiler report_support_data.cpu_requests into float64: %w", err)
@@ -216,7 +218,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Config.Guardrails.CPU.Max = cpuRequest * 1.5
 		newOptimizerConfig.Config.Guardrails.CPU.Min = cpuRequest * 0.5
 		newOptimizerConfig.Config.Guardrails.CPU.Pinned = false
-		newOptimizerConfig.Config.Guardrails.Mem = Mem{}
+
 		memRequest, err := strconv.ParseFloat(profilerReport["report_support_data.memory_requests"].(string), 64)
 		if err != nil {
 			return fmt.Errorf("Unable to parse profiler report_support_data.memory_requests into float64: %w", err)
@@ -230,6 +232,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Suspensions = make(map[string]Suspension)
 
 		// config file overrides
+		// TODO test this path
 		if flags.filePath != "" {
 			configFile, err := os.Open(flags.filePath)
 			if err != nil {
@@ -271,8 +274,18 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 
 func buildOptimizerId(namespace string, workloadName string, workloadUid string) string {
 	// NOTE convert to runes before slicing to account for UTF-8 chars
-	nsPortion := string([]rune(namespace)[:10])
-	wnPortion := string([]rune(workloadName)[:10])
+	var nsPortion, wnPortion string
+	nsRunes, wnRunes := []rune(namespace), []rune(workloadName)
+	if len(nsRunes) > 10 {
+		nsPortion = string(nsRunes[:10])
+	} else {
+		nsPortion = string(nsRunes)
+	}
+	if len(wnRunes) > 10 {
+		wnPortion = string(wnRunes[:10])
+	} else {
+		wnPortion = string(wnRunes)
+	}
 	return fmt.Sprintf("%v-%v-%v", nsPortion, wnPortion, workloadUid)
 }
 
@@ -297,14 +310,15 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		"layer-id":   config.GetCurrentContext().Tenant,
 	}
 
-	// TODO allow configuration of solution defining type to allow solution copies to work under this command
 	if optimizerId != "" {
 		var response configJsonStoreItem
 
 		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", solutionName, optimizerId)
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
-			// TODO return optimizerConfigNotFoundError if 404
+			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
+				return optimizerConfig, fmt.Errorf("%w (api.JSONGet: %w): No matches found for the given optimizerId", optimizerConfigNotFoundError, problem)
+			}
 			return optimizerConfig, fmt.Errorf("unable to fetch existing config by optimizer ID. api.JSONGet: %w", err)
 		}
 		optimizerConfig = response.Data
@@ -318,10 +332,10 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 			return optimizerConfig, fmt.Errorf("unable to fetch existing config by workload ID. api.JSONGet: %w", err)
 		}
 		if configPage.Total > 1 {
-			return optimizerConfig, errors.New(fmt.Sprintf("Found %v optimizer configurations for the given workloadID", configPage.Total))
+			return optimizerConfig, fmt.Errorf("Found %v optimizer configurations for the given workloadID", configPage.Total)
 		}
 		if configPage.Total < 1 {
-			return optimizerConfig, optimizerConfigNotFoundErrorWrapper("No matches found for the given workloadId")
+			return optimizerConfig, fmt.Errorf("%w: No matches found for the given workloadId", optimizerConfigNotFoundError)
 		}
 
 		optimizerConfig = configPage.Items[0].Data
@@ -351,7 +365,6 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("uql.ExecuteQuery: %w", err)
 	}
-
 	if resp.HasErrors() {
 		log.Error("Execution of report query encountered errors. Returned data may not be complete!")
 		for _, e := range resp.Errors() {
@@ -359,12 +372,46 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 		}
 	}
 
-	// TODO check lengths and handle cast failures
-	firstProfileData := resp.Main().Data[0][0].(*uql.DataSet).Data[0][0].(uql.ComplexData).Data
-	result, err := sliceToMap(firstProfileData)
+	mainDataSetData := resp.Main().Data
+	if len(mainDataSetData) < 1 {
+		return nil, errors.New("No events found, main data set had no rows")
+	}
+	if len(mainDataSetData[0]) < 1 {
+		return nil, errors.New("No events found, main data first row had no columns")
+	}
+	eventDataSet, ok := mainDataSetData[0][0].(*uql.DataSet)
+	if !ok {
+		return nil, fmt.Errorf("Unexpected type %T for event data set", mainDataSetData[0][0])
+	}
+	if len(eventDataSet.Data) < 1 {
+		return nil, errors.New("No events found, event data set had no rows")
+	}
+	if len(eventDataSet.Data[0]) < 1 {
+		return nil, errors.New("No events found, event data first row had no columns")
+	}
+	eventComplexData, ok := eventDataSet.Data[0][0].(uql.ComplexData)
+	if !ok {
+		return nil, fmt.Errorf("Unexpected type %T for event data set", eventDataSet.Data[0][0])
+	}
+	result, err := sliceToMap(eventComplexData.Data)
 	if err != nil {
 		return nil, fmt.Errorf("sliceToMap: %w", err)
 	}
 
 	return result, nil
+}
+
+// validateProfilerReportConfigData takes in a list of string keys and validates they are all present
+// in the map and their values are strings as expected
+func validateProfilerReportConfigData(profilerReport *map[string]any, keys []string) error {
+	for _, key := range keys {
+		val, ok := (*profilerReport)[key]
+		if !ok {
+			return fmt.Errorf("%w: key %q does not exist", profilerMissingDataError, key)
+		}
+		if _, ok := val.(string); !ok {
+			return fmt.Errorf("%w: string assertion failed for key %q value %q", profilerInvalidDataError, key, val)
+		}
+	}
+	return nil
 }
