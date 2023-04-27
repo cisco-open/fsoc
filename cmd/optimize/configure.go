@@ -114,6 +114,9 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			}
 
 			workloadId = optimizerConfig.Target.K8SDeployment.WorkloadID
+			if !strings.HasPrefix(workloadId, "k8s:") {
+				workloadId = fmt.Sprintf("k8s:deployment:%v", workloadId)
+			}
 			profilerReport, err = getProfilerReport(workloadId)
 			if err != nil {
 				return fmt.Errorf("flags.optimizerId getProfilerReport: %w", err)
