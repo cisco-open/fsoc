@@ -153,7 +153,8 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			if workloadIdsFound := len(resp.Main().Data); workloadIdsFound != 1 {
 				return fmt.Errorf("Unable to configure optimizer. Found %v workload IDs for the given criteria.", workloadIdsFound)
 			}
-			workloadId, ok := resp.Main().Data[0][0].(string)
+			var ok bool
+			workloadId, ok = resp.Main().Data[0][0].(string)
 			if !ok {
 				return fmt.Errorf("Unable to convert workloadId query value %q to string", resp.Main().Data[0][0])
 			}
@@ -208,7 +209,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Target.K8SDeployment.ClusterName = profilerReport["resource_metadata.cluster_name"].(string)
 		newOptimizerConfig.Target.K8SDeployment.ContainerName = profilerReport["report_contents.main_container_name"].(string)
 		newOptimizerConfig.Target.K8SDeployment.NamespaceName = profilerReport["resource_metadata.namespace_name"].(string)
-		newOptimizerConfig.Target.K8SDeployment.WorkloadID = workloadId
+		newOptimizerConfig.Target.K8SDeployment.WorkloadID = strings.Split(workloadId, ":")[2]
 		newOptimizerConfig.Target.K8SDeployment.WorkloadName = profilerReport["resource_metadata.workload_name"].(string)
 		// Config
 		cpuRequest, err := strconv.ParseFloat(profilerReport["report_support_data.cpu_requests"].(string), 64)
