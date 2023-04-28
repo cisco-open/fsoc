@@ -334,7 +334,7 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
 			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
-				return optimizerConfig, fmt.Errorf("%w (api.JSONGet: %w): No matches found for the given optimizerId", optimizerConfigNotFoundError, problem)
+				return optimizerConfig, fmt.Errorf("%w: No matches found for the given optimizerId", optimizerConfigNotFoundError)
 			}
 			return optimizerConfig, fmt.Errorf("unable to fetch existing config by optimizer ID. api.JSONGet: %w", err)
 		}
