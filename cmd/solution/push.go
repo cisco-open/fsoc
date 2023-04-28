@@ -205,7 +205,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	message = fmt.Sprintf("Solution %s version %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Solution %s version %s was successfully deployed.\n", manifest.Name, manifest.SolutionVersion)
 	output.PrintCmdStatus(cmd, message)
 }
 
