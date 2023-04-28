@@ -192,16 +192,16 @@ type SolutionTestObjects struct {
 
 type SolutionTestObject struct {
 	Name        string                  `json:"name,omitempty"`
-	Type        string                  `json:"type"`
+	Type        string                  `json:"type,omitempty"`
 	Description string                  `json:"description,omitempty"`
 	Setup       SolutionTestSetup       `json:"setup"`
 	Assertions  []SolutionTestAssertion `json:"assertions"`
 }
 
 type SolutionTestSetup struct {
-	Type     string `json:"type"`
-	Input    string `json:"input,omitempty"`
-	Location string `json:"location,omitempty"`
+	Type     string      `json:"type"`
+	Input    interface{} `json:"input,omitempty"`
+	Location string      `json:"location,omitempty"`
 }
 
 type SolutionTestAssertion struct {
@@ -212,13 +212,20 @@ type SolutionTestAssertion struct {
 type SolutionTestAssertionTransform struct {
 	Type       string `json:"type"`
 	Expression string `json:"expression,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Location   string `json:"location,omitempty"`
 }
 
 type SolutionTestResult struct {
-	ID string `json:"testId"`
+	ID string `json:"testRunId"`
 }
 
 type SolutionTestStatusResult struct {
-	Status string
+	Complete       bool            `json:"completed"`
+	StatusMessages []StatusMessage `json:"statusMessages"`
+}
+
+type StatusMessage struct {
+	Timestamp string `json:"timestamp"`
+	Message   string `json:"message"`
 }

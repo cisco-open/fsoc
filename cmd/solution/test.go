@@ -14,10 +14,12 @@
 package solution
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/cisco-open/fsoc/output"
@@ -44,8 +46,6 @@ var solutionTestStatusCmd = &cobra.Command{
 	Run:              testSolutionStatus,
 	TraverseChildren: true,
 }
-
-var testId string
 
 func getSolutionTestCmd() *cobra.Command {
 	solutionTestCmd.Flags().String("test-bundle", "", "The fully qualified path name for the test bundle directory. If no value is provided, it will default to 'current' - meaning current directory, where this command is running.")
@@ -80,7 +80,6 @@ func testSolution(cmd *cobra.Command, args []string) {
 	} else {
 		testBundleDir = testBundlePath
 	}
-	// fmt.Printf("\nTest Bundle Directory - %s", testBundleDir)
 
 	// Read Test Objects JSON
 	if !isTestPackageRoot(testBundleDir) {
@@ -96,12 +95,21 @@ func testSolution(cmd *cobra.Command, args []string) {
 		testObj := testObjects.Tests[i]
 		setup := testObj.Setup
 		if setup.Location != "" {
-			setup.Input, err = readFileLocation(fmt.Sprintf("%s/%s", testBundleDir, setup.Location))
+			inputBytes, err := readFileLocation(fmt.Sprintf("%s/%s", testBundleDir, setup.Location))
 			if err != nil {
-				log.Fatalf("Failed to load JSON in place of file ref %q: %v", setup.Location, err)
+				log.Fatalf("Failed to read file ref %q: %v", setup.Location, err)
 			}
-			setup.Location = ""
-			setup.Type = ""
+			inputCompactBytes := new(bytes.Buffer)
+			err = json.Compact(inputCompactBytes, inputBytes)
+			if err != nil {
+				log.Fatalf("JSON compact operation failed: %v", err)
+			}
+			var inputData interface{}
+			err = json.Unmarshal(inputCompactBytes.Bytes(), &inputData)
+			if err != nil {
+				log.Fatalf("JSON Unmarshal failed: %v", err)
+			}
+			setup.Input = inputData
 			testObj.Setup = setup
 		}
 		for k := range testObj.Assertions {
@@ -109,11 +117,13 @@ func testSolution(cmd *cobra.Command, args []string) {
 			for l := range assertion.Transforms {
 				transform := assertion.Transforms[l]
 				if transform.Location != "" {
-					transform.Expression, err = readFileLocation(fmt.Sprintf("%s/%s", testBundleDir, transform.Location))
+					transformBytes, err := readFileLocation(fmt.Sprintf("%s/%s", testBundleDir, transform.Location))
 					if err != nil {
 						log.Fatalf("Failed to load JSON in place of file ref %q: %v", transform.Location, err)
 					}
-					transform.Location = ""
+					transformStr := string(transformBytes)
+					transformStr = sanitizeString(transformStr)
+					transform.Expression = transformStr
 					assertion.Transforms[l] = transform
 				}
 			}
@@ -121,12 +131,6 @@ func testSolution(cmd *cobra.Command, args []string) {
 		}
 		testObjects.Tests[i] = testObj
 	}
-
-	// testObjectsStr, err := json.MarshalIndent(testObjects, "", "  ")
-	// if err != nil {
-	// 	log.Fatalf("Failed to marshal testObjects into a JSON string: %v", err)
-	// }
-	// fmt.Printf("\nTest Objects file:- %s", testObjectsStr)
 
 	// Send this payload to Test Runner and print the id returned by it
 	var res SolutionTestResult
@@ -147,23 +151,22 @@ func testSolutionStatus(cmd *cobra.Command, args []string) {
 	// Read the test-id
 	suppliedTestId, _ := cmd.Flags().GetString("test-id")
 	if suppliedTestId == "" {
-		fmt.Println("Supplied test-id is null or empty.")
-		suppliedTestId = testId
-		if suppliedTestId == "" {
-			log.Fatalf("No local test-id saved as well. Exiting...")
-		}
-		fmt.Printf("Using locally saved test-id (%s) to check test status", suppliedTestId)
-	} else {
-		fmt.Printf("Using supplied test-id (%s) to check test status", suppliedTestId)
+		log.Fatal("Supplied test-id is null or empty.")
 	}
 
 	// Send the test-id to the test-runner and print the response
 	var res SolutionTestStatusResult
-	err := api.JSONGet(getSolutionTestStatusUrl(testId), &res, nil)
+	err := api.JSONGet(getSolutionTestStatusUrl(suppliedTestId), &res, nil)
 	if err != nil {
 		log.Fatalf("Solution Test Status request failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution Test Status received for test-id (%s): %s", testId, res.Status))
+
+	// Print the result in JSON format
+	resJsonBytes, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		log.Fatalf("JSON marshal failed: %v", err)
+	}
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution Test Status received for test-id (%s): \n%v", suppliedTestId, string(resJsonBytes)))
 }
 
 func isTestPackageRoot(path string) bool {
@@ -199,12 +202,12 @@ func getTestObjects(path string) (*SolutionTestObjects, error) {
 	return testObjects, nil
 }
 
-func readFileLocation(path string) (string, error) {
-	jsonStr, err := os.ReadFile(path)
+func readFileLocation(path string) ([]byte, error) {
+	jsonBytes, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(jsonStr), nil
+	return jsonBytes, nil
 }
 
 func getSolutionTestUrl() string {
@@ -217,4 +220,10 @@ func getSolutionTestStatusUrl(testId string) string {
 
 func getBaseUrl() string {
 	return "rest/kirby-solution-testing-poc/kirby-solution-testing-poc-function"
+}
+
+func sanitizeString(input string) string {
+	input = strings.ReplaceAll(input, "\n", "")
+	input = strings.ReplaceAll(input, " ", "")
+	return input
 }
