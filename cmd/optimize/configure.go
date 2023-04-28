@@ -16,7 +16,6 @@ package optimize
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,11 +28,13 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
+
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/uql"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
-	"github.com/spf13/cobra"
 )
 
 type configureFlags struct {
@@ -60,10 +61,21 @@ func init() {
 func NewCmdConfigure() *cobra.Command {
 	flags := configureFlags{}
 	configureCmd := &cobra.Command{
-		Use:              "configure",
-		Short:            "TODO",
-		Long:             `TODO`,
-		Example:          "TODO",
+		Use:   "configure",
+		Short: "Configure (and/or create) an optimizer",
+		Long: `
+Configure (and/or create) an optimizer
+
+This command allows one to create a new optimization (via --create flag) or configure existing optimizers.
+It requires a means of identifying the workload (or existing optimizer) and will retrieve the latest profiler report
+for the workload under optimization. It will populate default optimizer configuration values based on this report
+and push the configuration to the knowledge store. You may optionally override these defaults with the --file parameter.
+`,
+		Example: `  fsoc optimize configure --workload-id uS2J001gM2+Tz8eXhpuROw
+  fsoc optimize configure --workload-id k8s:deployment:uS2J001gM2+Tz8eXhpuROw
+  fsoc optimize configure --cluster your-cluster --namespace your-namespace --workload-name your-workload
+  fsoc optimize configure --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000
+`,
 		Args:             cobra.NoArgs,
 		RunE:             configureOptimizer(&flags),
 		TraverseChildren: true,
@@ -80,6 +92,8 @@ func NewCmdConfigure() *cobra.Command {
 	configureCmd.MarkFlagsMutuallyExclusive("workload-id", "optimizer-id", "cluster")
 	configureCmd.MarkFlagsMutuallyExclusive("workload-id", "optimizer-id", "namespace")
 	configureCmd.MarkFlagsMutuallyExclusive("workload-id", "optimizer-id", "workload-name")
+
+	configureCmd.Flags().StringVarP(&flags.filePath, "file", "f", "", "Override profiler report values with a local yaml/json file matching the json schema of the optimize:optimizer Orion type")
 
 	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuraiton file")
 	configureCmd.Flags().BoolVarP(&flags.start, "start", "s", false, "Set the desired state of the specified or new optimizer to started")
@@ -190,11 +204,14 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 
 		// I'm not sure if theres a more idiomatic way to do this but it was the least boilerplatey
 		// solution I could think of to check for missing data and prevent panics
-		validateProfilerReportConfigData(&profilerReport, []string{
+		err = validateProfilerReportConfigData(&profilerReport, []string{
 			"resource_metadata.namespace_name", "resource_metadata.workload_name", "k8s.deployment.uid",
 			"resource_metadata.cluster_id", "resource_metadata.cluster_name", "report_contents.main_container_name",
 			"report_support_data.cpu_requests", "report_support_data.memory_requests",
 		})
+		if err != nil {
+			return fmt.Errorf("validateProfilerReportConfigData: %w", err)
+		}
 		var newOptimizerConfig OptimizerConfiguration = OptimizerConfiguration{}
 		newOptimizerConfig.OptimizerID = buildOptimizerId(
 			profilerReport["resource_metadata.namespace_name"].(string),
@@ -246,9 +263,9 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 
 			configBytes, _ := io.ReadAll(configFile)
 			// NOTE unmarshalling on top of the existing config will overwrite it with only values explicitly set by the file
-			err = json.Unmarshal(configBytes, &newOptimizerConfig)
+			err = yaml.Unmarshal(configBytes, &newOptimizerConfig)
 			if err != nil {
-				return fmt.Errorf("json.Unmarshal(configBytes, &configStruct): %w", err)
+				return fmt.Errorf("yaml.Unmarshal(configBytes, &configStruct): %w", err)
 			}
 		}
 
@@ -303,10 +320,6 @@ type configJsonStorePage struct {
 	Total int                   `json:"total"`
 }
 
-func optimizerConfigNotFoundErrorWrapper(extraDetail string) error {
-	return fmt.Errorf("%w: %v", optimizerConfigNotFoundError, extraDetail)
-}
-
 func getOptimizerConfig(optimizerId string, workloadId string, solutionName string) (OptimizerConfiguration, error) {
 	var optimizerConfig OptimizerConfiguration
 	headers := map[string]string{
@@ -328,7 +341,14 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		optimizerConfig = response.Data
 	} else if workloadId != "" {
 		var configPage configJsonStorePage
-		queryStr := url.QueryEscape(fmt.Sprintf("data.target.k8sDeployment.workloadId eq %q", workloadId))
+		// NOTE orion objects only store the last portion of the workloadId. Only support k8sDeployment currently
+		var queryStr string
+		idSuffix := strings.Split(workloadId, ":")[2]
+		if strings.HasPrefix(workloadId, "k8s:deployment:") {
+			queryStr = url.QueryEscape(fmt.Sprintf("data.target.k8sDeployment.workloadId eq %q", idSuffix))
+		} else {
+			return optimizerConfig, fmt.Errorf("Optimizer object does not support workloads type for given ID %q", workloadId)
+		}
 		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer?filter=%v", solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
