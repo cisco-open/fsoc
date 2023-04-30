@@ -51,35 +51,24 @@ func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
 		String("add-metric", "", "Add a new metric type definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-resourceMapping", "", "Add a new resource mapping type definition to a given entity within this solution")
+		String("add-resourceMapping", "", "Add a new resource mapping type definition for a given entity within this solution")
 	solutionExtendCmd.Flags().
 		String("add-event", "", "Add a new event type definition to this solution")
+	solutionExtendCmd.Flags().
+		String("add-ecpList", "", "Add an ecpList template definition for a given entity within this solution")
+
 	return solutionExtendCmd
 
 }
 
 func extendSolution(cmd *cobra.Command, args []string) {
-	var err error
-
-	manifestFile := openFile("manifest.json")
-	defer manifestFile.Close()
-
-	manifestBytes, err := io.ReadAll(manifestFile)
-	if err != nil {
-		log.Fatalf("Failed to read solution manifest: %v", err)
-	}
-
-	var manifest *Manifest
-	err = json.Unmarshal(manifestBytes, &manifest)
-	if err != nil {
-		log.Fatalf("Failed to parse solution manifest: %v", err)
-	}
+	manifest := GetManifest()
 
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
 		componentName = strings.ToLower(componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution package folder structure... \n", componentName, manifest.Name))
-		folderName := "knowledge"
+		folderName := "types"
 		fileName := fmt.Sprintf("%s.json", componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
 		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
@@ -100,335 +89,227 @@ func extendSolution(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-service") {
 		componentName, _ := cmd.Flags().GetString("add-service")
 		componentName = strings.ToLower(componentName)
-		folderName := "services"
+		folderName := "objects/services"
 		addNewComponent(cmd, manifest, folderName, componentName, "zodiac:function")
 	}
 
 	if cmd.Flags().Changed("add-entity") {
 		componentName, _ := cmd.Flags().GetString("add-entity")
 		componentName = strings.ToLower(componentName)
-		folderName := "model/entities"
+		folderName := "objects/model/entities"
 		addNewComponent(cmd, manifest, folderName, componentName, "fmm:entity")
 	}
 
 	if cmd.Flags().Changed("add-resourceMapping") {
-		entityName, _ := cmd.Flags().GetString("add-resourceMapping")
-		entityName = strings.ToLower(entityName)
-		folderName := "model/entities"
-
-		addFmmResourceMapping(cmd, manifest, folderName, entityName)
+		componentName, _ := cmd.Flags().GetString("add-resourceMapping")
+		componentName = strings.ToLower(componentName)
+		folderName := "objects/model/resource-mappings"
+		addNewComponent(cmd, manifest, folderName, componentName, "fmm:resourceMapping")
 	}
 
 	if cmd.Flags().Changed("add-metric") {
 		componentName, _ := cmd.Flags().GetString("add-metric")
 		componentName = strings.ToLower(componentName)
-		folderName := "model/metrics"
+		folderName := "objects/model/metrics"
 		addNewComponent(cmd, manifest, folderName, componentName, "fmm:metric")
 	}
 
 	if cmd.Flags().Changed("add-event") {
 		componentName, _ := cmd.Flags().GetString("add-event")
 		componentName = strings.ToLower(componentName)
-		folderName := "model/events"
+		folderName := "objects/model/events"
 
 		addNewComponent(cmd, manifest, folderName, componentName, "fmm:event")
 	}
 
-}
+	if cmd.Flags().Changed("add-ecpList") {
+		componentName, _ := cmd.Flags().GetString("add-ecpList")
+		entityName := strings.ToLower(componentName)
+		folderName := fmt.Sprintf("objects/dashui/templates/%s", entityName)
 
-func addFmmMetric(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
-	var filePath string
-	checkCreateSolutionNamespace(cmd, manifest, folderName)
-
-	metricComponentDef := getComponentDef("fmm:metric", manifest)
-	var metricsArray []*FmmMetric
-	if metricComponentDef.Type == "" {
-		metricComponentDef = &ComponentDef{
-			Type:        "fmm:metric",
-			ObjectsFile: "model/metrics.json",
-		}
-		manifest.Objects = append(manifest.Objects, *metricComponentDef)
-		filePath = metricComponentDef.ObjectsFile
-		createFile(filePath)
-		output.PrintCmdStatus(cmd, "Added model/metrics.json file to your solution \n")
-	} else {
-		// filePath = metricComponentDef.ObjectsFile
-		// metricsDefFile := openFile(filePath)
-		// defer metricsDefFile.Close()
-
-		// metricsBytes, _ := io.ReadAll(metricsDefFile)
-		metricsBytes := readComponentDef(metricComponentDef)
-		err := json.Unmarshal(metricsBytes, &metricsArray)
-		if err != nil {
-			log.Fatalf("Can't generate an array of entity definition objects from the %q file, make sure it is correct.", filePath)
-			return
-		}
+		addNewComponent(cmd, manifest, folderName, entityName, "dashui:ecpList")
 	}
 
-	newMetricComp := getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name)
-	metricsArray = append(metricsArray, newMetricComp)
-	splitPath := strings.Split(metricComponentDef.ObjectsFile, "/")
-	fileName := splitPath[len(splitPath)-1]
-	createComponentFile(metricsArray, folderName, fileName)
-	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
-	createSolutionManifestFile(".", manifest)
-}
-
-func addFmmResourceMapping(cmd *cobra.Command, manifest *Manifest, folderName, entityName string) {
-	var filePath string
-	checkCreateSolutionNamespace(cmd, manifest, folderName)
-	resourceMapComponentDef := getComponentDef("fmm:resourceMapping", manifest)
-	var resourceMappingArray []*FmmResourceMapping
-	if resourceMapComponentDef.Type == "" {
-		resourceMapComponentDef = &ComponentDef{
-			Type:        "fmm:resourceMapping",
-			ObjectsFile: "model/resourceMappings.json",
-		}
-		manifest.Objects = append(manifest.Objects, *resourceMapComponentDef)
-		filePath = resourceMapComponentDef.ObjectsFile
-		createFile(filePath)
-		output.PrintCmdStatus(cmd, "Added model/resourceMappings.json file to your solution \n")
-	} else {
-		componentDefBytes := readComponentDef(resourceMapComponentDef)
-		err := json.Unmarshal(componentDefBytes, &resourceMappingArray)
-		if err != nil {
-			log.Fatalf("Can't generate an array of resource mapping definition objects from the %q file, make sure it is correct.", filePath)
-		}
-	}
-
-	resourceMapComp := getResourceMap(cmd, entityName, manifest)
-	resourceMappingArray = append(resourceMappingArray, resourceMapComp)
-	splitPath := strings.Split(resourceMapComponentDef.ObjectsFile, "/")
-	fileName := splitPath[len(splitPath)-1]
-	createComponentFile(resourceMappingArray, folderName, fileName)
-	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
-	createSolutionManifestFile(".", manifest)
 }
 
 func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, componentName, componentType string) {
 	if strings.Index(componentType, "fmm") >= 0 {
-		checkCreateSolutionNamespace(cmd, manifest, "model/namespaces")
+		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
 	}
-	var newComp interface{}
 
-	// Updating manifest to referece new component definition folder
-	addCompDefToManifest(cmd, manifest, componentType, folderName)
+	type newComponent struct {
+		Type       string
+		Definition interface{}
+		Filename   string
+	}
+
+	var newComponents []*newComponent
 
 	switch componentType {
 	case "zodiac:function":
 		{
-			newComp = getServiceComponent(componentName)
+			component := &newComponent{
+				Type:       componentType,
+				Definition: getServiceComponent(componentName),
+			}
+
+			newComponents = append(newComponents, component)
 		}
 	case "fmm:entity":
 		{
-			newComp = getEntityComponent(componentName, manifest.Name)
+			entity := &newComponent{
+				Filename:   componentName + ".json",
+				Type:       componentType,
+				Definition: getEntityComponent(componentName, manifest.Name),
+			}
+
+			newComponents = append(newComponents, entity)
 		}
 	case "fmm:resourceMapping":
 		{
 			entityName, _ := cmd.Flags().GetString("add-resourceMapping")
 			entityName = strings.ToLower(entityName)
-			newComp = getResourceMap(nil, entityName, manifest)
+			entity := &newComponent{
+				Filename:   componentName + "-resourceMapping.json",
+				Type:       componentType,
+				Definition: getResourceMap(nil, entityName, manifest),
+			}
+
+			newComponents = append(newComponents, entity)
+
 		}
 	case "fmm:metric":
 		{
-			newComp = getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name)
+			metric := &newComponent{
+				Filename:   componentName + ".json",
+				Type:       componentType,
+				Definition: getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name),
+			}
+
+			newComponents = append(newComponents, metric)
 		}
 	case "fmm:event":
 		{
-			newComp = getEventComponent(componentName, manifest.Name)
+			event := &newComponent{
+				Filename:   componentName + ".json",
+				Type:       componentType,
+				Definition: getEventComponent(componentName, manifest.Name),
+			}
+
+			newComponents = append(newComponents, event)
+		}
+	case "dashui:ecpList":
+		{
+			entityName := strings.ToLower(componentName)
+			fmmEntities := manifest.GetFmmEntities()
+			var entity *FmmEntity
+			for _, e := range fmmEntities {
+				if e.Name == entityName {
+					entity = e
+					break
+				}
+			}
+			if entity == nil {
+				log.Fatalf("Couldn't find an entity type named %s", entityName)
+			}
+
+			ecpList := &newComponent{
+				Filename:   "ecpList.json",
+				Type:       "dashui:template",
+				Definition: getEcpList(entity),
+			}
+
+			newComponents = append(newComponents, ecpList)
+
+			ecpName := &newComponent{
+				Filename:   "name.json",
+				Type:       "dashui:template",
+				Definition: getEcpName(entity),
+			}
+			newComponents = append(newComponents, ecpName)
+
+			entityGridTable := &newComponent{
+				Filename:   fmt.Sprintf("%sGridTable.json", entity.Name),
+				Type:       "dashui:template",
+				Definition: getDashuiGridTable(entity),
+			}
+
+			newComponents = append(newComponents, entityGridTable)
+
+			ecpRelationshipMap := &newComponent{
+				Filename:   "ecpRelationshipMap.json",
+				Type:       "dashui:template",
+				Definition: getRelationshipMap(entity),
+			}
+
+			newComponents = append(newComponents, ecpRelationshipMap)
+
+			ecpListInspector := &newComponent{
+				Filename:   "ecpListInspector.json",
+				Type:       "dashui:template",
+				Definition: getEcpListInspector(entity),
+			}
+
+			newComponents = append(newComponents, ecpListInspector)
+
 		}
 	}
 
-	// Creating the new component definition file
-	fileName := componentName + ".json"
-	createComponentFile(newComp, folderName, fileName)
-	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
-	statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
-	output.PrintCmdStatus(cmd, statusMsg)
-}
-
-func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
-	componentDef := getComponentDef(componentType, manifest)
-	if componentDef.Type == "" {
-		solutionDep := strings.Split(componentType, ":")[0]
-		appendDependency(solutionDep, manifest)
-
-		componentDef := &ComponentDef{
-			Type:       componentType,
-			ObjectsDir: folderName,
-		}
-
-		manifest.Objects = append(manifest.Objects, *componentDef)
-		createSolutionManifestFile(".", manifest)
-		statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+	for _, newObject := range newComponents {
+		addCompDefToManifest(cmd, manifest, newObject.Type, folderName)
+		createComponentFile(newObject.Definition, folderName, newObject.Filename)
+		objFilePath := fmt.Sprintf("%s/%s", folderName, newObject.Filename)
+		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
 		output.PrintCmdStatus(cmd, statusMsg)
 	}
 }
 
-func addFmmEntity(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
-	var filePath string
-	checkCreateSolutionNamespace(cmd, manifest, folderName)
-
-	entityComponentDef := getComponentDef("fmm:entity", manifest)
-	var entitiesArray []*FmmEntity
-	if entityComponentDef.Type == "" {
-		entityComponentDef = &ComponentDef{
-			Type:        "fmm:entity",
-			ObjectsFile: "model/entities.json",
-		}
-		manifest.Objects = append(manifest.Objects, *entityComponentDef)
-		filePath = entityComponentDef.ObjectsFile
-		createFile(filePath)
-		output.PrintCmdStatus(cmd, "Added model/entities.json file to your solution \n")
-	} else {
-		entitiesBytes := readComponentDef(entityComponentDef)
-
-		err := json.Unmarshal(entitiesBytes, &entitiesArray)
-		if err != nil {
-			log.Fatalf("Can't generate an array of entity definition objects from the %q file, make it is correct.", filePath)
-		}
-	}
-
-	entityComp := getEntityComponent(componentName, manifest.Name)
-	entitiesArray = append(entitiesArray, entityComp)
-	splitPath := strings.Split(entityComponentDef.ObjectsFile, "/")
-	fileName := splitPath[len(splitPath)-1]
-	createComponentFile(entitiesArray, folderName, fileName)
-	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
-	createSolutionManifestFile(".", manifest)
-}
-
-func addFmmEvent(cmd *cobra.Command, manifest *Manifest, folderName, componentName string) {
-	var filePath string
-	checkCreateSolutionNamespace(cmd, manifest, folderName)
-
-	eventComponentDef := getComponentDef("fmm:event", manifest)
-	var eventsArray []*FmmEvent
-	if eventComponentDef.Type == "" {
-		eventComponentDef = &ComponentDef{
-			Type:        "fmm:event",
-			ObjectsFile: "model/events.json",
-		}
-		manifest.Objects = append(manifest.Objects, *eventComponentDef)
-		filePath = eventComponentDef.ObjectsFile
-		createFile(filePath)
-		output.PrintCmdStatus(cmd, "Added model/events.json file to your solution \n")
-	} else {
-		eventsBytes := readComponentDef(eventComponentDef)
-
-		err := json.Unmarshal(eventsBytes, &eventsArray)
-		if err != nil {
-			log.Fatalf("Can't generate an array of event definition objects from the %q file, make it is correct.", filePath)
-		}
-	}
-
-	eventComp := getEventComponent(componentName, manifest.Name)
-	eventsArray = append(eventsArray, eventComp)
-	splitPath := strings.Split(eventComponentDef.ObjectsFile, "/")
-	fileName := splitPath[len(splitPath)-1]
-	createComponentFile(eventsArray, folderName, fileName)
-	output.PrintCmdStatus(cmd, "Updating the solution manifest\n")
-	createSolutionManifestFile(".", manifest)
-}
-
 func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
-	return nil
-}
-
-func getResourceMapFromArray(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
-	hasEntity := false
-	entityComponentDef := getComponentDef("fmm:entity", manifest)
-	var entitiesArray []*FmmEntity
+	entities := manifest.GetFmmEntities()
 	var newResoureMapping *FmmResourceMapping
-	entityBytes := readComponentDef(entityComponentDef)
-	err := json.Unmarshal(entityBytes, &entitiesArray)
-	if err != nil {
-		log.Fatalf("Can't generate an array of %q type definition objects from the %q file.", entityComponentDef.Type, entityComponentDef.ObjectsFile)
-	}
-	for _, entity := range entitiesArray {
-		if entity.Name == entityName {
-			hasEntity = true
-			namespace := entity.Namespace
-			name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
-			entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
-			scopeFilterFields := make([]string, 0)
-			attributeMaps := make(FmmNameMappings, 0)
-			displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
-			fmmTypeDef := &FmmTypeDef{
-				Namespace:   namespace,
-				Kind:        "resourceMapping",
-				Name:        name,
-				DisplayName: displayName,
-			}
-			for _, requiredField := range entity.AttributeDefinitions.Required {
-				scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, requiredField)
-				scopeFilterFields = append(scopeFilterFields, scopeForField)
-				attributeMaps[requiredField] = scopeForField
-			}
-
-			scopeFilter := fmt.Sprintf("containsAll(resourceAttributes, %s)", getStringfiedArray(scopeFilterFields))
-			newResoureMapping = &FmmResourceMapping{
-				FmmTypeDef:            fmmTypeDef,
-				EntityType:            entityType,
-				ScopeFilter:           scopeFilter,
-				AttributeNameMappings: attributeMaps,
-			}
+	var entity *FmmEntity
+	for _, e := range entities {
+		if e.Name == entityName {
+			entity = e
+			break
 		}
 	}
-
-	if !hasEntity {
-		message := fmt.Sprintf("A fmm:resourceMapping was not created! Could not find an fmm:entity named %q in this solution", entityName)
-		output.PrintCmdStatus(cmd, message)
+	if entity == nil {
+		log.Fatalf("Couldn't find an entity type named %s", entityName)
 	}
+
+	namespace := entity.Namespace
+	name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
+	entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
+	scopeFilterFields := make([]string, 0)
+	attributeMaps := make(FmmNameMappings, 0)
+	displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
+	fmmTypeDef := &FmmTypeDef{
+		Namespace:   namespace,
+		Kind:        "resourceMapping",
+		Name:        name,
+		DisplayName: displayName,
+	}
+
+	for _, requiredField := range entity.AttributeDefinitions.Required {
+		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, requiredField)
+		scopeFilterFields = append(scopeFilterFields, scopeForField)
+	}
+
+	for k, _ := range entity.AttributeDefinitions.Attributes {
+		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, k)
+		attributeMaps[k] = scopeForField
+	}
+
+	scopeFilter := fmt.Sprintf("containsAll(resourceAttributes, %s)", getStringfiedArray(scopeFilterFields))
+	newResoureMapping = &FmmResourceMapping{
+		FmmTypeDef:            fmmTypeDef,
+		EntityType:            entityType,
+		ScopeFilter:           scopeFilter,
+		AttributeNameMappings: attributeMaps,
+	}
+
 	return newResoureMapping
-}
-
-func readComponentDef(componentDef *ComponentDef) []byte {
-	filePath := componentDef.ObjectsFile
-	componentDefFile := openFile(filePath)
-	defer componentDefFile.Close()
-
-	componentDefBytes, _ := io.ReadAll(componentDefFile)
-
-	return componentDefBytes
-}
-
-func appendDependency(solutionName string, manifest *Manifest) {
-	hasDependency := checkDependencyExists(solutionName, manifest)
-	if !hasDependency {
-		manifest.Dependencies = append(manifest.Dependencies, solutionName)
-	}
-
-}
-
-func checkDependencyExists(solutionName string, manifest *Manifest) bool {
-	hasDependency := false
-	for _, deps := range manifest.Dependencies {
-		if deps == solutionName {
-			hasDependency = true
-		}
-	}
-	return hasDependency
-}
-
-func getComponentDef(typeName string, manifest *Manifest) *ComponentDef {
-	var componentDef ComponentDef
-	for _, compDefs := range manifest.Objects {
-		if compDefs.Type == typeName {
-			componentDef = compDefs
-		}
-	}
-	return &componentDef
-}
-
-func getComponentDefs(typeName string, manifest *Manifest) []ComponentDef {
-	var componentDefs []ComponentDef
-	for _, compDefs := range manifest.Objects {
-		if compDefs.Type == typeName {
-			componentDefs = append(componentDefs, compDefs)
-		}
-	}
-	return componentDefs
 }
 
 func getNamespaceComponent(solutionName string) *FmmNamespace {
@@ -587,13 +468,251 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 	return knowledgeComponent
 }
 
+func getEcpList(entity *FmmEntity) *DashuiTemplate {
+	ecpList := &DashuiTemplate{
+		Kind:   "template",
+		View:   "default",
+		Target: entity.GetTypeName(),
+		Element: &DashuiWidget{
+			InstanceOf: "ocpList",
+			Elements: &DashuiWidget{
+				InstanceOf: "card",
+				Props: map[string]interface{}{
+					"style": map[string]interface{}{
+						"width":   "100%",
+						"height":  "calc(100% - 298px)",
+						"padding": 0,
+					},
+				},
+				Elements: []DashuiWidget{
+					{
+						InstanceOf: fmt.Sprintf("%sGridTable", entity.GetTypeName()),
+					},
+				},
+			},
+		},
+	}
+
+	return ecpList
+}
+
+func getEcpName(entity *FmmEntity) *DashuiTemplate {
+	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
+
+	dashuiNameTemplate := &DashuiTemplate{
+		Kind:   "template",
+		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
+		Name:   "dashui:name",
+		View:   "default",
+		Element: &DashuiLabel{
+			InstanceOf: "nameWidget",
+			Path:       namePath,
+		},
+	}
+
+	return dashuiNameTemplate
+}
+
+func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
+
+	ecpLeftBar := &DashuiWidget{
+		InstanceOf: "leftBar",
+	}
+
+	ecpRelationshipMap := &DashuiTemplate{
+		Kind:   "template",
+		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
+		Name:   "dashui:ecpRelationshipMap",
+		View:   "default",
+	}
+
+	ecpRelationshipMap.Element = ecpLeftBar
+
+	elements := make([]EcpRelationshipMapEntry, 0)
+
+	nameAttribute := getNameAttribute(entity)
+
+	elements = append(elements, EcpRelationshipMapEntry{
+		Key:             entity.Name,
+		Path:            ".",
+		EntityAttribute: nameAttribute,
+		IconName:        "AgentType.Appd",
+	})
+
+	if entity.AssociationTypes != nil {
+		if entity.AssociationTypes.Consists_of != nil {
+			for _, assoc := range entity.AssociationTypes.Consists_of {
+				ascEntity := strings.Split(assoc, ":")[1]
+				elements = append(elements, EcpRelationshipMapEntry{
+					Key:             ascEntity,
+					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
+					EntityAttribute: "id",
+					IconName:        "AgentType.Appd",
+				})
+			}
+		}
+		if entity.AssociationTypes.Aggregates_of != nil {
+
+			for _, assoc := range entity.AssociationTypes.Aggregates_of {
+				ascEntity := strings.Split(assoc, ":")[1]
+				elements = append(elements, EcpRelationshipMapEntry{
+					Key:             ascEntity,
+					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
+					EntityAttribute: "id",
+					IconName:        "AgentType.Appd",
+				})
+			}
+		}
+
+		if entity.AssociationTypes.Has != nil {
+			for _, assoc := range entity.AssociationTypes.Has {
+				ascEntity := strings.Split(assoc, ":")[1]
+				elements = append(elements, EcpRelationshipMapEntry{
+					Key:             ascEntity,
+					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
+					EntityAttribute: "id",
+					IconName:        "AgentType.Appd",
+				})
+			}
+		}
+	}
+
+	ecpLeftBar.Elements = elements
+
+	return ecpRelationshipMap
+}
+
+func getEcpListInspector(entity *FmmEntity) *DashuiTemplate {
+	ecpListInspector := &DashuiTemplate{
+		Kind:   "template",
+		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
+		Name:   "dashui:ecpListInspector",
+		View:   "default",
+	}
+
+	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
+	focusedEntityNameWidget := &DashuiFocusedEntity{
+		Mode: "SINGLE",
+		DashuiWidget: &DashuiWidget{
+			InstanceOf: "focusedEntities",
+			Element: &DashuiLabel{
+				InstanceOf: "nameWidget",
+				Path:       namePath,
+			},
+		},
+	}
+
+	focusedEntityEntityInspector := &DashuiFocusedEntity{
+		Mode: "SINGLE",
+		DashuiWidget: &DashuiWidget{
+			InstanceOf: "focusedEntities",
+			Element: &DashuiWidget{
+				InstanceOf: fmt.Sprintf("%s:%sInspectorWidget", entity.Namespace.Name, entity.Name),
+			},
+		},
+	}
+
+	elements := []*DashuiFocusedEntity{focusedEntityNameWidget, focusedEntityEntityInspector}
+
+	elementsWidget := &DashuiWidget{
+		InstanceOf: "elements",
+		Elements:   elements,
+	}
+
+	ecpListInspector.Element = elementsWidget
+	return ecpListInspector
+}
+
+func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
+	grid := NewDashuiGrid()
+	grid.Mode = "server"
+	columns := make([]*DashuiGridColumn, 0)
+
+	healthColumn := &DashuiGridColumn{
+		Label: "Health",
+		Flex:  0,
+		Width: 80,
+		Cell: &DashuiGridCell{
+			Default: &DashuiWidget{
+				InstanceOf: "health",
+			},
+		},
+	}
+	columns = append(columns, healthColumn)
+
+	attrCount := 0
+	for attribute := range entity.AttributeDefinitions.Attributes {
+		attrSplit := strings.Split(attribute, ".")
+		var label string
+		if len(attrSplit) > 0 {
+			label = attrSplit[len(attrSplit)-1]
+		} else {
+			label = attribute
+		}
+
+		attrColumn := &DashuiGridColumn{
+			Label: label,
+			Flex:  0,
+			Width: 80,
+			Cell: &DashuiGridCell{
+				Default: NewDashuiTooltip(attribute, attrCount == 0),
+			},
+		}
+		columns = append(columns, attrColumn)
+		attrCount++
+	}
+
+	grid.Columns = columns
+	grid.OnRowSingleClick = &DashuiEvent{
+		Type:       "common.focusEntity",
+		Expression: "{ \"id\": $params.key }",
+	}
+
+	grid.OnRowDoubleClick = &DashuiEvent{
+		Type:       "navigate.entity.detail",
+		Expression: "{ \"id\": $params.key }",
+	}
+
+	gridTable := &DashuiTemplate{
+		Kind:    "template",
+		Target:  entity.GetTypeName(),
+		Name:    fmt.Sprintf("%sGridTable", entity.GetTypeName()),
+		View:    "default",
+		Element: grid,
+	}
+
+	return gridTable
+}
+
+func getNameAttribute(entity *FmmEntity) string {
+	var nameAttribute string
+	_, exists := entity.AttributeDefinitions.Attributes["name"]
+
+	if exists {
+		nameAttribute = "name"
+	} else {
+		nameAttribute = fmt.Sprintf("%s.%s.name", entity.Namespace.Name, entity.Name)
+	}
+	return nameAttribute
+}
+
+func readComponentDef(componentDef *ComponentDef) []byte {
+	filePath := componentDef.ObjectsFile
+	componentDefFile := openFile(filePath)
+	defer componentDefFile.Close()
+
+	componentDefBytes, _ := io.ReadAll(componentDefFile)
+
+	return componentDefBytes
+}
+
 func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
 	componentType := "fmm:namespace"
 	namespaceName := manifest.Name
 	fileName := namespaceName + ".json"
 	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
 
-	componentDef := getComponentDef(componentType, manifest)
+	componentDef := manifest.GetComponentDef(componentType)
 
 	if componentDef.Type == "" {
 		addCompDefToManifest(cmd, manifest, componentType, folderName)
@@ -630,4 +749,22 @@ func GetManifest() *Manifest {
 		log.Fatalf("Failed to parse solution manifest: %v", err)
 	}
 	return manifest
+}
+
+func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
+	componentDef := manifest.GetComponentDef(componentType)
+	if componentDef.Type == "" {
+		solutionDep := strings.Split(componentType, ":")[0]
+		manifest.AppendDependency(solutionDep)
+
+		componentDef := &ComponentDef{
+			Type:       componentType,
+			ObjectsDir: folderName,
+		}
+
+		manifest.Objects = append(manifest.Objects, *componentDef)
+		createSolutionManifestFile(".", manifest)
+		statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+		output.PrintCmdStatus(cmd, statusMsg)
+	}
 }
