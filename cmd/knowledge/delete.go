@@ -44,7 +44,7 @@ Usage:
 
 func getDeleteObjectCmd() *cobra.Command {
 	objStoreDeleteCmd.Flags().
-		String("type", "", "The fully qualified type name of the knowledge object to delete")
+		String("type", "", "The fully qualified type name of the knowledge object to delete.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
 
 	objStoreDeleteCmd.Flags().
