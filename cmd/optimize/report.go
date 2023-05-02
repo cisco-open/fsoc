@@ -73,7 +73,7 @@ You may specify also particular workloadId to fetch details for a single workloa
 	TraverseChildren: true,
 	Annotations: map[string]string{
 		output.TableFieldsAnnotation:  "WorkloadId: .WorkloadId, Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], LastProfiled: .ProfileTimestamp",
-		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: .ProfileAttributes | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
+		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: (.ProfileAttributes // {}) | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
 	},
 }
 
@@ -126,6 +126,11 @@ func listReports(cmd *cobra.Command, args []string) error {
 	reportRows, err := extractReportData(resp)
 	if err != nil {
 		return fmt.Errorf("extractReportData: %w", err)
+	}
+
+	if len(reportRows) < 1 {
+		output.PrintCmdStatus(cmd, "No results found for given input\n")
+		return nil
 	}
 
 	output.PrintCmdOutput(cmd, struct {
@@ -188,37 +193,6 @@ func extractReportData(response *uql.Response) ([]reportRow, error) {
 		}
 
 		results = append(results, reportRow)
-	}
-	return results, nil
-}
-
-// sliceToMap converts a list of lists (slice [][2]any) to a dictionary for table output jq support
-// eg.
-//
-//	[
-//		["k8s.cluster.name", "ignite-test"],
-//		["k8s.namespace.name", "kube-system"],
-//		["k8s.workload.kind", "Deployment"],
-//		["k8s.workload.name", "coredns"]
-//	]
-//
-// to
-//
-//	k8s.cluster.name: ignite-test
-//	k8s.namespace.name: kube-system
-//	k8s.workload.kind: Deployment
-//	k8s.workload.name: coredns
-func sliceToMap(slice [][]any) (map[string]any, error) {
-	results := make(map[string]any)
-	for index, subslice := range slice {
-		if len(subslice) < 2 {
-			return results, fmt.Errorf("subslice (at index %v) too short to construct key value pair: %+v", index, subslice)
-		}
-		key, ok := subslice[0].(string)
-		if !ok {
-			return results, fmt.Errorf("string type assertion failed on first subslice item (at index %v): %+v", index, subslice)
-		}
-		results[key] = subslice[1]
 	}
 	return results, nil
 }

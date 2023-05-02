@@ -310,6 +310,10 @@ func parseIntoError(resp *http.Response, respBytes []byte) error {
 	var problem Problem
 	err := json.Unmarshal(respBytes, &problem)
 	if err == nil {
+		// set status from http response only if not included in the response body
+		if problem.Status == 0 {
+			problem.Status = resp.StatusCode
+		}
 		return problem
 	}
 

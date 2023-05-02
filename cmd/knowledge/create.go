@@ -15,6 +15,7 @@
 package knowledge
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,7 +44,7 @@ Example:
 
 func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
-		String("type", "", "The fully qualified type name of the knowledge object to create")
+		String("type", "", "The fully qualified type name of the knowledge object to create.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("type")
 
 	objStoreInsertCmd.Flags().
@@ -124,6 +125,27 @@ Example:
 	TraverseChildren: true,
 }
 
+func jsonType(in io.Reader) string {
+	dec := json.NewDecoder(in)
+	// Get just the first valid JSON token from input
+	t, err := dec.Token()
+	if err != nil {
+		panic("Failed to read the first token of provided json")
+	}
+	if delim, ok := t.(json.Delim); ok {
+		// The first token is a delimiter, so this is an array or an object
+		switch delim {
+		case '[':
+			return "array"
+		case '{':
+			return "object"
+		default: // ] or }, shouldn't be possible
+			panic("Unexpected delimiter")
+		}
+	}
+	panic("Input does not represent a JSON object or array")
+}
+
 func getCreatePatchObjectCmd() *cobra.Command {
 	objStoreInsertPatchedObjectCmd.Flags().
 		String("type", "", "The fully qualified type name of the knowledge object")
@@ -141,12 +163,28 @@ func getCreatePatchObjectCmd() *cobra.Command {
 		String("target-layer-type", "", "The layer-type at which the patch knowledge object will be created. For inheritance purposes, this should always be a `lower` layer than the target object's layer")
 	_ = objStoreInsertPatchedObjectCmd.MarkPersistentFlagRequired("target-layer-type")
 
+	objStoreInsertPatchedObjectCmd.Flags().Bool(
+		"json-patch", false, "Specify this flag if you want to use the JSON Patch (rfc6902). If neither --json-patch nor --json-merge-patch specified, fsoc will interpret it from the provided file content. If the file contains one array of object, the json-patch will be used, otherwise json-merge-patch will be used",
+	)
+
+	objStoreInsertPatchedObjectCmd.Flags().Bool(
+		"json-merge-patch", false, "Specify this flag if you want to use the JSON Merge Patch (rfc7386). If neither --json-patch nor --json-merge-patch specified, fsoc will interpret it from the provided file content. If the file contains one array of object, the json-patch will be used, otherwise json-merge-patch will be used",
+	)
+
 	return objStoreInsertPatchedObjectCmd
 }
 
 func insertPatchObject(cmd *cobra.Command, args []string) {
 	objType, _ := cmd.Flags().GetString("type")
 	parentObjId, _ := cmd.Flags().GetString("target-object-id")
+
+	useJsonPatch, _ := cmd.Flags().GetBool("json-patch")
+	useJsonMergePatch, _ := cmd.Flags().GetBool("json-merge-patch")
+
+	if useJsonPatch && useJsonMergePatch {
+		log.Fatalf("Both --json-patch and --json-merge-patch specified, please only specify one of them")
+		return
+	}
 
 	objJsonFilePath, _ := cmd.Flags().GetString("object-file")
 	objectFile, err := os.Open(objJsonFilePath)
@@ -157,10 +195,14 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 	defer objectFile.Close()
 
 	objectBytes, _ := io.ReadAll(objectFile)
-	var objectStruct map[string]interface{}
-	err = json.Unmarshal(objectBytes, &objectStruct)
-	if err != nil {
-		log.Fatalf("Failed to parse knowledge object data from file %q: %v. Make sure the knowledge object definition has all the required fields and is valid according to the type definition.", objJsonFilePath, err)
+
+	if !useJsonPatch && !useJsonMergePatch {
+		t := jsonType(bytes.NewReader(objectBytes))
+		if t == "object" {
+			useJsonMergePatch = true //nolint:ineffassign
+		} else {
+			useJsonPatch = true
+		}
 	}
 
 	layerType, _ := cmd.Flags().GetString("target-layer-type")
@@ -170,9 +212,14 @@ func insertPatchObject(cmd *cobra.Command, args []string) {
 		"layer-type": layerType,
 		"layer-id":   layerID,
 	}
+	if useJsonPatch {
+		headers["Content-Type"] = "application/json-patch+json"
+	} else {
+		headers["Content-Type"] = "application/merge-patch+json"
+	}
 
 	var res any
-	err = api.JSONPatch(getObjStoreObjectUrl()+"/"+objType+"/"+parentObjId, objectStruct, &res, &api.Options{Headers: headers})
+	err = api.JSONPatch(getObjStoreObjectUrl()+"/"+objType+"/"+parentObjId, objectBytes, &res, &api.Options{Headers: headers})
 	if err != nil {
 		log.Fatalf("Failed to create knowledge object: %v", err)
 		return

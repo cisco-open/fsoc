@@ -56,7 +56,7 @@ func newGetObjectCmd() *cobra.Command {
 	// get object
 
 	getCmd.PersistentFlags().
-		String("type", "", "Fully qualified type name of knowledge object. It will be formed by combining the solution which defined the type and the type name")
+		String("type", "", "Fully qualified type name of knowledge object.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 
 	getCmd.PersistentFlags().String("object-id", "", "Object ID of the knowledge object to fetch")
 	getCmd.PersistentFlags().String("layer-id", "", "Layer ID of the related knowledge object to fetch")

@@ -125,7 +125,7 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 	if err != nil {
 		log.Errorf("Couldn't marshal schema to json: %v", err)
 	}
-	schemaLoader, _ := gojsonschema.NewReaderLoader(w)
+	schemaLoader := gojsonschema.NewStringLoader(w.String())
 
 	compDefFile := openFile(compDef.ObjectsFile)
 	defer compDefFile.Close()
@@ -148,7 +148,7 @@ func checkComponentDef(cmd *cobra.Command, compDef ComponentDef, cfg *config.Con
 			if err != nil {
 				log.Errorf("Couldn't marshal object to json: %v", err)
 			}
-			documentLoader, _ := gojsonschema.NewReaderLoader(w)
+			documentLoader := gojsonschema.NewStringLoader(w.String())
 			validate(cmd, schemaLoader, documentLoader, compDef)
 		}
 	} else {
