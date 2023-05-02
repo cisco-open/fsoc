@@ -310,16 +310,6 @@ func buildOptimizerId(namespace string, workloadName string, workloadUid string)
 	return fmt.Sprintf("%v-%v-%v", nsPortion, wnPortion, workloadUid)
 }
 
-type configJsonStoreItem struct {
-	Data OptimizerConfiguration `json:"data"`
-	JsonStoreItem
-}
-
-type configJsonStorePage struct {
-	Items []configJsonStoreItem `json:"items"`
-	Total int                   `json:"total"`
-}
-
 func getOptimizerConfig(optimizerId string, workloadId string, solutionName string) (OptimizerConfiguration, error) {
 	var optimizerConfig OptimizerConfiguration
 	headers := map[string]string{
