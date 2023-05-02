@@ -44,7 +44,7 @@ Example:
 
 func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
-		String("type", "", "The fully qualified type name of the knowledge object to create")
+		String("type", "", "The fully qualified type name of the knowledge object to create.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("type")
 
 	objStoreInsertCmd.Flags().
