@@ -216,9 +216,13 @@ type DashuiLabel struct {
 	Path       interface{} `json:"path"`
 }
 
+type DashuiProperties struct {
+	InstanceOf string            `json:"instanceOf"`
+	Elements   []*DashuiProperty `json:"elements"`
+}
 type DashuiProperty struct {
-	Label DashuiString `json:"label"`
-	Value DashuiLabel  `json:"value"`
+	Label *DashuiString `json:"label"`
+	Value *DashuiLabel  `json:"value"`
 }
 
 type DashuiGrid struct {
@@ -275,6 +279,32 @@ type EcpRelationshipMapEntry struct {
 type EcpInspectorWidget struct {
 	*DashuiWidget
 	Title string `json:"title"`
+}
+
+type DashuiOcpSingle struct {
+	*DashuiWidget
+	NameAttribute string `json:"nameAttribute"`
+}
+
+type DashuiCartesian struct {
+	*DashuiWidget
+	Children []*DashuiCartesianSeries `json:"children"`
+}
+
+type DashuiCartesianSeries struct {
+	Props  interface{}            `json:"props"`
+	Metric *DashuiCartesianMetric `json:"metric"`
+	Type   string                 `json:"type"`
+}
+
+type DashuiCartesianMetric struct {
+	Name   string               `json:"name"`
+	Source string               `json:"source"`
+	Y      *DashuiCartesianAxis `json:"y"`
+}
+
+type DashuiCartesianAxis struct {
+	Field string `json:"type"`
 }
 
 type Solution struct {
@@ -377,6 +407,35 @@ func (manifest *Manifest) GetFmmEvents() []*FmmEvent {
 
 	}
 	return fmmEvents
+}
+
+func (manifest *Manifest) GetDashuiTemplates() []*DashuiTemplate {
+	dashuiTemplates := make([]*DashuiTemplate, 0)
+	objectDefs := manifest.GetComponentDefs("dashui:template")
+	for _, objDef := range objectDefs {
+		if objDef.ObjectsFile != "" {
+			filePath := objDef.ObjectsFile
+			dashuiTemplates = append(dashuiTemplates, getDashuiTemplatesFromFile(filePath)...)
+		}
+		if objDef.ObjectsDir != "" {
+			filePath := objDef.ObjectsDir
+			err := filepath.Walk(filePath,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if strings.Contains(path, ".json") {
+						dashuiTemplates = append(dashuiTemplates, getDashuiTemplatesFromFile(path)...)
+					}
+					return nil
+				})
+			if err != nil {
+				log.Fatalf("Error traversing the folder: %v", err)
+			}
+		}
+
+	}
+	return dashuiTemplates
 }
 
 func (manifest *Manifest) CheckDependencyExists(solutionName string) bool {
@@ -492,62 +551,27 @@ func getFmmEventsFromFile(filePath string) []*FmmEvent {
 	return fmmEvents
 }
 
-func NewDashuiClickable() *DashuiClickable {
-	clickable := &DashuiClickable{
-		DashuiWidget: &DashuiWidget{
-			InstanceOf: "clickable",
-		},
-	}
-	return clickable
-}
+func getDashuiTemplatesFromFile(filePath string) []*DashuiTemplate {
+	dashuiTemplates := make([]*DashuiTemplate, 0)
+	objDefFile := openFile(filePath)
+	defer objDefFile.Close()
+	objDefBytes, _ := io.ReadAll(objDefFile)
+	objDefContent := string(objDefBytes)
 
-func NewDashuiTooltip(attributeName string, isClickable bool) *DashuiTooltip {
-	toolTipObj := &DashuiTooltip{
-		DashuiLabel: &DashuiLabel{
-			InstanceOf: "tooltip",
-			Path:       fmt.Sprintf("attributes(%s)", attributeName),
-		},
-		Truncate: true,
-	}
-
-	if isClickable {
-		clickable := NewDashuiClickable()
-		clickable.Trigger = &DashuiLabel{
-			InstanceOf: "string",
-			Path:       []string{fmt.Sprintf("attributes(%s)", attributeName), "id"},
+	if strings.Index(objDefContent, "[") == 0 {
+		objectsArray := make([]*DashuiTemplate, 0)
+		err := json.Unmarshal(objDefBytes, &objectsArray)
+		if err != nil {
+			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
 		}
-		clickable.OnClick = &DashuiEvent{
-			Type:       "navigate.entity.detail",
-			Paths:      []string{"id"},
-			Expression: "$ ~> |$|{\"id\": $data[0]}|",
+		dashuiTemplates = append(dashuiTemplates, objectsArray...)
+	} else {
+		var event *DashuiTemplate
+		err := json.Unmarshal(objDefBytes, &event)
+		if err != nil {
+			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
 		}
-
-		toolTipObj.Trigger = clickable
+		dashuiTemplates = append(dashuiTemplates, event)
 	}
-
-	return toolTipObj
-}
-
-func NewClickableDashuiGridCell(attribute string) *DashuiGridCell {
-	clickableCell := &DashuiGridCell{
-		Default: NewDashuiTooltip(attribute, true),
-	}
-
-	return clickableCell
-}
-
-func NewDashuiGridCell(attribute string) *DashuiGridCell {
-	clickableCell := &DashuiGridCell{
-		Default: NewDashuiTooltip(attribute, false),
-	}
-	return clickableCell
-}
-
-func NewDashuiGrid() *DashuiGrid {
-	grid := &DashuiGrid{
-		DashuiWidget: &DashuiWidget{
-			InstanceOf: "grid",
-		},
-	}
-	return grid
+	return dashuiTemplates
 }

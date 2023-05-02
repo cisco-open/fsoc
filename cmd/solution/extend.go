@@ -55,7 +55,9 @@ func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
 		String("add-event", "", "Add a new event type definition to this solution")
 	solutionExtendCmd.Flags().
-		String("add-ecpList", "", "Add an ecpList template definition for a given entity within this solution")
+		String("add-ecpList", "", "Add all template definitions to build a list experience for a given entity within this solution")
+	solutionExtendCmd.Flags().
+		String("add-ecpDetails", "", "Add all template definition to build the details experience for a given entity within this solution")
 
 	return solutionExtendCmd
 
@@ -130,20 +132,41 @@ func extendSolution(cmd *cobra.Command, args []string) {
 		addNewComponent(cmd, manifest, folderName, entityName, "dashui:ecpList")
 	}
 
+	if cmd.Flags().Changed("add-ecpDetails") {
+		componentName, _ := cmd.Flags().GetString("add-ecpDetails")
+		entityName := strings.ToLower(componentName)
+		folderName := fmt.Sprintf("objects/dashui/templates/%s", entityName)
+
+		addNewComponent(cmd, manifest, folderName, entityName, "dashui:ecpDetails")
+	}
+
 }
 
 func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, componentName, componentType string) {
-	if strings.Index(componentType, "fmm") >= 0 {
-		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
-	}
-
 	type newComponent struct {
 		Type       string
 		Definition interface{}
 		Filename   string
 	}
 
+	hasDashuiTemplate := func(entity *FmmEntity, dashuiTemplates []*DashuiTemplate, templateName string) bool {
+
+		hasInspectorWidget := false
+		for _, e := range dashuiTemplates {
+			if e.Target == entity.GetTypeName() && e.Name == templateName {
+				hasInspectorWidget = true
+				break
+			}
+		}
+
+		return hasInspectorWidget
+	}
+
 	var newComponents []*newComponent
+
+	if strings.Index(componentType, "fmm") >= 0 {
+		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
+	}
 
 	switch componentType {
 	case "zodiac:function":
@@ -213,6 +236,8 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 				log.Fatalf("Couldn't find an entity type named %s", entityName)
 			}
 
+			dashuiTemplates := manifest.GetDashuiTemplates()
+
 			ecpList := &newComponent{
 				Filename:   "ecpList.json",
 				Type:       "dashui:template",
@@ -220,13 +245,6 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			}
 
 			newComponents = append(newComponents, ecpList)
-
-			ecpName := &newComponent{
-				Filename:   "name.json",
-				Type:       "dashui:template",
-				Definition: getEcpName(entity),
-			}
-			newComponents = append(newComponents, ecpName)
 
 			entityGridTable := &newComponent{
 				Filename:   fmt.Sprintf("%sGridTable.json", entity.Name),
@@ -251,6 +269,72 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			}
 
 			newComponents = append(newComponents, ecpListInspector)
+
+			templateName := fmt.Sprintf("%sInspectorWidget", entity.GetTypeName())
+
+			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
+				entityInspectorWidget := &newComponent{
+					Filename:   fmt.Sprintf("%sInspectorWidget.json", entity.Name),
+					Type:       "dashui:template",
+					Definition: getEcpInspectorWidget(entity),
+				}
+
+				newComponents = append(newComponents, entityInspectorWidget)
+			}
+
+		}
+	case "dashui:ecpDetails":
+		{
+			entityName := strings.ToLower(componentName)
+			fmmEntities := manifest.GetFmmEntities()
+			var entity *FmmEntity
+			for _, e := range fmmEntities {
+				if e.Name == entityName {
+					entity = e
+					break
+				}
+			}
+			if entity == nil {
+				log.Fatalf("Couldn't find an entity type named %s", entityName)
+			}
+
+			dashuiTemplates := manifest.GetDashuiTemplates()
+
+			ecpDetails := &newComponent{
+				Filename:   "ecpDetails.json",
+				Type:       "dashui:template",
+				Definition: getEcpDetails(entity),
+			}
+
+			newComponents = append(newComponents, ecpDetails)
+
+			ecpDetailsList := &newComponent{
+				Filename:   fmt.Sprintf("%sDetailsList.json", entity.Name),
+				Type:       "dashui:template",
+				Definition: getDashuiDetailsList(entity),
+			}
+
+			newComponents = append(newComponents, ecpDetailsList)
+
+			ecpDetailsInspector := &newComponent{
+				Filename:   "ecpDetailsInspector.json",
+				Type:       "dashui:template",
+				Definition: getEcpDetailsInspector(entity),
+			}
+
+			newComponents = append(newComponents, ecpDetailsInspector)
+
+			templateName := fmt.Sprintf("%sInspectorWidget", entity.GetTypeName())
+
+			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
+				entityInspectorWidget := &newComponent{
+					Filename:   fmt.Sprintf("%sInspectorWidget.json", entity.Name),
+					Type:       "dashui:template",
+					Definition: getEcpInspectorWidget(entity),
+				}
+
+				newComponents = append(newComponents, entityInspectorWidget)
+			}
 
 		}
 	}
@@ -466,234 +550,6 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 	}
 
 	return knowledgeComponent
-}
-
-func getEcpList(entity *FmmEntity) *DashuiTemplate {
-	ecpList := &DashuiTemplate{
-		Kind:   "template",
-		View:   "default",
-		Target: entity.GetTypeName(),
-		Element: &DashuiWidget{
-			InstanceOf: "ocpList",
-			Elements: &DashuiWidget{
-				InstanceOf: "card",
-				Props: map[string]interface{}{
-					"style": map[string]interface{}{
-						"width":   "100%",
-						"height":  "calc(100% - 298px)",
-						"padding": 0,
-					},
-				},
-				Elements: []DashuiWidget{
-					{
-						InstanceOf: fmt.Sprintf("%sGridTable", entity.GetTypeName()),
-					},
-				},
-			},
-		},
-	}
-
-	return ecpList
-}
-
-func getEcpName(entity *FmmEntity) *DashuiTemplate {
-	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
-
-	dashuiNameTemplate := &DashuiTemplate{
-		Kind:   "template",
-		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
-		Name:   "dashui:name",
-		View:   "default",
-		Element: &DashuiLabel{
-			InstanceOf: "nameWidget",
-			Path:       namePath,
-		},
-	}
-
-	return dashuiNameTemplate
-}
-
-func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
-
-	ecpLeftBar := &DashuiWidget{
-		InstanceOf: "leftBar",
-	}
-
-	ecpRelationshipMap := &DashuiTemplate{
-		Kind:   "template",
-		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
-		Name:   "dashui:ecpRelationshipMap",
-		View:   "default",
-	}
-
-	ecpRelationshipMap.Element = ecpLeftBar
-
-	elements := make([]EcpRelationshipMapEntry, 0)
-
-	nameAttribute := getNameAttribute(entity)
-
-	elements = append(elements, EcpRelationshipMapEntry{
-		Key:             entity.Name,
-		Path:            ".",
-		EntityAttribute: nameAttribute,
-		IconName:        "AgentType.Appd",
-	})
-
-	if entity.AssociationTypes != nil {
-		if entity.AssociationTypes.Consists_of != nil {
-			for _, assoc := range entity.AssociationTypes.Consists_of {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
-		if entity.AssociationTypes.Aggregates_of != nil {
-
-			for _, assoc := range entity.AssociationTypes.Aggregates_of {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
-
-		if entity.AssociationTypes.Has != nil {
-			for _, assoc := range entity.AssociationTypes.Has {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
-	}
-
-	ecpLeftBar.Elements = elements
-
-	return ecpRelationshipMap
-}
-
-func getEcpListInspector(entity *FmmEntity) *DashuiTemplate {
-	ecpListInspector := &DashuiTemplate{
-		Kind:   "template",
-		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
-		Name:   "dashui:ecpListInspector",
-		View:   "default",
-	}
-
-	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
-	focusedEntityNameWidget := &DashuiFocusedEntity{
-		Mode: "SINGLE",
-		DashuiWidget: &DashuiWidget{
-			InstanceOf: "focusedEntities",
-			Element: &DashuiLabel{
-				InstanceOf: "nameWidget",
-				Path:       namePath,
-			},
-		},
-	}
-
-	focusedEntityEntityInspector := &DashuiFocusedEntity{
-		Mode: "SINGLE",
-		DashuiWidget: &DashuiWidget{
-			InstanceOf: "focusedEntities",
-			Element: &DashuiWidget{
-				InstanceOf: fmt.Sprintf("%s:%sInspectorWidget", entity.Namespace.Name, entity.Name),
-			},
-		},
-	}
-
-	elements := []*DashuiFocusedEntity{focusedEntityNameWidget, focusedEntityEntityInspector}
-
-	elementsWidget := &DashuiWidget{
-		InstanceOf: "elements",
-		Elements:   elements,
-	}
-
-	ecpListInspector.Element = elementsWidget
-	return ecpListInspector
-}
-
-func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
-	grid := NewDashuiGrid()
-	grid.Mode = "server"
-	columns := make([]*DashuiGridColumn, 0)
-
-	healthColumn := &DashuiGridColumn{
-		Label: "Health",
-		Flex:  0,
-		Width: 80,
-		Cell: &DashuiGridCell{
-			Default: &DashuiWidget{
-				InstanceOf: "health",
-			},
-		},
-	}
-	columns = append(columns, healthColumn)
-
-	attrCount := 0
-	for attribute := range entity.AttributeDefinitions.Attributes {
-		attrSplit := strings.Split(attribute, ".")
-		var label string
-		if len(attrSplit) > 0 {
-			label = attrSplit[len(attrSplit)-1]
-		} else {
-			label = attribute
-		}
-
-		attrColumn := &DashuiGridColumn{
-			Label: label,
-			Flex:  0,
-			Width: 80,
-			Cell: &DashuiGridCell{
-				Default: NewDashuiTooltip(attribute, attrCount == 0),
-			},
-		}
-		columns = append(columns, attrColumn)
-		attrCount++
-	}
-
-	grid.Columns = columns
-	grid.OnRowSingleClick = &DashuiEvent{
-		Type:       "common.focusEntity",
-		Expression: "{ \"id\": $params.key }",
-	}
-
-	grid.OnRowDoubleClick = &DashuiEvent{
-		Type:       "navigate.entity.detail",
-		Expression: "{ \"id\": $params.key }",
-	}
-
-	gridTable := &DashuiTemplate{
-		Kind:    "template",
-		Target:  entity.GetTypeName(),
-		Name:    fmt.Sprintf("%sGridTable", entity.GetTypeName()),
-		View:    "default",
-		Element: grid,
-	}
-
-	return gridTable
-}
-
-func getNameAttribute(entity *FmmEntity) string {
-	var nameAttribute string
-	_, exists := entity.AttributeDefinitions.Attributes["name"]
-
-	if exists {
-		nameAttribute = "name"
-	} else {
-		nameAttribute = fmt.Sprintf("%s.%s.name", entity.Namespace.Name, entity.Name)
-	}
-	return nameAttribute
 }
 
 func readComponentDef(componentDef *ComponentDef) []byte {
