@@ -14,7 +14,11 @@
 
 package optimize
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/cisco-open/fsoc/cmd/config"
+)
 
 // sliceToMap converts a list of lists (slice [][2]any) to a dictionary for table output jq support
 // eg.
@@ -45,4 +49,11 @@ func sliceToMap(slice [][]any) (map[string]any, error) {
 		results[key] = subslice[1]
 	}
 	return results, nil
+}
+
+func getOrionTenantHeaders() map[string]string {
+	return map[string]string{
+		"layer-type": "TENANT",
+		"layer-id":   config.GetCurrentContext().Tenant,
+	}
 }

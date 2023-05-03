@@ -69,6 +69,16 @@ type Target struct {
 	K8SDeployment K8SDeployment `json:"k8sDeployment"`
 }
 
+type configJsonStoreItem struct {
+	Data OptimizerConfiguration `json:"data"`
+	JsonStoreItem
+}
+
+type configJsonStorePage struct {
+	Items []configJsonStoreItem `json:"items"`
+	Total int                   `json:"total"`
+}
+
 // TODO move to Orion package?
 type JsonStoreItem struct {
 	CreatedAt time.Time `json:"createdAt"`
