@@ -55,14 +55,18 @@ var solutionValidateCmd = &cobra.Command{
 	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.  The --stable flag provides a default value of 'stable' for the tag associated with the given solution bundle.  `,
 	Example: `  fsoc solution validate
   fsoc solution validate --bump --tag preprod
-  fsoc solution validate --tag dev`,
+  fsoc solution validate --tag dev
+  fsoc solution validate --stable`,
 	Run:              validateSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionValidateCmd() *cobra.Command {
 	solutionValidateCmd.Flags().
-		String("tag", "stable", "Tag to associate with provided solution.  Ensure tag used for validation & upload are same.")
+		String("tag", "", "Tag to associate with provided solution.  Ensure tag used for validation & upload are same.")
+
+	solutionValidateCmd.Flags().
+		Bool("stable", false, "Automatically associate the 'stable' tag with solution bundle to be validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
@@ -71,6 +75,7 @@ func getSolutionValidateCmd() *cobra.Command {
 		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
 	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionValidateCmd
 }
@@ -81,6 +86,11 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
+	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
+
+	if pushWithStableTag {
+		solutionTagFlag = "stable"
+	}
 
 	if solutionBundlePath != "" {
 		log.Fatalf("The --solution-bundle flag is no longer available; please use direct validate instead.")
