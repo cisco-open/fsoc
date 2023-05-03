@@ -30,6 +30,7 @@ require (
 
 require (
 	github.com/aymanbagabas/go-osc52 v1.2.2 // indirect
+	github.com/blues/jsonata-go v1.5.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
