@@ -226,6 +226,7 @@ type SolutionTestStatusResult struct {
 }
 
 type StatusMessage struct {
-	Timestamp string `json:"timestamp"`
-	Message   string `json:"message"`
+	Timestamp string   `json:"timestamp"`
+	Message   string   `json:"message,omitempty"`
+	Statuses  []string `json:"statuses,omitempty"`
 }

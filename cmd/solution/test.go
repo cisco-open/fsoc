@@ -162,6 +162,13 @@ func testSolutionStatus(cmd *cobra.Command, args []string) {
 	}
 
 	// Print the result in JSON format
+	for i := range res.StatusMessages {
+		statusMessage := res.StatusMessages[i].Message
+		if strings.Contains(statusMessage, "\n") {
+			res.StatusMessages[i].Statuses = strings.Split(statusMessage, "\n")
+			res.StatusMessages[i].Message = ""
+		}
+	}
 	resJsonBytes, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {
 		log.Fatalf("JSON marshal failed: %v", err)
