@@ -46,20 +46,15 @@ Important details on solution tags:
 (4) For more info on tags, please visit: https://developer.cisco.com/docs/fso/#!tag-a-solution
 `,
 	Example: `
-  fsoc solution push --tag=stable
   fsoc solution push --wait --tag=dev
-  fsoc solution push --bump --wait=60
-  fsoc solution push --stable --wait`,
+  fsoc solution push --bump --wait=60`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
-		String("tag", "", "Free-form string tag to associate with provided solution")
-
-	solutionPushCmd.Flags().
-		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
+		String("tag", "stable", "Free-form string tag to associate with provided solution")
 
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
@@ -72,7 +67,6 @@ func getSolutionPushCmd() *cobra.Command {
 	_ = solutionPushCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionPushCmd
 }
@@ -85,13 +79,8 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	waitFlag, _ := cmd.Flags().GetInt("wait")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
-	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
-
-	if pushWithStableTag {
-		solutionTagFlag = "stable"
-	}
 
 	if solutionBundlePath != "" {
 		log.Fatalf("The --solution-bundle flag is no longer available; please use direct push instead.")
@@ -205,7 +194,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	message = fmt.Sprintf("Solution %s version %s was successfully deployed.\n", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Solution %s version %s with tag: %s was successfully deployed.\n", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
 	output.PrintCmdStatus(cmd, message)
 }
 
