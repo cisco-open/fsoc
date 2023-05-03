@@ -53,7 +53,7 @@ var objStoreUpdateCmd = &cobra.Command{
 
 func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
-		String("type", "", "The fully qualified type name of the related knowledge object to update")
+		String("type", "", "The fully qualified type name of the related knowledge object to update.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
 
 	objStoreUpdateCmd.Flags().

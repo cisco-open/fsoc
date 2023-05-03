@@ -40,16 +40,18 @@ func getSolutionDownloadCmd() *cobra.Command {
 	solutionDownloadCmd.Flags().String("name", "", "name of the solution to download (required)")
 	_ = solutionDownloadCmd.Flags().MarkDeprecated("name", "please use argument instead.")
 
+	solutionDownloadCmd.Flags().String("tag", "stable", "tag related to the solution to download")
 	return solutionDownloadCmd
 }
 
 func downloadSolution(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionNameWithZipExtension := getSolutionNameWithZip(solutionName)
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 
 	headers := map[string]string{
 		"stage":            "STABLE",
-		"tag":              "stable",
+		"tag":              solutionTagFlag,
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}
@@ -58,7 +60,7 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf("Solution download command failed: %v", err)
 	}
 
-	message := fmt.Sprintf("Solution bundle %q downloaded successfully.\n", solutionName)
+	message := fmt.Sprintf("Solution bundle %q with tag %s downloaded successfully.\n", solutionName, solutionTagFlag)
 	output.PrintCmdStatus(cmd, message)
 }
 

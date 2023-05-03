@@ -60,7 +60,7 @@ help:
 
 format:
 	@echo "formatting code..."
-	@goimports -w -local github.com/cisco-open/fsoc ${GOFILES}
+	@$(GOBIN)/goimports -w -local github.com/cisco-open/fsoc ${GOFILES}
 
 vet:  ## Run go vet
 	@echo "vetting code..."

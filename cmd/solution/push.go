@@ -15,7 +15,6 @@
 package solution
 
 import (
-	// "archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -38,20 +37,29 @@ var solutionPushCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	Short: "Deploy your solution",
 	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
-The solution manifest for the solution must be in the current directory.`,
+The solution manifest for the solution must be in the current directory.
+
+Important details on solution tags:
+(1) A tag must be associated with the solution being uploaded.  All subsequent solution upload requests should use this same tag
+(2) Use caution when supplying the tag value to the solution to upload as typos can result in misleading validation results
+(3) 'stable' is a reserved tag value keyword for production-ready versions and hence should be used appropriately
+(4) For more info on tags, please visit: https://developer.cisco.com/docs/fso/#!tag-a-solution
+`,
 	Example: `
-  fsoc solution push
-  fsoc solution push --wait
-  fsoc solution push --bump --wait=60`,
-	//`fsoc solution push --tag=dev`,  // WIP
+  fsoc solution push --tag=stable
+  fsoc solution push --wait --tag=dev
+  fsoc solution push --bump --wait=60
+  fsoc solution push --stable --wait`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
 
 func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
-		String("tag", "stable", "Tag to associate with provided solution.  If no value is provided, it will default to 'stable'.")
-	_ = solutionPushCmd.Flags().MarkHidden("tag") // WIP
+		String("tag", "", "Free-form string tag to associate with provided solution")
+
+	solutionPushCmd.Flags().
+		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
 
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
@@ -64,6 +72,7 @@ func getSolutionPushCmd() *cobra.Command {
 	_ = solutionPushCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionPushCmd
 }
@@ -76,8 +85,13 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	waitFlag, _ := cmd.Flags().GetInt("wait")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
+	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	var solutionArchivePath string
+
+	if pushWithStableTag {
+		solutionTagFlag = "stable"
+	}
 
 	if solutionBundlePath != "" {
 		log.Fatalf("The --solution-bundle flag is no longer available; please use direct push instead.")
@@ -191,7 +205,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	message = fmt.Sprintf("Solution %s version %s was successfully deployed.", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Solution %s version %s was successfully deployed.\n", manifest.Name, manifest.SolutionVersion)
 	output.PrintCmdStatus(cmd, message)
 }
 
