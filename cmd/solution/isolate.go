@@ -75,7 +75,7 @@ func getsolutionIsolateCmd() *cobra.Command {
 }
 
 func solutionIsolateCommand(cmd *cobra.Command, args []string) {
-	srcFolder, _ := cmd.Flags().GetString("src")
+	srcFolder, _ := cmd.Flags().GetString("src-dir")
 	targetFolder, _ := cmd.Flags().GetString("target-dir")
 	targetFile, _ := cmd.Flags().GetString("target-file")
 	tag, _ := cmd.Flags().GetString("tag")
