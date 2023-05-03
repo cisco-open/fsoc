@@ -17,11 +17,12 @@ package solution
 import (
 	"bytes"
 	"fmt"
-	"github.com/apex/log"
-	"github.com/spf13/cobra"
 	"io"
 	"mime/multipart"
 	"os"
+
+	"github.com/apex/log"
+	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
@@ -122,7 +123,6 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	solutionArchivePath = solutionArchive.Name()
 
 	var message string
-	println(solutionArchive.Name())
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
 		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)

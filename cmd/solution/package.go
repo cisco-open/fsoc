@@ -46,7 +46,6 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating %s archive... \n", archiveFileName))
 	archive, err := os.CreateTemp("", archiveFileName)
-	println(archive.Name())
 	if err != nil {
 		log.Fatalf("failed to create file: %s", archive.Name())
 		panic(err)
