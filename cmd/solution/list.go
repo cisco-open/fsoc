@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/apex/log"
@@ -57,7 +58,7 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionListUrl() string {
-	return "objstore/v1beta/objects/extensibility:solution"
+	return "objstore/v1beta/objects/extensibility:solution?filter=" + url.QueryEscape("data.isSubscribed eq true")
 }
 
 func getSolutionNames(prefix string) (names []string) {
