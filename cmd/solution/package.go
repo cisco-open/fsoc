@@ -18,6 +18,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"github.com/cisco-open/fsoc/output"
 	"io"
 	"os"
 	"path/filepath"
@@ -25,8 +26,6 @@ import (
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
-
-	"github.com/cisco-open/fsoc/output"
 )
 
 var solutionPackageCmd = &cobra.Command{
@@ -42,10 +41,10 @@ func getSolutionPackageCmd() *cobra.Command {
 
 func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	solutionName := filepath.Base(sltnPackagePath)
-	archiveFileName := fmt.Sprintf("%s.zip", solutionName)
+	archiveFileTemplate := fmt.Sprintf("%s*.zip", solutionName)
 
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating %s archive... \n", archiveFileName))
-	archive, err := os.CreateTemp("", archiveFileName)
+	archive, err := os.CreateTemp("", archiveFileTemplate)
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip at %s \n", archive.Name()))
 	if err != nil {
 		log.Fatalf("failed to create file: %s", archive.Name())
 		panic(err)
