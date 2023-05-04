@@ -18,7 +18,6 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
-	"github.com/cisco-open/fsoc/output"
 	"io"
 	"os"
 	"path/filepath"
@@ -26,6 +25,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/output"
 )
 
 var solutionPackageCmd = &cobra.Command{
