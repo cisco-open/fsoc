@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/apex/log"
@@ -49,6 +50,9 @@ var solutionTestStatusCmd = &cobra.Command{
 
 func getSolutionTestCmd() *cobra.Command {
 	solutionTestCmd.Flags().String("test-bundle", "", "The fully qualified path name for the test bundle directory. If no value is provided, it will default to 'current' - meaning current directory, where this command is running.")
+	solutionTestCmd.Flags().String("initial-delay", "", "Time duration (in seconds) that the Test Runner should wait before making first call to UQL")
+	solutionTestCmd.Flags().String("retry-count", "", "Number of times the Test Runner should call UQL to get latest data")
+	solutionTestCmd.Flags().String("retry-delay", "", "Time duration (in seconds) that the Test Runner should wait between retries")
 	return solutionTestCmd
 }
 
@@ -58,7 +62,7 @@ func getSolutionTestStatusCmd() *cobra.Command {
 }
 
 // Implementation for `fsoc solution test` command.
-// This command takes 1 argument, called `test-bundle`, which is a path to a directory where the files necessary to run the solution test are present.
+// This command takes 1 mandatory argument, called `test-bundle`, which is a path to a directory where the files necessary to run the solution test are present.
 // If no `test-bundle` path is provided, the command will use current directoy as `test-bundle` path.
 // The command looks for a file called `test-objects.json` in the `test-bundle` directory. This file should contain payload that will be sent to the test-runner server-side component to run the solution test.
 // All the file references present in `test-objects.json` should be relative paths to other files inside `test-bundle` path.
@@ -68,6 +72,9 @@ func getSolutionTestStatusCmd() *cobra.Command {
 func testSolution(cmd *cobra.Command, args []string) {
 	var testBundleDir string
 	testBundlePath, _ := cmd.Flags().GetString("test-bundle")
+	initialDelay, _ := cmd.Flags().GetString("initial-delay")
+	retryCount, _ := cmd.Flags().GetString("retry-count")
+	retryDelay, _ := cmd.Flags().GetString("retry-delay")
 
 	// Get Test Bundle Directory
 	currentDir, err := os.Getwd()
@@ -130,6 +137,29 @@ func testSolution(cmd *cobra.Command, args []string) {
 			testObj.Assertions[k] = assertion
 		}
 		testObjects.Tests[i] = testObj
+	}
+
+	// Set initial-delay, retry-count, retry-delay
+	if initialDelay != "" {
+		testObjectsInt, err := strconv.Atoi(initialDelay)
+		if err != nil {
+			log.Fatalf("Error while reading integer value from string %s: %v", initialDelay, err)
+		}
+		testObjects.InitialDelay = testObjectsInt
+	}
+	if retryCount != "" {
+		retryCountInt, err := strconv.Atoi(retryCount)
+		if err != nil {
+			log.Fatalf("Error while reading integer value from string %s: %v", retryCount, err)
+		}
+		testObjects.RetryCount = retryCountInt
+	}
+	if retryDelay != "" {
+		retryDelayInt, err := strconv.Atoi(retryDelay)
+		if err != nil {
+			log.Fatalf("Error while reading integer value from string %s: %v", retryDelay, err)
+		}
+		testObjects.RetryDelay = retryDelayInt
 	}
 
 	// Send this payload to Test Runner and print the id returned by it

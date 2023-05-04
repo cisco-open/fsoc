@@ -187,7 +187,10 @@ type SolutionList struct {
 }
 
 type SolutionTestObjects struct {
-	Tests []SolutionTestObject `json:"tests"`
+	Tests        []SolutionTestObject `json:"tests"`
+	InitialDelay int                  `json:"initialDelay,omitempty"`
+	RetryCount   int                  `json:"retryCount,omitempty"`
+	RetryDelay   int                  `json:"retryDelay,omitempty"`
 }
 
 type SolutionTestObject struct {
