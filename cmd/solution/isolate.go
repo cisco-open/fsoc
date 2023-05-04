@@ -42,17 +42,21 @@ const (
 
 var jsonataFunctions = `
 	$toSuffix := function($val) {
-		$val != "" ? ("-" & $val) : ""
+		$exists($val) and $val != "" and $val != "stable" ? ("-" & $val) : ""
 	};
 `
 
 var solutionIsolateCmd = &cobra.Command{
-	Use:     "isolate --src-dir  [--target-dir  or --target-file] --env-file",
-	Args:    cobra.MaximumNArgs(3),
-	Short:   "clones a solution from the src folder to target folder by replacing env-vars",
-	Long:    `This command clones a solution from the <src-dir> folder to <target-dir> folder by replacing all occurrences of the variables with the values in the <env-file> json file`,
-	Example: `  fsoc solution isolate --src-dir=spacefleet --target-dir=spacefleetv2 --env-file=env.json`,
-	Run:     solutionIsolateCommand,
+	Use:   "isolate --source-dir  [--target-dir  or --target-file] --env-file",
+	Args:  cobra.MaximumNArgs(3),
+	Short: "Creates a solution isolate the source dir to target dir by replacing expression in the artifacts with values in <env-file>",
+	Long:  `This command creates a solution isolate from the <source-dir> folder to <target-dir> folder by replacing expressions in the solution artifacts with the values in the <env-file> file`,
+	Example: `  
+    fsoc solution --source-dir=mysolution --target-dir=mysolution-isolated --env-file=env.json
+    fsoc solution --target-file=../mysolution-release.zip --tag=stable
+    fsoc solution --target-dir=../mysolution-isolated --env-file=env.json 
+	`,
+	Run: solutionIsolateCommand,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) >= 1 {
 			return nil, cobra.ShellCompDirectiveDefault
@@ -66,7 +70,7 @@ var rgxp *regexp.Regexp
 
 func getsolutionIsolateCmd() *cobra.Command {
 	log.SetLevel(log.DebugLevel)
-	solutionIsolateCmd.Flags().String("src-dir", "", "path to the source folder")
+	solutionIsolateCmd.Flags().String("source-dir", "", "path to the source folder")
 	solutionIsolateCmd.Flags().String("target-dir", "", "path to the target folder")
 	solutionIsolateCmd.Flags().String("target-file", "", "path to the target zip file")
 	solutionIsolateCmd.Flags().String("tag", "", "tag for the solution")
@@ -75,20 +79,20 @@ func getsolutionIsolateCmd() *cobra.Command {
 }
 
 func solutionIsolateCommand(cmd *cobra.Command, args []string) {
-	srcFolder, _ := cmd.Flags().GetString("src-dir")
+	srcFolder, _ := cmd.Flags().GetString("source-dir")
 	targetFolder, _ := cmd.Flags().GetString("target-dir")
 	targetFile, _ := cmd.Flags().GetString("target-file")
 	tag, _ := cmd.Flags().GetString("tag")
 	envVarsFile, _ := cmd.Flags().GetString("env-file")
-	if len(args) == 2 {
-		srcFolder, targetFolder, envVarsFile = args[0], args[1], args[2]
-	} else if len(args) != 0 {
-		_ = cmd.Help()
-		log.Fatal("Exactly 3 arguments required.")
+	if srcFolder == "" {
+		srcFolder = "./"
+	}
+	if tag == "" && envVarsFile == "" {
+		envVarsFile = "./env.json"
 	}
 	if srcFolder == "" || (targetFolder == "" && targetFile == "") ||
 		(envVarsFile == "" && tag == "") {
-		log.Fatalf("<src>, <target-dir>|<target-file> and <tag>|<env-file> cannot be empty")
+		log.Fatalf("<source-dir>, <target-dir>|<target-file> and <tag>|<env-file> cannot be empty")
 	}
 	if targetFolder != "" && targetFile != "" {
 		log.Fatalf("cannot specify both <target-dir> and <target-file>")
