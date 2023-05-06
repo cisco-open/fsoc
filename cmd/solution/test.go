@@ -57,7 +57,7 @@ func getSolutionTestCmd() *cobra.Command {
 }
 
 func getSolutionTestStatusCmd() *cobra.Command {
-	solutionTestStatusCmd.Flags().String("test-id", "", "The test-id provided by `fsoc solution test` command. If no value is provided, it will default to 'current' test-id saved locally - it may or may not be present. So it is advised that test-id is always supplied.")
+	solutionTestStatusCmd.Flags().String("test-run-id", "", "The test-run-id provided by `fsoc solution test` command. If no value is provided, it will default to 'current' test-run-id saved locally - it may or may not be present. So it is advised that test-run-id is always supplied.")
 	return solutionTestStatusCmd
 }
 
@@ -67,8 +67,8 @@ func getSolutionTestStatusCmd() *cobra.Command {
 // The command looks for a file called `test-objects.json` in the `test-bundle` directory. This file should contain payload that will be sent to the test-runner server-side component to run the solution test.
 // All the file references present in `test-objects.json` should be relative paths to other files inside `test-bundle` path.
 // The command will try to read those files and replace file refereces in `test-objects.json` with actual file contents.
-// Once all this parsing is done, the command will prepare the payload for test-runner; Make http call to it and print the `test-id“ string that it gets from the test-runner.
-// The test-id returned by this command should be used to check status of the test using `fsoc solution test-status` command.
+// Once all this parsing is done, the command will prepare the payload for test-runner; Make http call to it and print the `test-run-id“ string that it gets from the test-runner.
+// The test-run-id returned by this command should be used to check status of the test using `fsoc solution test-status` command.
 func testSolution(cmd *cobra.Command, args []string) {
 	var testBundleDir string
 	testBundlePath, _ := cmd.Flags().GetString("test-bundle")
@@ -173,18 +173,18 @@ func testSolution(cmd *cobra.Command, args []string) {
 }
 
 // Implementation for `fsoc solution test-status` command.
-// This command takes 1 argument, called `test-id` which is a string that represents a solution test run by `fsoc solution test` command.
-// If no `test-id` string is provided, then the command will try to use locally stored test-id from previously run test.
-// It is therefore recommended that `fsoc solution test` command is run before this command, and the `test-id` returned from it is used here.
-// The command will read the supplied test-id; Call test-runner server-side component, that runs the solution tests; Get the latest status of the test and print it in a user-readable notation.
+// This command takes 1 argument, called `test-run-id` which is a string that represents a solution test run by `fsoc solution test` command.
+// If no `test-run-id` string is provided, then the command will try to use locally stored test-run-id from previously run test.
+// It is therefore recommended that `fsoc solution test` command is run before this command, and the `test-run-id` returned from it is used here.
+// The command will read the supplied test-run-id; Call test-runner server-side component, that runs the solution tests; Get the latest status of the test and print it in a user-readable notation.
 func testSolutionStatus(cmd *cobra.Command, args []string) {
-	// Read the test-id
-	suppliedTestId, _ := cmd.Flags().GetString("test-id")
+	// Read the test-run-id
+	suppliedTestId, _ := cmd.Flags().GetString("test-run-id")
 	if suppliedTestId == "" {
-		log.Fatal("Supplied test-id is null or empty.")
+		log.Fatal("Supplied test-run-id is null or empty.")
 	}
 
-	// Send the test-id to the test-runner and print the response
+	// Send the test-run-id to the test-runner and print the response
 	var res SolutionTestStatusResult
 	err := api.JSONGet(getSolutionTestStatusUrl(suppliedTestId), &res, nil)
 	if err != nil {
@@ -203,7 +203,7 @@ func testSolutionStatus(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("JSON marshal failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution Test Status received for test-id (%s): \n%v", suppliedTestId, string(resJsonBytes)))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution Test Status received for test-run-id (%s): \n%v", suppliedTestId, string(resJsonBytes)))
 }
 
 func isTestPackageRoot(path string) bool {
