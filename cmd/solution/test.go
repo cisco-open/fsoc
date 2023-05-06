@@ -57,7 +57,7 @@ func getSolutionTestCmd() *cobra.Command {
 }
 
 func getSolutionTestStatusCmd() *cobra.Command {
-	solutionTestStatusCmd.Flags().String("test-run-id", "", "The test-run-id provided by `fsoc solution test` command. So it is advised that test-run-id is always supplied.")
+	solutionTestStatusCmd.Flags().String("test-run-id", "", "The test-run-id returned by `fsoc solution test` command")
 	return solutionTestStatusCmd
 }
 
