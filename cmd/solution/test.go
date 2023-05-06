@@ -32,7 +32,7 @@ var solutionTestCmd = &cobra.Command{
 	Use:              "test",
 	Args:             cobra.ExactArgs(0),
 	Short:            "Test Solution",
-	Long:             "This command allows the current tenant specified in the profile to run tests against an already-deployed solution",
+	Long:             "This command allows the current tenant specified in the profile to run tests against an already deployed solution",
 	Example:          `  fsoc solution test`,
 	Run:              testSolution,
 	TraverseChildren: true,
@@ -42,7 +42,7 @@ var solutionTestStatusCmd = &cobra.Command{
 	Use:              "test-status",
 	Args:             cobra.ExactArgs(0),
 	Short:            "Status of Solution Test",
-	Long:             "This command allows the current tenant specified in the profile to check status of the solution-test already run by `fsoc solution test` command",
+	Long:             "This command allows the current tenant specified in the profile to check the status of a test-run already initiated via the `fsoc solution test` command",
 	Example:          ` fsoc solution test-status`,
 	Run:              testSolutionStatus,
 	TraverseChildren: true,
@@ -57,7 +57,7 @@ func getSolutionTestCmd() *cobra.Command {
 }
 
 func getSolutionTestStatusCmd() *cobra.Command {
-	solutionTestStatusCmd.Flags().String("test-run-id", "", "The test-run-id provided by `fsoc solution test` command. If no value is provided, it will default to 'current' test-run-id saved locally - it may or may not be present. So it is advised that test-run-id is always supplied.")
+	solutionTestStatusCmd.Flags().String("test-run-id", "", "The test-run-id provided by `fsoc solution test` command. So it is advised that test-run-id is always supplied.")
 	return solutionTestStatusCmd
 }
 
@@ -173,10 +173,9 @@ func testSolution(cmd *cobra.Command, args []string) {
 }
 
 // Implementation for `fsoc solution test-status` command.
-// This command takes 1 argument, called `test-run-id` which is a string that represents a solution test run by `fsoc solution test` command.
-// If no `test-run-id` string is provided, then the command will try to use locally stored test-run-id from previously run test.
+// This command takes 1 mandatory argument, called `test-run-id` which is a string that represents a solution test-run already initiated via `fsoc solution test` command.
 // It is therefore recommended that `fsoc solution test` command is run before this command, and the `test-run-id` returned from it is used here.
-// The command will read the supplied test-run-id; Call test-runner server-side component, that runs the solution tests; Get the latest status of the test and print it in a user-readable notation.
+// The command will read the supplied test-run-id; Call test-runner server-side component, that runs the solution tests; Get the latest status of the test-run and print it in a user-friendly notation.
 func testSolutionStatus(cmd *cobra.Command, args []string) {
 	// Read the test-run-id
 	suppliedTestId, _ := cmd.Flags().GetString("test-run-id")
