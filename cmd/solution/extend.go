@@ -39,7 +39,6 @@ var solutionExtendCmd = &cobra.Command{
 
 // Planned options:
 // --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
-// --add-dash-ui - Flag to add a new user experience component to the current solution package
 
 func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
@@ -48,6 +47,8 @@ func getSolutionExtendCmd() *cobra.Command {
 		String("add-knowledge", "", "Add a new knowledge type definition to this solution")
 	solutionExtendCmd.Flags().
 		String("add-entity", "", "Add a new entity type definition to this solution")
+	solutionExtendCmd.Flags().
+		String("add-associationDeclarations", "", "Add all associationDeclaration type definitions for a given entity within this solution")
 	solutionExtendCmd.Flags().
 		String("add-metric", "", "Add a new metric type definition to this solution")
 	solutionExtendCmd.Flags().
@@ -58,6 +59,8 @@ func getSolutionExtendCmd() *cobra.Command {
 		String("add-ecpList", "", "Add all template definitions to build a list experience for a given entity within this solution")
 	solutionExtendCmd.Flags().
 		String("add-ecpDetails", "", "Add all template definition to build the details experience for a given entity within this solution")
+	solutionExtendCmd.Flags().
+		Bool("add-ecpHome", false, "Add a template extension definition to build the ecpHome experience for this solution")
 
 	return solutionExtendCmd
 
@@ -109,6 +112,13 @@ func extendSolution(cmd *cobra.Command, args []string) {
 		addNewComponent(cmd, manifest, folderName, componentName, "fmm:resourceMapping")
 	}
 
+	if cmd.Flags().Changed("add-associationDeclarations") {
+		componentName, _ := cmd.Flags().GetString("add-associationDeclarations")
+		componentName = strings.ToLower(componentName)
+		folderName := "objects/model/association-declarations"
+		addNewComponent(cmd, manifest, folderName, componentName, "fmm:associationDeclaration")
+	}
+
 	if cmd.Flags().Changed("add-metric") {
 		componentName, _ := cmd.Flags().GetString("add-metric")
 		componentName = strings.ToLower(componentName)
@@ -138,6 +148,12 @@ func extendSolution(cmd *cobra.Command, args []string) {
 		folderName := fmt.Sprintf("objects/dashui/templates/%s", entityName)
 
 		addNewComponent(cmd, manifest, folderName, entityName, "dashui:ecpDetails")
+	}
+
+	if cmd.Flags().Changed("add-ecpHome") {
+		folderName := "objects/dashui/templatePropsExtensions"
+
+		addNewComponent(cmd, manifest, folderName, "ecpHome", "dashui:ecpHome")
 	}
 
 }
@@ -196,6 +212,18 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 				Filename:   componentName + "-resourceMapping.json",
 				Type:       componentType,
 				Definition: getResourceMap(nil, entityName, manifest),
+			}
+
+			newComponents = append(newComponents, entity)
+
+		}
+	case "fmm:associationDeclaration":
+		{
+			entityName := strings.ToLower(componentName)
+			entity := &newComponent{
+				Filename:   entityName + "-associationDeclarations.json",
+				Type:       componentType,
+				Definition: getAssociationDeclarations(entityName, manifest),
 			}
 
 			newComponents = append(newComponents, entity)
@@ -311,7 +339,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			ecpDetailsList := &newComponent{
 				Filename:   fmt.Sprintf("%sDetailsList.json", entity.Name),
 				Type:       "dashui:template",
-				Definition: getDashuiDetailsList(entity),
+				Definition: getDashuiDetailsList(entity, manifest),
 			}
 
 			newComponents = append(newComponents, ecpDetailsList)
@@ -337,6 +365,17 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			}
 
 		}
+	case "dashui:ecpHome":
+		{
+			ecpHome := &newComponent{
+				Filename:   fmt.Sprintf("%s.json", componentName),
+				Type:       "dashui:templatePropsExtension",
+				Definition: getEcpHome(manifest),
+			}
+
+			newComponents = append(newComponents, ecpHome)
+
+		}
 	}
 
 	for _, newObject := range newComponents {
@@ -346,174 +385,6 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
 		output.PrintCmdStatus(cmd, statusMsg)
 	}
-}
-
-func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
-	entities := manifest.GetFmmEntities()
-	var newResoureMapping *FmmResourceMapping
-	var entity *FmmEntity
-	for _, e := range entities {
-		if e.Name == entityName {
-			entity = e
-			break
-		}
-	}
-	if entity == nil {
-		log.Fatalf("Couldn't find an entity type named %s", entityName)
-	}
-
-	namespace := entity.Namespace
-	name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
-	entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
-	scopeFilterFields := make([]string, 0)
-	attributeMaps := make(FmmNameMappings, 0)
-	displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
-	fmmTypeDef := &FmmTypeDef{
-		Namespace:   namespace,
-		Kind:        "resourceMapping",
-		Name:        name,
-		DisplayName: displayName,
-	}
-
-	for _, requiredField := range entity.AttributeDefinitions.Required {
-		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, requiredField)
-		scopeFilterFields = append(scopeFilterFields, scopeForField)
-	}
-
-	for k, _ := range entity.AttributeDefinitions.Attributes {
-		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, k)
-		attributeMaps[k] = scopeForField
-	}
-
-	scopeFilter := fmt.Sprintf("containsAll(resourceAttributes, %s)", getStringfiedArray(scopeFilterFields))
-	newResoureMapping = &FmmResourceMapping{
-		FmmTypeDef:            fmmTypeDef,
-		EntityType:            entityType,
-		ScopeFilter:           scopeFilter,
-		AttributeNameMappings: attributeMaps,
-	}
-
-	return newResoureMapping
-}
-
-func getNamespaceComponent(solutionName string) *FmmNamespace {
-	namespaceDef := &FmmNamespace{
-		Name: solutionName,
-	}
-	return namespaceDef
-}
-
-func getEntityComponent(entityName string, namespaceName string) *FmmEntity {
-	emptyStringArray := make([]string, 0)
-	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
-	// emptyAssociationTypes := &FmmAssociationTypesTypeDef{}
-
-	emptyAttributeArray["name"] = &FmmAttributeTypeDef{
-		Type:        "string",
-		Description: fmt.Sprintf("The name of the %s", entityName),
-	}
-
-	namespaceAssign := &FmmNamespaceAssignTypeDef{
-		Name:    namespaceName,
-		Version: 1,
-	}
-
-	lifecycleConfig := &FmmLifecycleConfigTypeDef{
-		PurgeTtlInMinutes:     4200,
-		RetentionTtlInMinutes: 1440,
-	}
-
-	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
-		Kind:        "entity",
-		Name:        entityName,
-		DisplayName: entityName,
-	}
-
-	requiredArray := append(emptyStringArray, "name")
-	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
-		Required:   requiredArray,
-		Optimized:  emptyStringArray,
-		Attributes: emptyAttributeArray,
-	}
-
-	entityComponentDef := &FmmEntity{
-		FmmTypeDef:            fmmTypeDef,
-		LifecyleConfiguration: lifecycleConfig,
-		AttributeDefinitions:  attributesDefinition,
-	}
-
-	return entityComponentDef
-}
-
-func getEventComponent(eventName string, namespaceName string) *FmmEvent {
-	emptyStringArray := make([]string, 0)
-	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
-
-	emptyAttributeArray["name"] = &FmmAttributeTypeDef{
-		Type:        "string",
-		Description: fmt.Sprintf("The name of the %s", eventName),
-	}
-
-	namespaceAssign := &FmmNamespaceAssignTypeDef{
-		Name:    namespaceName,
-		Version: 1,
-	}
-
-	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
-		Kind:        "event",
-		Name:        eventName,
-		DisplayName: eventName,
-	}
-
-	requiredArray := append(emptyStringArray, "name")
-	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
-		Required:   requiredArray,
-		Optimized:  emptyStringArray,
-		Attributes: emptyAttributeArray,
-	}
-
-	eventComponentDef := &FmmEvent{
-		FmmTypeDef:           fmmTypeDef,
-		AttributeDefinitions: attributesDefinition,
-	}
-
-	return eventComponentDef
-}
-
-func getMetricComponent(metricName string, contentType FmmMetricContentType, category FmmMetricCategory, metricType FmmMetricType, namespaceName string) *FmmMetric {
-	namespaceAssign := &FmmNamespaceAssignTypeDef{
-		Name:    namespaceName,
-		Version: 1,
-	}
-
-	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
-		Kind:        "metric",
-		Name:        metricName,
-		DisplayName: metricName,
-	}
-
-	metricComponentDef := &FmmMetric{
-		FmmTypeDef:             fmmTypeDef,
-		Category:               category,
-		ContentType:            contentType,
-		AggregationTemporality: "delta",
-		IsMonotonic:            false,
-		Type:                   metricType,
-		Unit:                   "{Count}",
-	}
-
-	return metricComponentDef
-}
-func getServiceComponent(serviceName string) *ServiceDef {
-	serviceComponentDef := &ServiceDef{
-		Name:  serviceName,
-		Image: "dockerRegistryURL",
-	}
-
-	return serviceComponentDef
 }
 
 func getKnowledgeComponent(name string) *KnowledgeDef {
@@ -560,27 +431,6 @@ func readComponentDef(componentDef *ComponentDef) []byte {
 	componentDefBytes, _ := io.ReadAll(componentDefFile)
 
 	return componentDefBytes
-}
-
-func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
-	componentType := "fmm:namespace"
-	namespaceName := manifest.Name
-	fileName := namespaceName + ".json"
-	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
-
-	componentDef := manifest.GetComponentDef(componentType)
-
-	if componentDef.Type == "" {
-		addCompDefToManifest(cmd, manifest, componentType, folderName)
-	}
-
-	if _, err := os.Stat(objFilePath); os.IsNotExist(err) {
-		namespaceComp := getNamespaceComponent(namespaceName)
-		createComponentFile(namespaceComp, folderName, fileName)
-		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
-		output.PrintCmdStatus(cmd, statusMsg)
-	}
-
 }
 
 func getStringfiedArray(array []string) string {

@@ -16,7 +16,6 @@ package solution
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -69,242 +68,6 @@ type SolutionDef struct {
 	IsSubscribed bool     `json:"isSubscribed,omitempty"`
 	IsSystem     bool     `json:"isSystem,omitempty"`
 	Name         string   `json:"name,omitempty"`
-}
-
-type FmmTypeDef struct {
-	Namespace   FmmNamespaceAssignTypeDef `json:"namespace"`
-	Kind        string                    `json:"kind"`
-	Name        string                    `json:"name"`
-	DisplayName string                    `json:"displayName,omitempty"`
-}
-
-type FmmNamespaceAssignTypeDef struct {
-	Name    string `json:"name"`
-	Version int    `json:"version"`
-}
-
-type FmmLifecycleConfigTypeDef struct {
-	PurgeTtlInMinutes     int64 `json:"purgeTtlInMinutes"`
-	RetentionTtlInMinutes int64 `json:"retentionTtlInMinutes"`
-}
-
-type FmmAttributeTypeDef struct {
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
-}
-
-type FmmAttributeDefinitionsTypeDef struct {
-	Required   []string                        `json:"required"`
-	Optimized  []string                        `json:"optimized"`
-	Attributes map[string]*FmmAttributeTypeDef `json:"attributes"`
-}
-
-type FmmAssociationTypesTypeDef struct {
-	Aggregates_of []string `json:"common:aggregates_of,omitempty"`
-	Consists_of   []string `json:"common:consists_of,omitempty"`
-	Is_a          []string `json:"common:is_a,omitempty"`
-	Has           []string `json:"common:has,omitempty"`
-	Relates_to    []string `json:"common:relates_to,omitempty"`
-	Uses          []string `json:"common:uses,omitempty"`
-}
-
-type FmmEntity struct {
-	*FmmTypeDef
-	AttributeDefinitions  *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
-	LifecyleConfiguration *FmmLifecycleConfigTypeDef      `json:"lifecycleConfiguration"`
-	MetricTypes           []string                        `json:"metricTypes,omitempty"`
-	EventTypes            []string                        `json:"eventTypes,omitempty"`
-	AssociationTypes      *FmmAssociationTypesTypeDef     `json:"associationTypes,omitempty"`
-}
-
-func (entity *FmmEntity) GetTypeName() string {
-	return fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name)
-}
-
-type FmmEvent struct {
-	*FmmTypeDef
-	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
-}
-
-type FmmResourceMapping struct {
-	*FmmTypeDef
-	EntityType            string               `json:"entityType"`
-	ScopeFilter           string               `json:"scopeFilter"`
-	Mappings              []FmmMapAndTransform `json:"mappings,omitempty"`
-	AttributeNameMappings FmmNameMappings      `json:"attributeNameMappings,omitempty"`
-}
-
-type FmmMapAndTransform struct {
-	To   string `json:"to"`
-	From string `json:"from"`
-}
-
-type FmmNameMappings map[string]string
-
-type FmmNamespace struct {
-	Name string `json:"name"`
-}
-
-type FmmMetric struct {
-	*FmmTypeDef
-	Category               FmmMetricCategory               `json:"category"`
-	ContentType            FmmMetricContentType            `json:"contentType"`
-	AggregationTemporality string                          `json:"aggregationTemporality"`
-	IsMonotonic            bool                            `json:"isMonotonic"`
-	Type                   FmmMetricType                   `json:"type"`
-	Unit                   string                          `json:"unit"`
-	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
-}
-
-type FmmMetricCategory string
-
-const (
-	Category_Sum     FmmMetricCategory = "sum"
-	Category_Average FmmMetricCategory = "average"
-	Category_Rate    FmmMetricCategory = "rate"
-)
-
-type FmmMetricContentType string
-
-const (
-	ContentType_Sum          FmmMetricContentType = "sum"
-	ContentType_Gauge        FmmMetricContentType = "gauge"
-	ContentType_Distribution FmmMetricContentType = "distribution"
-)
-
-type FmmMetricType string
-
-const (
-	Type_Long   FmmMetricType = "long"
-	Type_Double FmmMetricType = "double"
-)
-
-type FmmTemporality string
-
-const (
-	Temp_Delta FmmTemporality = "delta"
-	Temp_False FmmTemporality = "unspecified"
-)
-
-type DashuiTemplate struct {
-	Kind    string      `json:"kind"`
-	Name    string      `json:"name"`
-	Target  string      `json:"target"`
-	View    string      `json:"view"`
-	Element interface{} `json:"element"`
-}
-
-type DashuiWidget struct {
-	InstanceOf string      `json:"instanceOf"`
-	Props      interface{} `json:"props,omitempty"`
-	Elements   interface{} `json:"elements,omitempty"`
-	Element    interface{} `json:"element,omitempty"`
-}
-
-type DashuiFocusedEntity struct {
-	*DashuiWidget
-	Mode string `json:"mode"`
-}
-
-type DashuiString struct {
-	InstanceOf string `json:"instanceOf"`
-	Content    string `json:"content"`
-}
-
-type DashuiLabel struct {
-	InstanceOf string      `json:"instanceOf"`
-	Path       interface{} `json:"path"`
-}
-
-type DashuiProperties struct {
-	InstanceOf string            `json:"instanceOf"`
-	Elements   []*DashuiProperty `json:"elements"`
-}
-type DashuiProperty struct {
-	Label *DashuiString `json:"label"`
-	Value *DashuiLabel  `json:"value"`
-}
-
-type DashuiGrid struct {
-	*DashuiWidget
-	RowSets          interface{}         `json:"rowSets"`
-	Style            interface{}         `json:"style,omitempty"`
-	Mode             string              `json:"mode"`
-	Columns          []*DashuiGridColumn `json:"columns"`
-	OnRowSingleClick *DashuiEvent        `json:"onRowSingleClick,omitempty"`
-	OnRowDoubleClick *DashuiEvent        `json:"onRowDoubleClick,omitempty"`
-}
-
-type DashuiGridColumn struct {
-	Label string          `json:"label"`
-	Flex  int             `json:"flex"`
-	Width int             `json:"width"`
-	Cell  *DashuiGridCell `json:"cell"`
-}
-
-type DashuiGridCell struct {
-	Default interface{} `json:"default,omitempty"`
-}
-
-type DashuiTooltip struct {
-	*DashuiLabel
-	Truncate bool        `json:"truncate,omitempty"`
-	Trigger  interface{} `json:"trigger,omitempty"`
-}
-
-type DashuiClickable struct {
-	*DashuiWidget
-	OnClick *DashuiEvent `json:"onclick,omitempty"`
-	Trigger *DashuiLabel `json:"trigger,omitempty"`
-}
-
-type DashuiEvent struct {
-	Type       string   `json:"type"`
-	Paths      []string `json:"paths,omitempty"`
-	Expression string   `json:"expression"`
-}
-
-type EcpLeftBar struct {
-	*DashuiWidget
-	Label string `json:"label"`
-}
-
-type EcpRelationshipMapEntry struct {
-	Key             string `json:"key"`
-	Path            string `json:"path"`
-	EntityAttribute string `json:"entityAttribute"`
-	IconName        string `json:"iconName"`
-}
-
-type EcpInspectorWidget struct {
-	*DashuiWidget
-	Title string `json:"title"`
-}
-
-type DashuiOcpSingle struct {
-	*DashuiWidget
-	NameAttribute string `json:"nameAttribute"`
-}
-
-type DashuiCartesian struct {
-	*DashuiWidget
-	Children []*DashuiCartesianSeries `json:"children"`
-}
-
-type DashuiCartesianSeries struct {
-	Props  interface{}            `json:"props"`
-	Metric *DashuiCartesianMetric `json:"metric"`
-	Type   string                 `json:"type"`
-}
-
-type DashuiCartesianMetric struct {
-	Name   string               `json:"name"`
-	Source string               `json:"source"`
-	Y      *DashuiCartesianAxis `json:"y"`
-}
-
-type DashuiCartesianAxis struct {
-	Field string `json:"type"`
 }
 
 type Solution struct {
@@ -409,6 +172,44 @@ func (manifest *Manifest) GetFmmEvents() []*FmmEvent {
 	return fmmEvents
 }
 
+func (manifest *Manifest) CheckDependencyExists(solutionName string) bool {
+	hasDependency := false
+	for _, deps := range manifest.Dependencies {
+		if deps == solutionName {
+			hasDependency = true
+		}
+	}
+	return hasDependency
+}
+
+func (manifest *Manifest) AppendDependency(solutionName string) {
+	hasDependency := manifest.CheckDependencyExists(solutionName)
+	if !hasDependency {
+		manifest.Dependencies = append(manifest.Dependencies, solutionName)
+	}
+
+}
+
+func (manifest *Manifest) GetComponentDef(typeName string) *ComponentDef {
+	var componentDef ComponentDef
+	for _, compDefs := range manifest.Objects {
+		if compDefs.Type == typeName {
+			componentDef = compDefs
+		}
+	}
+	return &componentDef
+}
+
+func (manifest *Manifest) GetComponentDefs(typeName string) []ComponentDef {
+	var componentDefs []ComponentDef
+	for _, compDefs := range manifest.Objects {
+		if compDefs.Type == typeName {
+			componentDefs = append(componentDefs, compDefs)
+		}
+	}
+	return componentDefs
+}
+
 func (manifest *Manifest) GetDashuiTemplates() []*DashuiTemplate {
 	dashuiTemplates := make([]*DashuiTemplate, 0)
 	objectDefs := manifest.GetComponentDefs("dashui:template")
@@ -438,42 +239,29 @@ func (manifest *Manifest) GetDashuiTemplates() []*DashuiTemplate {
 	return dashuiTemplates
 }
 
-func (manifest *Manifest) CheckDependencyExists(solutionName string) bool {
-	hasDependency := false
-	for _, deps := range manifest.Dependencies {
-		if deps == solutionName {
-			hasDependency = true
+func getDashuiTemplatesFromFile(filePath string) []*DashuiTemplate {
+	dashuiTemplates := make([]*DashuiTemplate, 0)
+	objDefFile := openFile(filePath)
+	defer objDefFile.Close()
+	objDefBytes, _ := io.ReadAll(objDefFile)
+	objDefContent := string(objDefBytes)
+
+	if strings.Index(objDefContent, "[") == 0 {
+		objectsArray := make([]*DashuiTemplate, 0)
+		err := json.Unmarshal(objDefBytes, &objectsArray)
+		if err != nil {
+			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
 		}
-	}
-	return hasDependency
-}
-
-func (manifest *Manifest) AppendDependency(solutionName string) {
-	hasDependency := manifest.CheckDependencyExists(getSolutionNameWithZip(solutionName))
-	if !hasDependency {
-		manifest.Dependencies = append(manifest.Dependencies, solutionName)
-	}
-
-}
-
-func (manifest *Manifest) GetComponentDef(typeName string) *ComponentDef {
-	var componentDef ComponentDef
-	for _, compDefs := range manifest.Objects {
-		if compDefs.Type == typeName {
-			componentDef = compDefs
+		dashuiTemplates = append(dashuiTemplates, objectsArray...)
+	} else {
+		var event *DashuiTemplate
+		err := json.Unmarshal(objDefBytes, &event)
+		if err != nil {
+			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
 		}
+		dashuiTemplates = append(dashuiTemplates, event)
 	}
-	return &componentDef
-}
-
-func (manifest *Manifest) GetComponentDefs(typeName string) []ComponentDef {
-	var componentDefs []ComponentDef
-	for _, compDefs := range manifest.Objects {
-		if compDefs.Type == typeName {
-			componentDefs = append(componentDefs, compDefs)
-		}
-	}
-	return componentDefs
+	return dashuiTemplates
 }
 
 func getFmmEntitiesFromFile(filePath string) []*FmmEntity {
@@ -549,29 +337,4 @@ func getFmmEventsFromFile(filePath string) []*FmmEvent {
 		fmmEvents = append(fmmEvents, event)
 	}
 	return fmmEvents
-}
-
-func getDashuiTemplatesFromFile(filePath string) []*DashuiTemplate {
-	dashuiTemplates := make([]*DashuiTemplate, 0)
-	objDefFile := openFile(filePath)
-	defer objDefFile.Close()
-	objDefBytes, _ := io.ReadAll(objDefFile)
-	objDefContent := string(objDefBytes)
-
-	if strings.Index(objDefContent, "[") == 0 {
-		objectsArray := make([]*DashuiTemplate, 0)
-		err := json.Unmarshal(objDefBytes, &objectsArray)
-		if err != nil {
-			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
-		}
-		dashuiTemplates = append(dashuiTemplates, objectsArray...)
-	} else {
-		var event *DashuiTemplate
-		err := json.Unmarshal(objDefBytes, &event)
-		if err != nil {
-			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
-		}
-		dashuiTemplates = append(dashuiTemplates, event)
-	}
-	return dashuiTemplates
 }

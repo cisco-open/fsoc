@@ -65,6 +65,47 @@ func getEcpDetails(entity *FmmEntity) *DashuiTemplate {
 	return ecpDetails
 }
 
+func getEcpHome(manifest *Manifest) *DashuiTemplatePropsExtension {
+	id := fmt.Sprintf("%s:%sEcpHomeExtension", manifest.Name, manifest.Name)
+	name := "dashui:ecpHome"
+	view := "default"
+	target := "*"
+
+	ecpHomeSectionName := fmt.Sprintf("%sCoreSection", manifest.Name)
+	ecpHomeSectionTitle := fmt.Sprintf("%s - %s", manifest.Name, manifest.SolutionVersion)
+	ecpHome := &EcpHome{
+		Sections: []*DashuiEcpHomeSection{
+			{
+				Index: 6,
+				Name:  ecpHomeSectionName,
+				Title: ecpHomeSectionTitle,
+			},
+		},
+	}
+
+	entityRefs := make([]string, 0)
+	fmmEntities := manifest.GetFmmEntities()
+
+	ecpHomeEntities := make([]*DashuiEcpHomeEntity, 0)
+	for i, entity := range fmmEntities {
+		ref := entity.GetTypeName()
+		entityRefs = append(entityRefs, ref)
+		ecpHomeEntities = append(ecpHomeEntities, &DashuiEcpHomeEntity{
+			Index:           i,
+			Section:         ecpHomeSectionName,
+			EntityAttribute: "id",
+			TargetType:      ref,
+		})
+	}
+	ecpHome.Entities = ecpHomeEntities
+
+	ecpHomeTemplateExtension := NewDashuiTemplatePropsExtension(id, name, target, view, entityRefs)
+
+	ecpHomeTemplateExtension.Props = ecpHome
+
+	return ecpHomeTemplateExtension
+}
+
 func getEcpName(entity *FmmEntity) *DashuiTemplate {
 	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
 
@@ -280,7 +321,7 @@ func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
 	return gridTable
 }
 
-func getDashuiDetailsList(entity *FmmEntity) *DashuiTemplate {
+func getDashuiDetailsList(entity *FmmEntity, manifest *Manifest) *DashuiTemplate {
 
 	htmlWidget := &DashuiWidget{
 		InstanceOf: "html",
@@ -295,16 +336,31 @@ func getDashuiDetailsList(entity *FmmEntity) *DashuiTemplate {
 
 	elements := make([]*DashuiWidget, 0)
 
-	for _, metric := range entity.MetricTypes {
+	fmmMetrics := manifest.GetFmmMetrics()
+
+	for _, metricRef := range entity.MetricTypes {
+		cardTitle := ""
+
+		for _, metric := range fmmMetrics {
+			metricTypeName := fmt.Sprintf("%s:%s", metric.Namespace.Name, metric.Name)
+			if metricTypeName == metricRef {
+				cardTitle = metric.DisplayName
+				break
+			}
+		}
+		if cardTitle == "" {
+			cardTitle = metricRef
+		}
+
 		chart := NewDashuiCartesian()
 		chart.Children = []*DashuiCartesianSeries{
-			NewDashuiCartesianSeries(metric, metric, "fsoc-melt", "LINE"),
+			NewDashuiCartesianSeries(metricRef, metricRef, "fsoc-melt", "LINE"),
 		}
 
 		cardContainer := &DashuiWidget{
 			InstanceOf: "card",
 			Props: map[string]interface{}{
-				"title": metric,
+				"title": cardTitle,
 			},
 			Elements: []*DashuiCartesian{
 				chart,
@@ -461,6 +517,19 @@ func NewDashuiOcpSingle(nameAttribute string) *DashuiOcpSingle {
 	}
 
 	return ocpSingle
+}
+
+func NewDashuiTemplatePropsExtension(id string, name string, target string, view string, requiredEntityTypes []string) *DashuiTemplatePropsExtension {
+	templatePropsExtension := &DashuiTemplatePropsExtension{
+		Kind:                "templatePropsExtension",
+		Id:                  id,
+		Name:                name,
+		View:                view,
+		Target:              target,
+		RequiredEntityTypes: requiredEntityTypes,
+	}
+
+	return templatePropsExtension
 }
 
 func NewDashuiCartesian() *DashuiCartesian {
