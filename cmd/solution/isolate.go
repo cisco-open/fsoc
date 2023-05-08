@@ -49,8 +49,8 @@ var jsonataFunctions = `
 		env.tag = "stable"
 	};
 
-    $dependencyTag := function($name) {
-		$toSuffix($string($lookup(env.dependencyTags, $name)))
+	$dependency := function($name) {
+		$name & $toSuffix($string($lookup(env.dependencyTags, $name)))
     };
 `
 
