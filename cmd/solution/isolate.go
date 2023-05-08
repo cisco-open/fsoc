@@ -42,8 +42,16 @@ const (
 
 var jsonataFunctions = `
 	$toSuffix := function($val) {
-		$exists($val) and $val != "" and $val != "stable" ? ("-" & $val) : ""
+		$exists($val) and $val != "" and $val != 'null' and $val != "stable" ? $string($val) : ""
 	};
+
+	$isTagStable := function() {
+		env.tag = "stable"
+	};
+
+    $dependencyTag := function($name) {
+		$toSuffix($string($lookup(env.dependencyTags, $name)))
+    };
 `
 
 var solutionIsolateCmd = &cobra.Command{
@@ -208,6 +216,7 @@ func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interfa
 	if err != nil {
 		return fmt.Errorf("Failed to create target folder %v", err)
 	}
+
 	return nil
 }
 
