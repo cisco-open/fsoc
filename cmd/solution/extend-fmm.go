@@ -26,15 +26,9 @@ import (
 )
 
 func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
-	entities := manifest.GetFmmEntities()
 	var newResoureMapping *FmmResourceMapping
-	var entity *FmmEntity
-	for _, e := range entities {
-		if e.Name == entityName {
-			entity = e
-			break
-		}
-	}
+
+	entity := findEntity(entityName, manifest)
 	if entity == nil {
 		log.Fatalf("Couldn't find an entity type named %s", entityName)
 	}
