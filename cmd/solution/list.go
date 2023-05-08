@@ -28,7 +28,7 @@ import (
 )
 
 var solutionListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [--subscribed]",
 	Args:  cobra.ExactArgs(0),
 	Short: "List all solutions available in this tenant",
 	Long:  `This command list all the solutions that are deployed in the current tenant specified in the profile.`,
@@ -40,6 +40,13 @@ var solutionListCmd = &cobra.Command{
 		output.TableFieldsAnnotation:  "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies",
 		output.DetailFieldsAnnotation: "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, installDate:.createdAt, updateDate:.updatedAt",
 	},
+}
+
+func getSolutionListCmd() {
+	solutionListCmd.Flags().
+		Bool("subscribed", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
+	return solutionListCmd
+
 }
 
 func getSolutionList(cmd *cobra.Command, args []string) {
@@ -58,7 +65,7 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionListUrl() string {
-	return "objstore/v1beta/objects/extensibility:solution?filter=" + url.QueryEscape("data.isSubscribed eq true")
+	return "objstore/v1beta/objects/extensibility:solution?filter=" + url.QueryEscape("data.isSubscribed neq true")
 }
 
 func getSolutionNames(prefix string) (names []string) {
