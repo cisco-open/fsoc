@@ -51,7 +51,7 @@ var solutionTestStatusCmd = &cobra.Command{
 func getSolutionTestCmd() *cobra.Command {
 	solutionTestCmd.Flags().String("test-bundle", "", "The fully qualified path name for the test bundle directory. If no value is provided, it will default to 'current' - meaning current directory, where this command is running.")
 	solutionTestCmd.Flags().String("initial-delay", "", "Time duration (in seconds) that the Test Runner should wait before making first call to UQL")
-	solutionTestCmd.Flags().String("retry-count", "", "Number of times the Test Runner should call UQL to get latest data")
+	solutionTestCmd.Flags().String("max-retry-count", "", "Maximum Number of times the Test Runner should call UQL to get latest data. Depending on the error code returned by UQL, retry will be initiated.")
 	solutionTestCmd.Flags().String("retry-delay", "", "Time duration (in seconds) that the Test Runner should wait between retries")
 	return solutionTestCmd
 }
@@ -73,7 +73,7 @@ func testSolution(cmd *cobra.Command, args []string) {
 	var testBundleDir string
 	testBundlePath, _ := cmd.Flags().GetString("test-bundle")
 	initialDelay, _ := cmd.Flags().GetString("initial-delay")
-	retryCount, _ := cmd.Flags().GetString("retry-count")
+	maxRetryCount, _ := cmd.Flags().GetString("max-retry-count")
 	retryDelay, _ := cmd.Flags().GetString("retry-delay")
 
 	// Get Test Bundle Directory
@@ -139,7 +139,7 @@ func testSolution(cmd *cobra.Command, args []string) {
 		testObjects.Tests[i] = testObj
 	}
 
-	// Set initial-delay, retry-count, retry-delay
+	// Set initial-delay, max-retry-count, retry-delay
 	if initialDelay != "" {
 		testObjectsInt, err := strconv.Atoi(initialDelay)
 		if err != nil {
@@ -147,12 +147,12 @@ func testSolution(cmd *cobra.Command, args []string) {
 		}
 		testObjects.InitialDelay = testObjectsInt
 	}
-	if retryCount != "" {
-		retryCountInt, err := strconv.Atoi(retryCount)
+	if maxRetryCount != "" {
+		maxRetryCountInt, err := strconv.Atoi(maxRetryCount)
 		if err != nil {
-			log.Fatalf("Error while reading integer value from string %s: %v", retryCount, err)
+			log.Fatalf("Error while reading integer value from string %s: %v", maxRetryCount, err)
 		}
-		testObjects.RetryCount = retryCountInt
+		testObjects.MaxRetryCount = maxRetryCountInt
 	}
 	if retryDelay != "" {
 		retryDelayInt, err := strconv.Atoi(retryDelay)
