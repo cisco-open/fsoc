@@ -310,6 +310,16 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 				newComponents = append(newComponents, entityInspectorWidget)
 			}
 
+			templateName = "dashui:name"
+			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
+				ecpName := &newComponent{
+					Filename:   "ecpName.json",
+					Type:       "dashui:template",
+					Definition: getEcpName(entity),
+				}
+
+				newComponents = append(newComponents, ecpName)
+			}
 		}
 	case "dashui:ecpDetails":
 		{
@@ -362,6 +372,17 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 				}
 
 				newComponents = append(newComponents, entityInspectorWidget)
+			}
+
+			templateName = "dashui:name"
+			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
+				ecpName := &newComponent{
+					Filename:   "ecpName.json",
+					Type:       "dashui:template",
+					Definition: getEcpName(entity),
+				}
+
+				newComponents = append(newComponents, ecpName)
 			}
 
 		}

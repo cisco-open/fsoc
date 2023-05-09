@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -202,9 +203,18 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	if err = output.WriteJson(compDef, svcFile); err != nil {
+	enc := json.NewEncoder(svcFile)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", output.JsonIndent)
+	err = enc.Encode(compDef)
+
+	if err != nil {
 		log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
 	}
+
+	// if err = output.WriteJson(compDef, svcFile); err != nil {
+	// 	log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
+	// }
 }
 
 func appendFolder(folderName string) {

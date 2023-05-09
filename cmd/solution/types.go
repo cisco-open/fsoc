@@ -250,14 +250,14 @@ func getDashuiTemplatesFromFile(filePath string) []*DashuiTemplate {
 		objectsArray := make([]*DashuiTemplate, 0)
 		err := json.Unmarshal(objDefBytes, &objectsArray)
 		if err != nil {
-			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
+			log.Fatalf("Can't parse an array of dashui:template definition objects from the %q file:\n %v", filePath, err)
 		}
 		dashuiTemplates = append(dashuiTemplates, objectsArray...)
 	} else {
 		var event *DashuiTemplate
 		err := json.Unmarshal(objDefBytes, &event)
 		if err != nil {
-			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
+			log.Fatalf("Can't parse dashui:template definition objects from the %q file:\n %v ", filePath, err)
 		}
 		dashuiTemplates = append(dashuiTemplates, event)
 	}

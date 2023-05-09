@@ -49,10 +49,10 @@ func getEcpList(entity *FmmEntity) *DashuiTemplate {
 }
 
 func getEcpDetails(entity *FmmEntity) *DashuiTemplate {
-	ocpSingle := NewDashuiOcpSingle(getNameAttribute(entity))
+	ocpSingle := NewDashuiOcpSingle(getNamingAttribute(entity))
 
 	ocpSingle.Elements = []DashuiWidget{
-		{InstanceOf: fmt.Sprintf("%sDetailList", entity.GetTypeName())},
+		{InstanceOf: fmt.Sprintf("%sDetailsList", entity.GetTypeName())},
 	}
 
 	ecpDetails := &DashuiTemplate{
@@ -107,15 +107,15 @@ func getEcpHome(manifest *Manifest) *DashuiTemplatePropsExtension {
 }
 
 func getEcpName(entity *FmmEntity) *DashuiTemplate {
-	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
+	namePath := []string{fmt.Sprintf("attributes(%s)", getNamingAttribute(entity)), "id"}
 
 	dashuiNameTemplate := &DashuiTemplate{
 		Kind:   "template",
-		Target: fmt.Sprintf("%s:%s", entity.Namespace.Name, entity.Name),
+		Target: entity.GetTypeName(),
 		Name:   "dashui:name",
 		View:   "default",
 		Element: &DashuiLabel{
-			InstanceOf: "nameWidget",
+			InstanceOf: "string",
 			Path:       namePath,
 		},
 	}
@@ -140,7 +140,7 @@ func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
 
 	elements := make([]EcpRelationshipMapEntry, 0)
 
-	nameAttribute := getNameAttribute(entity)
+	nameAttribute := getNamingAttribute(entity)
 
 	elements = append(elements, EcpRelationshipMapEntry{
 		Key:             entity.Name,
@@ -200,13 +200,13 @@ func getEcpListInspector(entity *FmmEntity) *DashuiTemplate {
 		View:   "default",
 	}
 
-	namePath := []string{fmt.Sprintf("attributes(%s)", getNameAttribute(entity)), "id"}
+	namePath := []string{fmt.Sprintf("attributes(%s)", getNamingAttribute(entity)), "id"}
 	focusedEntityNameWidget := &DashuiFocusedEntity{
 		Mode: "SINGLE",
 		DashuiWidget: &DashuiWidget{
 			InstanceOf: "focusedEntities",
 			Element: &DashuiLabel{
-				InstanceOf: "nameWidget",
+				InstanceOf: map[string]interface{}{"name": "nameWidget"},
 				Path:       namePath,
 			},
 		},
@@ -217,7 +217,9 @@ func getEcpListInspector(entity *FmmEntity) *DashuiTemplate {
 		DashuiWidget: &DashuiWidget{
 			InstanceOf: "focusedEntities",
 			Element: &DashuiWidget{
-				InstanceOf: fmt.Sprintf("%s:%sInspectorWidget", entity.Namespace.Name, entity.Name),
+				InstanceOf: map[string]interface{}{
+					"name": fmt.Sprintf("%sInspectorWidget", entity.GetTypeName()),
+				},
 			},
 		},
 	}
@@ -241,8 +243,12 @@ func getEcpDetailsInspector(entity *FmmEntity) *DashuiTemplate {
 		View:   "default",
 	}
 
+	instanceOf := map[string]interface{}{
+		"name": "alerting",
+	}
+
 	alertingWidget := &DashuiWidget{
-		InstanceOf: "alerting",
+		InstanceOf: instanceOf,
 	}
 
 	inspectorWidget := &DashuiWidget{
@@ -281,26 +287,33 @@ func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
 
 	columns = append(columns, healthColumn)
 
-	attrCount := 0
+	namingAttribute := getNamingAttribute(entity)
+
+	namingColumn := &DashuiGridColumn{
+		Label: getColumnLabel(namingAttribute),
+		Flex:  0,
+		Width: 80,
+		Cell: &DashuiGridCell{
+			Default: NewDashuiTooltip(namingAttribute, true),
+		},
+	}
+
+	columns = append(columns, namingColumn)
+
 	for attribute := range entity.AttributeDefinitions.Attributes {
-		attrSplit := strings.Split(attribute, ".")
-		var label string
-		if len(attrSplit) > 0 {
-			label = attrSplit[len(attrSplit)-1]
-		} else {
-			label = attribute
+		if attribute == namingAttribute {
+			continue
 		}
 
 		attrColumn := &DashuiGridColumn{
-			Label: label,
+			Label: getColumnLabel(attribute),
 			Flex:  0,
 			Width: 80,
 			Cell: &DashuiGridCell{
-				Default: NewDashuiTooltip(attribute, attrCount == 0),
+				Default: NewDashuiTooltip(attribute, false),
 			},
 		}
 		columns = append(columns, attrColumn)
-		attrCount++
 	}
 
 	grid.Columns = columns
@@ -327,18 +340,19 @@ func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
 
 func getDashuiDetailsList(entity *FmmEntity, manifest *Manifest) *DashuiTemplate {
 
-	htmlWidget := &DashuiWidget{
-		InstanceOf: "html",
-		Props: map[string]interface{}{
-			"style": map[string]interface{}{
-				"display":       "flex",
-				"flexDirection": "column",
-				"gap":           12,
-			},
-		},
+	htmlWidget := NewDashuiHtmlWidget()
+
+	htmlWidget.Style = map[string]interface{}{
+		"display":       "flex",
+		"flexDirection": "column",
+		"gap":           12,
 	}
 
-	elements := make([]*DashuiWidget, 0)
+	elements := make([]interface{}, 0)
+
+	logsWidget := NewDashuiLogsWidget()
+
+	elements = append(elements, logsWidget)
 
 	fmmMetrics := manifest.GetFmmMetrics()
 
@@ -387,6 +401,24 @@ func getDashuiDetailsList(entity *FmmEntity, manifest *Manifest) *DashuiTemplate
 	return detailsList
 }
 
+func NewDashuiHtmlWidget() *DashuiHtmlWidget {
+	return &DashuiHtmlWidget{
+		DashuiWidget: &DashuiWidget{
+			InstanceOf: "html",
+		},
+	}
+
+}
+
+func NewDashuiLogsWidget() *DashuiLogsWidget {
+	return &DashuiLogsWidget{
+		InstanceOf: map[string]interface{}{
+			"name": "logsWidget",
+		},
+		Source: "derived_metrics",
+	}
+}
+
 func getEcpInspectorWidget(entity *FmmEntity) *DashuiTemplate {
 	inspectorWidget := NewEcpInspectorWidget("Properties")
 
@@ -410,28 +442,37 @@ func getEcpInspectorWidget(entity *FmmEntity) *DashuiTemplate {
 
 	propertiesWidget.Elements = elements
 
-	inspectorWidget.Element = propertiesWidget
+	inspectorWidget.Elements = propertiesWidget
 
+	ecpInspectorListElement := &DashuiWidget{
+		InstanceOf: "elements",
+		Elements:   inspectorWidget,
+	}
 	ecpInspectorWidget := &DashuiTemplate{
 		Kind:    "template",
 		Target:  entity.GetTypeName(),
 		Name:    fmt.Sprintf("%sInspectorWidget", entity.GetTypeName()),
 		View:    "default",
-		Element: inspectorWidget,
+		Element: ecpInspectorListElement,
 	}
 
 	return ecpInspectorWidget
 }
 
-func getNameAttribute(entity *FmmEntity) string {
+func getNamingAttribute(entity *FmmEntity) string {
 	var nameAttribute string
 	_, exists := entity.AttributeDefinitions.Attributes["name"]
-
 	if exists {
-		nameAttribute = "name"
-	} else {
-		nameAttribute = fmt.Sprintf("%s.%s.name", entity.Namespace.Name, entity.Name)
+		return "name"
 	}
+
+	nameAttribute = fmt.Sprintf("%s.%s.name", entity.Namespace.Name, entity.Name)
+	_, exists = entity.AttributeDefinitions.Attributes[nameAttribute]
+	if exists {
+		return nameAttribute
+	}
+
+	nameAttribute = entity.AttributeDefinitions.Required[0]
 	return nameAttribute
 }
 
@@ -510,7 +551,7 @@ func NewDashuiGrid() *DashuiGrid {
 func NewEcpInspectorWidget(title string) *EcpInspectorWidget {
 	inspectorWidget := &EcpInspectorWidget{
 		DashuiWidget: &DashuiWidget{
-			InstanceOf: "inspectorWidget",
+			InstanceOf: map[string]interface{}{"name": "inspectorWidget"},
 		},
 		Title: title,
 	}
@@ -519,7 +560,7 @@ func NewEcpInspectorWidget(title string) *EcpInspectorWidget {
 
 func NewDashuiProperties() *DashuiProperties {
 	propertiesWidget := &DashuiProperties{
-		InstanceOf: "properties",
+		InstanceOf: map[string]interface{}{"name": "properties"},
 	}
 	return propertiesWidget
 }
@@ -577,4 +618,16 @@ func NewDashuiCartesianSeries(seriesName string, metricName string, metricSource
 		Type: seriesType,
 	}
 	return cartesianSeries
+}
+
+func getColumnLabel(attributeName string) string {
+	attrSplit := strings.Split(attributeName, ".")
+	var label string
+	if len(attrSplit) > 0 {
+		label = attrSplit[len(attrSplit)-1]
+	} else {
+		label = attributeName
+	}
+
+	return label
 }

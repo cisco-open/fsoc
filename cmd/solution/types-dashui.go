@@ -50,12 +50,12 @@ type DashuiString struct {
 }
 
 type DashuiLabel struct {
-	InstanceOf string      `json:"instanceOf"`
+	InstanceOf interface{} `json:"instanceOf"`
 	Path       interface{} `json:"path"`
 }
 
 type DashuiProperties struct {
-	InstanceOf string            `json:"instanceOf"`
+	InstanceOf interface{}       `json:"instanceOf"`
 	Elements   []*DashuiProperty `json:"elements"`
 }
 type DashuiProperty struct {
@@ -161,4 +161,14 @@ type DashuiCartesianMetric struct {
 
 type DashuiCartesianAxis struct {
 	Field string `json:"type"`
+}
+
+type DashuiLogsWidget struct {
+	InstanceOf interface{} `json:"instanceOf"`
+	Source     string      `json:"source"`
+}
+
+type DashuiHtmlWidget struct {
+	*DashuiWidget
+	Style interface{} `json:"style,omitempty"`
 }
