@@ -20,7 +20,6 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
-	"path/filepath"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -121,10 +120,9 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	// create a temporary solution archive
 	// solutionArchive := generateZipNoCmd(manifestPath)
 	solutionArchive := generateZip(cmd, manifestPath)
-	solutionArchivePath = filepath.Base(solutionArchive.Name())
+	solutionArchivePath = solutionArchive.Name()
 
 	var message string
-
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
 		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)

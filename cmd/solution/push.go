@@ -21,7 +21,6 @@ import (
 	"mime/multipart"
 	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/apex/log"
@@ -127,7 +126,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	// create a temporary solution archive
 	// solutionArchive := generateZipNoCmd(manifestPath)
 	solutionArchive := generateZip(cmd, manifestPath)
-	solutionArchivePath = filepath.Base(solutionArchive.Name())
+	solutionArchivePath = (solutionArchive.Name())
 
 	message := fmt.Sprintf("Deploying solution %s version %s with tag %s", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
 	log.WithFields(log.Fields{"solution": manifest.Name, "version": manifest.SolutionVersion}).Info("Deploying solution")
