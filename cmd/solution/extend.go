@@ -180,7 +180,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 
 	var newComponents []*newComponent
 
-	if strings.Index(componentType, "fmm") >= 0 {
+	if strings.Contains(componentType, "fmm") {
 		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
 	}
 
@@ -234,7 +234,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			metric := &newComponent{
 				Filename:   componentName + ".json",
 				Type:       componentType,
-				Definition: getMetricComponent(componentName, ContentType_Sum, Category_Sum, Type_Long, manifest.Name),
+				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, manifest.Name),
 			}
 
 			newComponents = append(newComponents, metric)
@@ -252,18 +252,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "dashui:ecpList":
 		{
 			entityName := strings.ToLower(componentName)
-			fmmEntities := manifest.GetFmmEntities()
-			var entity *FmmEntity
-			for _, e := range fmmEntities {
-				if e.Name == entityName {
-					entity = e
-					break
-				}
-			}
-			if entity == nil {
-				log.Fatalf("Couldn't find an entity type named %s", entityName)
-			}
-
+			entity := findEntity(entityName, manifest)
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
 			ecpList := &newComponent{
@@ -324,17 +313,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "dashui:ecpDetails":
 		{
 			entityName := strings.ToLower(componentName)
-			fmmEntities := manifest.GetFmmEntities()
-			var entity *FmmEntity
-			for _, e := range fmmEntities {
-				if e.Name == entityName {
-					entity = e
-					break
-				}
-			}
-			if entity == nil {
-				log.Fatalf("Couldn't find an entity type named %s", entityName)
-			}
+			entity := findEntity(entityName, manifest)
 
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
@@ -444,16 +423,6 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 	return knowledgeComponent
 }
 
-func readComponentDef(componentDef *ComponentDef) []byte {
-	filePath := componentDef.ObjectsFile
-	componentDefFile := openFile(filePath)
-	defer componentDefFile.Close()
-
-	componentDefBytes, _ := io.ReadAll(componentDefFile)
-
-	return componentDefBytes
-}
-
 func getStringfiedArray(array []string) string {
 	initialFormat := fmt.Sprintf("%q", array)
 	tokenized := strings.Split(initialFormat, " ")
@@ -478,38 +447,9 @@ func GetManifest() *Manifest {
 	return manifest
 }
 
-func oldAddCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
-	componentDef := manifest.GetComponentDef(componentType)
-	if componentDef.Type == "" {
-		solutionDep := strings.Split(componentType, ":")[0]
-		manifest.AppendDependency(solutionDep)
-
-		// componentDef := &ComponentDef{
-		// 	Type:       componentType,
-		// 	ObjectsDir: folderName,
-		// }
-
-		// manifest.Objects = append(manifest.Objects, *componentDef)
-		// createSolutionManifestFile(".", manifest)
-		// statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
-		// output.PrintCmdStatus(cmd, statusMsg)
-	}
-
-	extComponentDef := &ComponentDef{
-		Type:       componentType,
-		ObjectsDir: folderName,
-	}
-
-	manifest.Objects = append(manifest.Objects, *extComponentDef)
-	createSolutionManifestFile(".", manifest)
-	statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
-	output.PrintCmdStatus(cmd, statusMsg)
-
-}
-
 func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
 	componentDefs := manifest.GetComponentDefs(componentType)
-	if componentDefs != nil {
+	if len(componentDefs) > 0 {
 		for _, componentDef := range componentDefs {
 			if componentDef.ObjectsDir == folderName {
 				return

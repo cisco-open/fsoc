@@ -19,10 +19,10 @@ import (
 )
 
 type FmmTypeDef struct {
-	Namespace   FmmNamespaceAssignTypeDef `json:"namespace"`
-	Kind        string                    `json:"kind"`
-	Name        string                    `json:"name"`
-	DisplayName string                    `json:"displayName,omitempty"`
+	Namespace   *FmmNamespaceAssignTypeDef `json:"namespace"`
+	Kind        string                     `json:"kind"`
+	Name        string                     `json:"name"`
+	DisplayName string                     `json:"displayName,omitempty"`
 }
 
 type FmmNamespaceAssignTypeDef struct {
@@ -118,6 +118,7 @@ const (
 	Category_Sum     FmmMetricCategory = "sum"
 	Category_Average FmmMetricCategory = "average"
 	Category_Rate    FmmMetricCategory = "rate"
+	Category_Current FmmMetricCategory = "current"
 )
 
 type FmmMetricContentType string

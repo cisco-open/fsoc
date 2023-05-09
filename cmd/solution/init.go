@@ -217,27 +217,10 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	// }
 }
 
-func appendFolder(folderName string) {
-	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
-			log.Fatalf("Error adding folder named %q: %v", folderName, err)
-		}
-	}
-}
-
 func openFile(filePath string) *os.File {
 	svcFile, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("Can't open the file named %q: %v", filePath, err)
 	}
 	return svcFile
-}
-
-func createFile(filePath string) {
-	var svcFile *os.File
-	var err error
-	if svcFile, err = os.Create(filePath); err != nil {
-		log.Fatalf("Can't create the file named %q: %v", filePath, err)
-	}
-	svcFile.Close()
 }

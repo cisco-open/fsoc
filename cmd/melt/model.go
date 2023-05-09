@@ -139,14 +139,6 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric, f
 	return fsocEntities
 }
 
-func openFile(filePath string) *os.File {
-	svcFile, err := os.Open(filePath)
-	if err != nil {
-		log.Fatalf("Can't open the file named %q: %v", filePath, err)
-	}
-	return svcFile
-}
-
 func writeDataFile(fsoData *melt.FsocData, fileName string) {
 	fsoDataYamlFile, err := os.Create(fileName)
 	if err != nil {

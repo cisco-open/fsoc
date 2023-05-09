@@ -29,18 +29,16 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 	var newResoureMapping *FmmResourceMapping
 
 	entity := findEntity(entityName, manifest)
-	if entity == nil {
-		log.Fatalf("Couldn't find an entity type named %s", entityName)
-	}
-
-	namespace := entity.Namespace
 	name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
 	entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
 	scopeFilterFields := make([]string, 0)
 	attributeMaps := make(FmmNameMappings, 0)
 	displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
 	fmmTypeDef := &FmmTypeDef{
-		Namespace:   namespace,
+		Namespace: &FmmNamespaceAssignTypeDef{
+			Name:    manifest.Name,
+			Version: 1,
+		},
 		Kind:        "resourceMapping",
 		Name:        name,
 		DisplayName: displayName,
@@ -51,7 +49,7 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 		scopeFilterFields = append(scopeFilterFields, scopeForField)
 	}
 
-	for k, _ := range entity.AttributeDefinitions.Attributes {
+	for k := range entity.AttributeDefinitions.Attributes {
 		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, k)
 		attributeMaps[k] = scopeForField
 	}
@@ -69,9 +67,6 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 
 func getAssociationDeclarations(entityName string, manifest *Manifest) []*FmmAssociationDeclaration {
 	entity := findEntity(entityName, manifest)
-	if entity == nil {
-		log.Fatalf("Couldn't find an entity type named %s", entityName)
-	}
 	fmmAssocDeclarations := make([]*FmmAssociationDeclaration, 0)
 
 	if entity.AssociationTypes != nil {
@@ -101,7 +96,7 @@ func getAssociationDeclarations(entityName string, manifest *Manifest) []*FmmAss
 func getAssociationDeclaration(entity *FmmEntity, associationType string, toType string) *FmmAssociationDeclaration {
 
 	toTypeSplit := strings.Split(toType, ":")
-	toTypeDesc := toType
+	var toTypeDesc string
 	if toTypeSplit[0] == entity.Namespace.Name {
 		toTypeDesc = toTypeSplit[1]
 	} else {
@@ -167,7 +162,7 @@ func getEntityComponent(entityName string, namespaceName string) *FmmEntity {
 	}
 
 	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
+		Namespace:   namespaceAssign,
 		Kind:        "entity",
 		Name:        entityName,
 		DisplayName: entityName,
@@ -204,7 +199,7 @@ func getEventComponent(eventName string, namespaceName string) *FmmEvent {
 	}
 
 	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
+		Namespace:   namespaceAssign,
 		Kind:        "event",
 		Name:        eventName,
 		DisplayName: eventName,
@@ -225,27 +220,38 @@ func getEventComponent(eventName string, namespaceName string) *FmmEvent {
 	return eventComponentDef
 }
 
-func getMetricComponent(metricName string, contentType FmmMetricContentType, category FmmMetricCategory, metricType FmmMetricType, namespaceName string) *FmmMetric {
+func getMetricComponent(metricName string, contentType FmmMetricContentType, metricType FmmMetricType, namespaceName string) *FmmMetric {
 	namespaceAssign := &FmmNamespaceAssignTypeDef{
 		Name:    namespaceName,
 		Version: 1,
 	}
 
 	fmmTypeDef := &FmmTypeDef{
-		Namespace:   *namespaceAssign,
+		Namespace:   namespaceAssign,
 		Kind:        "metric",
 		Name:        metricName,
 		DisplayName: metricName,
 	}
 
 	metricComponentDef := &FmmMetric{
-		FmmTypeDef:             fmmTypeDef,
-		Category:               category,
-		ContentType:            contentType,
-		AggregationTemporality: "delta",
-		IsMonotonic:            false,
-		Type:                   metricType,
-		Unit:                   "{Count}",
+		FmmTypeDef:  fmmTypeDef,
+		ContentType: contentType,
+		IsMonotonic: false,
+		Type:        metricType,
+		Unit:        "",
+	}
+
+	switch contentType {
+	case ContentType_Gauge:
+		{
+			metricComponentDef.AggregationTemporality = "unspecified"
+			metricComponentDef.Category = Category_Current
+		}
+	case ContentType_Sum:
+		{
+			metricComponentDef.AggregationTemporality = "delta"
+			metricComponentDef.Category = Category_Sum
+		}
 	}
 
 	return metricComponentDef
