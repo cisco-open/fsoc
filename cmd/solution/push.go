@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -68,10 +69,9 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name for the solution bundle .zip file")
-	_ = solutionPushCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+		String("bundle-path", "", "fully qualified path name for the solution bundle .zip file")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "wait")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "bump")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionPushCmd
@@ -79,6 +79,7 @@ func getSolutionPushCmd() *cobra.Command {
 
 func pushSolution(cmd *cobra.Command, args []string) {
 	manifestPath := ""
+	var message string
 	var solutionName string
 	var solutionVersion string
 
@@ -86,51 +87,57 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
-	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	solutionBundlePath, _ := cmd.Flags().GetString("bundle-path")
 	var solutionArchivePath string
+	var solutionBundleAlreadyZipped bool
 
 	if pushWithStableTag {
 		solutionTagFlag = "stable"
 	}
 
-	if solutionBundlePath != "" {
-		log.Fatalf("The --solution-bundle flag is no longer available; please use direct push instead.")
-	}
-
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	manifestPath = currentDir
-	if !isSolutionPackageRoot(manifestPath) {
-		log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
-	}
-
-	manifest, err := getSolutionManifest(manifestPath)
-	if err != nil {
-		log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-	}
-
-	if bumpFlag {
-		if err := bumpManifestPatchVersion(manifest); err != nil {
+	if solutionBundlePath == "" {
+		currentDir, err := os.Getwd()
+		if err != nil {
 			log.Fatal(err.Error())
 		}
-		if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-			log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+		manifestPath = currentDir
+		if !isSolutionPackageRoot(manifestPath) {
+			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
 		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+
+		manifest, err := getSolutionManifest(manifestPath)
+		if err != nil {
+			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+		}
+
+		if bumpFlag {
+			if err := bumpManifestPatchVersion(manifest); err != nil {
+				log.Fatal(err.Error())
+			}
+			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+			}
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+		}
+		solutionName = manifest.Name
+		solutionVersion = manifest.SolutionVersion
+		message = fmt.Sprintf("Deploying solution with name %s and version %s and tag %s", solutionName, solutionVersion, solutionTagFlag)
+	} else {
+		manifestPath = solutionBundlePath
+		solutionArchivePath = manifestPath
+		message = fmt.Sprintf("Deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
 	}
 
-	solutionName = manifest.Name
-	solutionVersion = manifest.SolutionVersion
+	solutionBundleAlreadyZipped = strings.HasSuffix(solutionArchivePath, ".zip")
 
-	// create a temporary solution archive
-	// solutionArchive := generateZipNoCmd(manifestPath)
-	solutionArchive := generateZip(cmd, manifestPath)
-	solutionArchivePath = filepath.Base(solutionArchive.Name())
+	if !solutionBundleAlreadyZipped {
+		solutionArchive := generateZip(cmd, manifestPath)
+		solutionArchivePath = filepath.Base(solutionArchive.Name())
+	} else {
+		message = fmt.Sprintf("Deploying already zipped solution with tag %s", solutionTagFlag)
+	}
 
-	message := fmt.Sprintf("Deploying solution %s version %s with tag %s", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
-	log.WithFields(log.Fields{"solution": manifest.Name, "version": manifest.SolutionVersion}).Info("Deploying solution")
+	log.Infof(message)
 
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
@@ -205,7 +212,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	message = fmt.Sprintf("Solution %s version %s was successfully deployed.\n", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Solution was successfully deployed.\n")
 	output.PrintCmdStatus(cmd, message)
 }
 
