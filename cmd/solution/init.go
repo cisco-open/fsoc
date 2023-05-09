@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -187,8 +188,9 @@ func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
 }
 
 func createComponentFile(compDef any, folderName string, fileName string) {
+
 	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
+		if err := os.MkdirAll(folderName, os.ModePerm); err != nil {
 			log.Fatalf("Failed to create solution component directory %q: %v", folderName, err)
 		}
 	}
@@ -201,17 +203,18 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	}
 	defer svcFile.Close()
 
-	if err = output.WriteJson(compDef, svcFile); err != nil {
+	enc := json.NewEncoder(svcFile)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", output.JsonIndent)
+	err = enc.Encode(compDef)
+
+	if err != nil {
 		log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
 	}
-}
 
-func appendFolder(folderName string) {
-	if _, err := os.Stat(folderName); os.IsNotExist(err) {
-		if err := os.Mkdir(folderName, os.ModePerm); err != nil {
-			log.Fatalf("Error adding folder named %q: %v", folderName, err)
-		}
-	}
+	// if err = output.WriteJson(compDef, svcFile); err != nil {
+	// 	log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
+	// }
 }
 
 func openFile(filePath string) *os.File {
@@ -220,13 +223,4 @@ func openFile(filePath string) *os.File {
 		log.Fatalf("Can't open the file named %q: %v", filePath, err)
 	}
 	return svcFile
-}
-
-func createFile(filePath string) {
-	var svcFile *os.File
-	var err error
-	if svcFile, err = os.Create(filePath); err != nil {
-		log.Fatalf("Can't create the file named %q: %v", filePath, err)
-	}
-	svcFile.Close()
 }
