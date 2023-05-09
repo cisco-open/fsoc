@@ -33,7 +33,7 @@ type DashuiTemplatePropsExtension struct {
 }
 
 type DashuiWidget struct {
-	InstanceOf string      `json:"instanceOf"`
+	InstanceOf interface{} `json:"instanceOf"`
 	Props      interface{} `json:"props,omitempty"`
 	Elements   interface{} `json:"elements,omitempty"`
 	Element    interface{} `json:"element,omitempty"`
@@ -85,7 +85,7 @@ type DashuiGridCell struct {
 }
 
 type DashuiTooltip struct {
-	*DashuiLabel
+	*DashuiWidget
 	Truncate bool        `json:"truncate,omitempty"`
 	Trigger  interface{} `json:"trigger,omitempty"`
 }
