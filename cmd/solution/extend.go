@@ -457,20 +457,54 @@ func GetManifest() *Manifest {
 	return manifest
 }
 
-func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
+func oldAddCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
 	componentDef := manifest.GetComponentDef(componentType)
 	if componentDef.Type == "" {
 		solutionDep := strings.Split(componentType, ":")[0]
 		manifest.AppendDependency(solutionDep)
 
-		componentDef := &ComponentDef{
-			Type:       componentType,
-			ObjectsDir: folderName,
-		}
+		// componentDef := &ComponentDef{
+		// 	Type:       componentType,
+		// 	ObjectsDir: folderName,
+		// }
 
-		manifest.Objects = append(manifest.Objects, *componentDef)
-		createSolutionManifestFile(".", manifest)
-		statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
-		output.PrintCmdStatus(cmd, statusMsg)
+		// manifest.Objects = append(manifest.Objects, *componentDef)
+		// createSolutionManifestFile(".", manifest)
+		// statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+		// output.PrintCmdStatus(cmd, statusMsg)
 	}
+
+	extComponentDef := &ComponentDef{
+		Type:       componentType,
+		ObjectsDir: folderName,
+	}
+
+	manifest.Objects = append(manifest.Objects, *extComponentDef)
+	createSolutionManifestFile(".", manifest)
+	statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+	output.PrintCmdStatus(cmd, statusMsg)
+
+}
+
+func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
+	componentDefs := manifest.GetComponentDefs(componentType)
+	if componentDefs != nil {
+		for _, componentDef := range componentDefs {
+			if componentDef.ObjectsDir == folderName {
+				return
+			}
+		}
+	}
+	solutionDep := strings.Split(componentType, ":")[0]
+	manifest.AppendDependency(solutionDep)
+
+	extComponentDef := &ComponentDef{
+		Type:       componentType,
+		ObjectsDir: folderName,
+	}
+
+	manifest.Objects = append(manifest.Objects, *extComponentDef)
+	createSolutionManifestFile(".", manifest)
+	statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
+	output.PrintCmdStatus(cmd, statusMsg)
 }

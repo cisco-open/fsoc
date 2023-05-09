@@ -270,13 +270,14 @@ func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folder
 
 	if componentDef.Type == "" {
 		addCompDefToManifest(cmd, manifest, componentType, folderName)
-	}
 
-	if _, err := os.Stat(objFilePath); os.IsNotExist(err) {
-		namespaceComp := getNamespaceComponent(namespaceName)
-		createComponentFile(namespaceComp, folderName, fileName)
-		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
-		output.PrintCmdStatus(cmd, statusMsg)
+		if _, err := os.Stat(objFilePath); os.IsNotExist(err) {
+			namespaceComp := getNamespaceComponent(namespaceName)
+			createComponentFile(namespaceComp, folderName, fileName)
+			statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
+			output.PrintCmdStatus(cmd, statusMsg)
+		}
+
 	}
 
 }
