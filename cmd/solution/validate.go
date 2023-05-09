@@ -118,7 +118,6 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	}
 
 	// create a temporary solution archive
-	// solutionArchive := generateZipNoCmd(manifestPath)
 	solutionArchive := generateZip(cmd, manifestPath)
 	solutionArchivePath = solutionArchive.Name()
 
@@ -160,7 +159,6 @@ func validateSolution(cmd *cobra.Command, args []string) {
 
 	if res.Valid {
 		message = fmt.Sprintf("Solution %s version %s and tag %s was successfully validated.\n", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
-		//message = fmt.Sprintf("Solution bundle %s validated successfully.\n", solutionArchivePath)
 	} else {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}

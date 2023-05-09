@@ -45,7 +45,8 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 	archiveFileTemplate := fmt.Sprintf("%s*.zip", solutionName)
 
 	archive, err := os.CreateTemp("", archiveFileTemplate)
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip at %s \n", archive.Name()))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip (%q)\n", archive.Name()))
+	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	if err != nil {
 		log.Fatalf("failed to create file: %s", archive.Name())
 		panic(err)
@@ -85,7 +86,8 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
 		log.Fatalf("Error traversing the folder: %v", err)
 	}
 	zipWriter.Close()
-	log.Infof("Created a temporary zip file: %s", archive.Name())
+	log.WithField("path", archive.Name()).Info("Created a temporary solution bundle file")
+
 	return archive
 }
 
