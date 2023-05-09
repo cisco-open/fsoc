@@ -23,9 +23,10 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/spf13/cobra"
+
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
-	"github.com/spf13/cobra"
 )
 
 var solutionTestCmd = &cobra.Command{
