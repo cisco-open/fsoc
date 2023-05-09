@@ -126,7 +126,7 @@ func getEcpName(entity *FmmEntity) *DashuiTemplate {
 func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
 
 	ecpLeftBar := &DashuiWidget{
-		InstanceOf: "leftBar",
+		InstanceOf: "leftbar",
 	}
 
 	ecpRelationshipMap := &DashuiTemplate{
@@ -263,7 +263,10 @@ func getEcpDetailsInspector(entity *FmmEntity) *DashuiTemplate {
 func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
 	grid := NewDashuiGrid()
 	grid.Mode = "server"
+
 	columns := make([]*DashuiGridColumn, 0)
+
+	instanceOf := map[string]interface{}{"name": "health"}
 
 	healthColumn := &DashuiGridColumn{
 		Label: "Health",
@@ -271,10 +274,11 @@ func getDashuiGridTable(entity *FmmEntity) *DashuiTemplate {
 		Width: 80,
 		Cell: &DashuiGridCell{
 			Default: &DashuiWidget{
-				InstanceOf: "health",
+				InstanceOf: instanceOf,
 			},
 		},
 	}
+
 	columns = append(columns, healthColumn)
 
 	attrCount := 0
@@ -442,9 +446,8 @@ func NewDashuiClickable() *DashuiClickable {
 
 func NewDashuiTooltip(attributeName string, isClickable bool) *DashuiTooltip {
 	toolTipObj := &DashuiTooltip{
-		DashuiLabel: &DashuiLabel{
+		DashuiWidget: &DashuiWidget{
 			InstanceOf: "tooltip",
-			Path:       fmt.Sprintf("attributes(%s)", attributeName),
 		},
 		Truncate: true,
 	}
@@ -462,6 +465,11 @@ func NewDashuiTooltip(attributeName string, isClickable bool) *DashuiTooltip {
 		}
 
 		toolTipObj.Trigger = clickable
+	} else {
+		toolTipObj.Trigger = &DashuiLabel{
+			InstanceOf: "string",
+			Path:       []string{fmt.Sprintf("attributes(%s)", attributeName)},
+		}
 	}
 
 	return toolTipObj
@@ -488,6 +496,14 @@ func NewDashuiGrid() *DashuiGrid {
 			InstanceOf: "grid",
 		},
 	}
+	rowSets := map[string]interface{}{
+		"default": map[string]interface{}{
+			"keyPath": "id",
+		},
+	}
+
+	grid.RowSets = rowSets
+
 	return grid
 }
 
