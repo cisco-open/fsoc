@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/apex/log v1.9.0
+	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/google/uuid v1.3.0
@@ -30,7 +31,6 @@ require (
 
 require (
 	github.com/aymanbagabas/go-osc52 v1.2.2 // indirect
-	github.com/blues/jsonata-go v1.5.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
