@@ -131,7 +131,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	solutionBundleAlreadyZipped = strings.HasSuffix(solutionArchivePath, ".zip")
 
 	if !solutionBundleAlreadyZipped {
-		solutionArchive := generateZip(cmd, manifestPath)
+		solutionArchive := generateZip(cmd, manifestPath, "")
 		solutionArchivePath = solutionArchive.Name()
 	} else {
 		message = fmt.Sprintf("Validating already zipped solution with tag %s", solutionTagFlag)

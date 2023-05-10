@@ -30,21 +30,72 @@ import (
 )
 
 var solutionPackageCmd = &cobra.Command{
-	Use:        "package",
-	Deprecated: `please use "push" or "validate" directly.`,
+	Use:   "package",
+	Short: "Package solution folder into .zip file",
+	Long:  `This command allows the user to turn their solution folder into a zip file from the command line directly`,
+	Example: `  fsoc solution package --bundle-path <path/to/solution/root/folder>
+  fsoc solution package --bundle-path <path/to/solution/root/folder> --output-directory <path/to/directory/where/zip/should/exist>`,
+	Run: packageSolution,
 }
 
 func getSolutionPackageCmd() *cobra.Command {
+
+	solutionPackageCmd.Flags().
+		String("bundle-path", "", "fully qualified path name for the solution root folder")
+
+	_ = solutionPackageCmd.MarkFlagRequired("bundle-path")
+
+	solutionPackageCmd.Flags().
+		String("output-directory", "", "fully qualified path name to directory where you want the packaged solution to exist after creation.  If this isn't specified, the solution zip will be created and stored in a temp directory (the path to which will be specified in the output of the command)")
+
 	return solutionPackageCmd
+}
+
+func packageSolution(cmd *cobra.Command, args []string) {
+	solutionPackagePath, _ := cmd.Flags().GetString("bundle-path")
+	outputDirectoryPath, _ := cmd.Flags().GetString("output-directory")
+
+	if solutionPackagePath == "" {
+		log.Fatal("bundle-path cannot be empty, use --bundle-path=<solution-root-folder-file-path>")
+	}
+	if !isSolutionPackageRoot(solutionPackagePath) {
+		log.Fatal("bundle-path path doesn't point to a solution root folder")
+	}
+	manifest, err := getSolutionManifest(solutionPackagePath)
+	if err != nil {
+		log.Fatalf("Failed to read solution manifest: %v", err)
+	}
+
+	var message string
+	message = fmt.Sprintf("Generating solution %s - %s bundle archive \n", manifest.Name, manifest.SolutionVersion)
+	log.WithFields(log.Fields{
+		"bundle-path": solutionPackagePath,
+	}).Info(message)
+
+	output.PrintCmdStatus(cmd, message)
+	solutionArchive := generateZip(cmd, solutionPackagePath, outputDirectoryPath)
+	solutionArchive.Close()
+
+	message = fmt.Sprintf("Solution %s - %s bundle is ready. \n", manifest.Name, manifest.SolutionVersion)
+	output.PrintCmdStatus(cmd, message)
 }
 
 // Helper functions for managing solution directory and zip bundle
 
-func generateZip(cmd *cobra.Command, sltnPackagePath string) *os.File {
+func generateZip(cmd *cobra.Command, sltnPackagePath string, outputDirectoryPath string) *os.File {
+	var archive *os.File
+	var err error
+	var archiveFileTemplate string
 	solutionName := filepath.Base(sltnPackagePath)
-	archiveFileTemplate := fmt.Sprintf("%s*.zip", solutionName)
 
-	archive, err := os.CreateTemp("", archiveFileTemplate)
+	if outputDirectoryPath != "" {
+		archiveFileTemplate = fmt.Sprintf("%s.zip", solutionName)
+		archive, err = os.Create(archiveFileTemplate)
+	} else {
+		archiveFileTemplate = fmt.Sprintf("%s*.zip", solutionName)
+		archive, err = os.CreateTemp("", archiveFileTemplate)
+	}
+
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip (%q)\n", archive.Name()))
 	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	if err != nil {
