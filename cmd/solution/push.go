@@ -21,7 +21,6 @@ import (
 	"mime/multipart"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -69,7 +68,7 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("bundle-path", "", "fully qualified path name for the solution bundle .zip file")
+		String("bundle-path", "", "fully qualified path name for the solution bundle (can be .zip or a folder)")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "bump")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
@@ -125,14 +124,14 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	} else {
 		manifestPath = solutionBundlePath
 		solutionArchivePath = manifestPath
-		message = fmt.Sprintf("Deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
+		message = fmt.Sprintf("Zipping and deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
 	}
 
 	solutionBundleAlreadyZipped = strings.HasSuffix(solutionArchivePath, ".zip")
 
 	if !solutionBundleAlreadyZipped {
 		solutionArchive := generateZip(cmd, manifestPath)
-		solutionArchivePath = filepath.Base(solutionArchive.Name())
+		solutionArchivePath = solutionArchive.Name()
 	} else {
 		message = fmt.Sprintf("Deploying already zipped solution with tag %s", solutionTagFlag)
 	}
@@ -212,7 +211,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(" Done")
 	}
-	message = fmt.Sprintf("Solution was successfully deployed.\n")
+	message = fmt.Sprintf("Solution with tag %s was successfully deployed.\n", solutionTagFlag)
 	output.PrintCmdStatus(cmd, message)
 }
 

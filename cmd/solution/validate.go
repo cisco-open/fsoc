@@ -20,6 +20,7 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -71,9 +72,8 @@ func getSolutionValidateCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
-		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+		String("bundle-path", "", "fully qualified path name for the solution bundle (can be .zip or a folder)")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("bundle-path", "bump")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionValidateCmd
@@ -82,46 +82,62 @@ func getSolutionValidateCmd() *cobra.Command {
 func validateSolution(cmd *cobra.Command, args []string) {
 	var manifestPath string
 	var solutionArchivePath string
-	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	solutionBundlePath, _ := cmd.Flags().GetString("bundle-path")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
+	var solutionBundleAlreadyZipped bool
+	var message string
+	var solutionName string
+	var solutionVersion string
 
 	if pushWithStableTag {
 		solutionTagFlag = "stable"
 	}
 
-	if solutionBundlePath != "" {
-		log.Fatalf("The --solution-bundle flag is no longer available; please use direct validate instead.")
-	}
-
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	manifestPath = currentDir
-	if !isSolutionPackageRoot(manifestPath) {
-		log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
-	}
-	manifest, err := getSolutionManifest(manifestPath)
-	if err != nil {
-		log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-	}
-	if bumpFlag {
-		if err := bumpManifestPatchVersion(manifest); err != nil {
+	if solutionBundlePath == "" {
+		currentDir, err := os.Getwd()
+		if err != nil {
 			log.Fatal(err.Error())
 		}
-		if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-			log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+		manifestPath = currentDir
+		if !isSolutionPackageRoot(manifestPath) {
+			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
 		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+
+		manifest, err := getSolutionManifest(manifestPath)
+		if err != nil {
+			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+		}
+
+		if bumpFlag {
+			if err := bumpManifestPatchVersion(manifest); err != nil {
+				log.Fatal(err.Error())
+			}
+			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+			}
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+		}
+		solutionName = manifest.Name
+		solutionVersion = manifest.SolutionVersion
+		message = fmt.Sprintf("Validating solution with name %s and version %s and tag %s", solutionName, solutionVersion, solutionTagFlag)
+	} else {
+		manifestPath = solutionBundlePath
+		solutionArchivePath = manifestPath
+		message = fmt.Sprintf("Zipping and validating solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
 	}
 
-	// create a temporary solution archive
-	solutionArchive := generateZip(cmd, manifestPath)
-	solutionArchivePath = solutionArchive.Name()
+	solutionBundleAlreadyZipped = strings.HasSuffix(solutionArchivePath, ".zip")
 
-	var message string
+	if !solutionBundleAlreadyZipped {
+		solutionArchive := generateZip(cmd, manifestPath)
+		solutionArchivePath = solutionArchive.Name()
+	} else {
+		message = fmt.Sprintf("Validating already zipped solution with tag %s", solutionTagFlag)
+	}
+
+	log.Infof(message)
 	file, err := os.Open(solutionArchivePath)
 	if err != nil {
 		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
@@ -158,7 +174,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 	}
 
 	if res.Valid {
-		message = fmt.Sprintf("Solution %s version %s and tag %s was successfully validated.\n", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
+		message = fmt.Sprintf("Solution bundle with path %s and tag %s was successfully validated.\n", solutionArchivePath, solutionTagFlag)
 	} else {
 		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
 	}
