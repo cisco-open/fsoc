@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/apex/log v1.9.0
+	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/google/uuid v1.3.0
