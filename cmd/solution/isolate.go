@@ -41,49 +41,41 @@ const (
 )
 
 var jsonataFunctions = `
-	$toSuffix := function($val) {
-		$exists($val) and $val != "" and $val != 'null' and $val != "stable" ? $string($val) : ""
+$toSuffix := function($val) {
+	$exists($val) and $val != "" and $val != 'null' and $val != "stable" ? $string($val) : ""
 	};
-
-	$isTagStable := function() {
-		env.tag = "stable"
-	};
-
+	
 	$dependency := function($name) {
 		$name & $toSuffix($string($lookup(env.dependencyTags, $name)))
-    };
-`
+		};
+	`
+
+var rgxp *regexp.Regexp // TODO: consider removing the global var
 
 var solutionIsolateCmd = &cobra.Command{
-	Use:   "isolate --source-dir  [--target-dir  or --target-file] --env-file",
-	Args:  cobra.MaximumNArgs(3),
-	Short: "Creates a solution isolate the source dir to target dir by replacing expression in the artifacts with values in <env-file>",
+	Use:   "isolate [--source-dir=<solution-dir>]  (--target-dir=<target-dir>|--target-file=<target-file>] [--env-file=<env-file>]",
+	Args:  cobra.NoArgs,
+	Short: "Creates an isolated solution copy using values in an environment file",
 	Long:  `This command creates a solution isolate from the <source-dir> folder to <target-dir> folder by replacing expressions in the solution artifacts with the values in the <env-file> file`,
 	Example: `  
-    fsoc solution --source-dir=mysolution --target-dir=mysolution-isolated --env-file=env.json
-    fsoc solution --target-file=../mysolution-release.zip --tag=stable
-    fsoc solution --target-dir=../mysolution-isolated --env-file=env.json 
+  fsoc solution --target-dir=../mysolution-joe  # tags come from joe's work directory's private copy of ./env.json
+  fsoc solution --target-file=../mysolution-release.zip --tag=stable
+  fsoc solution --source-dir=mysolution --target-dir=mysolution-staging --env-file=staging-env.json
 	`,
 	Run: solutionIsolateCommand,
-	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(args) >= 1 {
-			return nil, cobra.ShellCompDirectiveDefault
-		} else {
-			return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
-		}
-	},
 }
 
-var rgxp *regexp.Regexp
-
 func getsolutionIsolateCmd() *cobra.Command {
-	log.SetLevel(log.DebugLevel)
-	solutionIsolateCmd.Flags().String("source-dir", "", "path to the source folder")
-	solutionIsolateCmd.Flags().String("target-dir", "", "path to the target folder")
-	solutionIsolateCmd.Flags().String("target-file", "", "path to the target zip file")
-	solutionIsolateCmd.Flags().String("tag", "", "tag for the solution")
-	solutionIsolateCmd.Flags().String("env-file", "", "path to the env vars json file")
-	return solutionIsolateCmd
+	c := solutionIsolateCmd
+	c.Flags().String("source-dir", ".", "path to the source folder")
+	c.Flags().String("target-dir", "", "path to the target folder")
+	c.Flags().String("target-file", "", "path to the target zip file")
+	c.Flags().String("tag", "", "tag for the solution")
+	c.Flags().String("env-file", "./env.json", "path to the env vars json file")
+
+	c.MarkFlagsMutuallyExclusive("tag", "env-file")
+	c.MarkFlagsMutuallyExclusive("target-file", "target-dir")
+	return c
 }
 
 func solutionIsolateCommand(cmd *cobra.Command, args []string) {
@@ -92,21 +84,12 @@ func solutionIsolateCommand(cmd *cobra.Command, args []string) {
 	targetFile, _ := cmd.Flags().GetString("target-file")
 	tag, _ := cmd.Flags().GetString("tag")
 	envVarsFile, _ := cmd.Flags().GetString("env-file")
-	if srcFolder == "" {
-		srcFolder = "./"
+	if tag != "" {
+		envVarsFile = "" // remove default when tag is specified
 	}
-	if tag == "" && envVarsFile == "" {
-		envVarsFile = "./env.json"
-	}
-	if srcFolder == "" || (targetFolder == "" && targetFile == "") ||
-		(envVarsFile == "" && tag == "") {
-		log.Fatalf("<source-dir>, <target-dir>|<target-file> and <tag>|<env-file> cannot be empty")
-	}
-	if targetFolder != "" && targetFile != "" {
-		log.Fatalf("cannot specify both <target-dir> and <target-file>")
-	}
-	if tag != "" && envVarsFile != "" {
-		log.Fatalf("cannot specify both <tag> and <env-file>")
+	if targetFolder == "" && targetFile == "" {
+		_ = cmd.Usage()
+		log.Fatal("Either <target-dir> or <target-file> must be specified.")
 	}
 
 	err := isolateSolution(cmd, srcFolder, targetFolder, targetFile, tag, envVarsFile)
@@ -116,35 +99,31 @@ func solutionIsolateCommand(cmd *cobra.Command, args []string) {
 
 	message := fmt.Sprintf("Successfully created solution isolate from %s to %s .\r\n", srcFolder, targetFolder+targetFile)
 	output.PrintCmdStatus(cmd, message)
-
 }
 
 func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, tag, envVarsFile string) error {
-	var rgxPError error
-	rgxp, rgxPError = regexp.Compile(regexPattern)
-	if rgxPError != nil {
-		return fmt.Errorf("Error compiling regex expression %v", rgxPError)
-	}
-	currentDirectory, err := filepath.Abs(".")
+	var err error
+	rgxp, err = regexp.Compile(regexPattern)
 	if err != nil {
-		return fmt.Errorf("Error getting current directory: %v", currentDirectory)
+		return fmt.Errorf("(likely bug) Error compiling regex /%v/: %w", regexPattern, err)
 	}
 	srcPath, err := filepath.Abs(srcFolder)
 	if err != nil {
-		return fmt.Errorf("Error getting src folder %s , error - %v", srcPath, err)
+		return fmt.Errorf("Error getting src folder %q: %w", srcFolder, err)
 	}
 
+	// parse env vars
 	envVars, err := loadEnvVars(cmd, tag, envVarsFile)
 	if err != nil {
 		return err
 	}
-	// parse env vars
-	log.Infof("Parsed env vars %v", envVars)
+	log.WithField("env_vars", envVars).Info("Parsed env vars")
 
 	var targetPath string
-	// if a file is specified generate files in a temp directory
+	// use temp directory if a target is specified as a file
 	if targetFile != "" {
 		zipFileName := filepath.Base(targetFile)
+		//TODO: use path parsing to ensure it works even if the zip file extension is not part of the filename
 		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
 		tempDir, err := os.MkdirTemp("", "temp")
 		if err != nil {
@@ -287,6 +266,7 @@ func traverseSolutionFolder(dirPath string, mf *Manifest, srcPath, targetPath st
 }
 
 func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, error) {
+	// create ad-hoc env vars if the tag flag is specified (instead of an env json file)
 	if tag != "" {
 		envVars := map[string]interface{}{
 			"env": map[string]interface{}{
@@ -295,26 +275,28 @@ func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 		}
 		return envVars, nil
 	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Loading env vars from %s \n", envVarsFile))
+
+	// parse the env vars file
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Loading env vars from %q \n", envVarsFile))
 	absPath, err := filepath.Abs(envVarsFile)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting envvars absolute path %s , error - %v", absPath, err)
+		return nil, fmt.Errorf("Failed to get the absolute path for the env vars file %q: %w", envVarsFile, err)
 	}
 	fs := afero.NewBasePathFs(afero.NewOsFs(), absPath)
 	envVarsContent, err := afero.ReadFile(fs, ".")
 	if err != nil {
-		return nil, fmt.Errorf("error reading env vars file %v", err)
+		return nil, fmt.Errorf("Failed to read the env vars file: %w", err)
 	}
 	var envVars interface{}
 	err = json.Unmarshal(envVarsContent, &envVars)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse env vars file: %v", err)
+		return nil, fmt.Errorf("Failed to parse env vars file: %w", err)
 	}
 	return envVars, nil
 }
 
 func evalAndCopyFile(fileName, srcPath, targetPath string, envVars interface{}) error {
-	log.Debugf("copying file %s from %v to %v", fileName, srcPath, targetPath)
+	log.Debugf("copying file %v from %v to %v", fileName, srcPath, targetPath)
 	srcFs := afero.NewBasePathFs(afero.NewOsFs(), srcPath)
 	targetFs := afero.NewBasePathFs(afero.NewOsFs(), targetPath)
 	targetDirPath := filepath.Dir(fileName)
