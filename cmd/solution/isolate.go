@@ -45,10 +45,10 @@ $toSuffix := function($val) {
 	$exists($val) and $val != "" and $val != 'null' and $val != "stable" ? $string($val) : ""
 	};
 	
-	$dependency := function($name) {
-		$name & $toSuffix($string($lookup(env.dependencyTags, $name)))
-		};
-	`
+$dependency := function($name) {
+	$name & $toSuffix($string($lookup(env.dependencyTags, $name)))
+	};
+`
 
 var rgxp *regexp.Regexp // TODO: consider removing the global var
 
@@ -56,7 +56,7 @@ var solutionIsolateCmd = &cobra.Command{
 	Use:   "isolate [--source-dir=<solution-dir>]  (--target-dir=<target-dir>|--target-file=<target-file>] [--env-file=<env-file>]",
 	Args:  cobra.NoArgs,
 	Short: "Creates an isolated solution copy using values in an environment file",
-	Long:  `This command creates a solution isolate from the <source-dir> folder to <target-dir> folder by replacing expressions in the solution artifacts with the values in the <env-file> file`,
+	Long:  `This command creates a solution isolate from the <source-dir> directory to <target-dir> directory by replacing expressions in the solution artifacts with the values in the <env-file> file`,
 	Example: `  
   fsoc solution --target-dir=../mysolution-joe  # tags come from joe's work directory's private copy of ./env.json
   fsoc solution --target-file=../mysolution-release.zip --tag=stable
@@ -67,8 +67,8 @@ var solutionIsolateCmd = &cobra.Command{
 
 func getsolutionIsolateCmd() *cobra.Command {
 	c := solutionIsolateCmd
-	c.Flags().String("source-dir", ".", "path to the source folder")
-	c.Flags().String("target-dir", "", "path to the target folder")
+	c.Flags().String("source-dir", ".", "path to the source directory")
+	c.Flags().String("target-dir", "", "path to the target directory")
 	c.Flags().String("target-file", "", "path to the target zip file")
 	c.Flags().String("tag", "", "tag for the solution")
 	c.Flags().String("env-file", "./env.json", "path to the env vars json file")
@@ -92,30 +92,30 @@ func solutionIsolateCommand(cmd *cobra.Command, args []string) {
 		log.Fatal("Either <target-dir> or <target-file> must be specified.")
 	}
 
-	err := isolateSolution(cmd, srcFolder, targetFolder, targetFile, tag, envVarsFile)
+	solutionName, err := isolateSolution(cmd, srcFolder, targetFolder, targetFile, tag, envVarsFile)
 	if err != nil {
 		log.Fatalf("Failed to isolate solution: %v", err)
 	}
 
-	message := fmt.Sprintf("Successfully created solution isolate from %s to %s .\r\n", srcFolder, targetFolder+targetFile)
+	message := fmt.Sprintf("Successfully created isolated solution %s from %s to %s\n", solutionName, srcFolder, targetFolder+targetFile)
 	output.PrintCmdStatus(cmd, message)
 }
 
-func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, tag, envVarsFile string) error {
+func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, tag, envVarsFile string) (string, error) {
 	var err error
 	rgxp, err = regexp.Compile(regexPattern)
 	if err != nil {
-		return fmt.Errorf("(likely bug) Error compiling regex /%v/: %w", regexPattern, err)
+		return "", fmt.Errorf("(likely bug) Error compiling regex /%v/: %w", regexPattern, err)
 	}
 	srcPath, err := filepath.Abs(srcFolder)
 	if err != nil {
-		return fmt.Errorf("Error getting src folder %q: %w", srcFolder, err)
+		return "", fmt.Errorf("Error getting source directory %q: %w", srcFolder, err)
 	}
 
 	// parse env vars
 	envVars, err := loadEnvVars(cmd, tag, envVarsFile)
 	if err != nil {
-		return err
+		return "", err
 	}
 	log.WithField("env_vars", envVars).Info("Parsed env vars")
 
@@ -126,30 +126,30 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 		// e.g., for /home/joe/spacefleet4.zip create /tmp/fsocXXXXX/spacefleet4/
 		tempDirRoot, err := os.MkdirTemp("", "fsoc")
 		if err != nil {
-			return fmt.Errorf("Error creating temporary folder %v", err)
+			return "", fmt.Errorf("Failed to create a temporary directory: %v", err)
 		}
 		defer os.RemoveAll(tempDirRoot)
 		zipFileName := filepath.Base(targetFile)
 		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
 		tempDir := filepath.Join(tempDirRoot, dirName)
 		if targetPath, err = filepath.Abs(tempDir); err != nil {
-			return fmt.Errorf("Error getting absolute folder path %v", err)
+			return "", fmt.Errorf("Error getting absolute folder path %v", err)
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Assembling solution in temp target directory %q\n", targetPath))
 	} else {
 		targetPath, err = filepath.Abs(targetFolder)
 		if err != nil {
-			return fmt.Errorf("Error getting target folder %v", err)
+			return "", fmt.Errorf("Error getting target directory %v", err)
 		}
 	}
 
 	if err = prepareForIsolation(srcPath, targetPath, targetFile, envVars); err != nil {
-		return err
+		return "", err
 	}
 
 	mf, err := isolateManifest(cmd, srcPath, targetPath, envVars)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// merge some values from manifest into env vars
@@ -157,27 +157,30 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 
 	// isolate file
 	if err = isolateFiles(mf, srcPath, targetPath, targetFile, envVars); err != nil {
-		return err
+		return "", err
 	}
 
 	// create zip if requested
 	if targetFile != "" {
 		zipFile := generateZip(cmd, targetPath)
 		err = os.Rename(zipFile.Name(), targetFile)
+		if err != nil {
+			return "", fmt.Errorf("Failed to rename temp file %q to final file %q: %w", zipFile.Name(), targetFile, err)
+		}
 	}
 
-	return err
+	return mf.Name, nil
 }
 
 func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interface{}) error {
 	srcFs := afero.NewBasePathFs(afero.NewOsFs(), srcPath)
 	if exists, _ := afero.DirExists(srcFs, "."); !exists {
-		return fmt.Errorf("Src folder %s does not exist", srcPath)
+		return fmt.Errorf("Source directory %q does not exist", srcPath)
 	}
 	targetFs := afero.NewBasePathFs(afero.NewOsFs(), targetPath)
 	if exists, _ := afero.DirExists(targetFs, "."); exists {
 		if empty, _ := afero.IsEmpty(targetFs, "."); !empty {
-			return fmt.Errorf("Target folder %s is not empty", targetPath)
+			return fmt.Errorf("Target directory %q is not empty", targetPath)
 		}
 	}
 
@@ -185,16 +188,16 @@ func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interfa
 		targetFileDir := filepath.Dir(targetFile)
 		targetFileFs := afero.NewBasePathFs(afero.NewOsFs(), targetFileDir)
 		if exists, _ := afero.DirExists(targetFileFs, "."); !exists {
-			return fmt.Errorf("Target file path %s does not exist", targetFileDir)
+			return fmt.Errorf("Target file path %q does not exist", targetFileDir)
 		}
 		if !strings.HasSuffix(targetFile, ".zip") {
-			return fmt.Errorf("Target file must be .zip")
+			return fmt.Errorf(`Target file %q must have a ".zip" extension`, targetFile)
 		}
 	}
 
 	err := targetFs.MkdirAll("", 0777)
 	if err != nil {
-		return fmt.Errorf("Failed to create target folder %v", err)
+		return fmt.Errorf("Failed to create target directory %q: %v", targetPath, err)
 	}
 
 	return nil
@@ -253,7 +256,7 @@ func isolateFiles(mf *Manifest, srcPath, targetPath, targetFile string, envVars 
 }
 
 func traverseSolutionFolder(dirPath string, mf *Manifest, srcPath, targetPath string, envVars interface{}) error {
-	log.Debugf("Traversing folder %s !", dirPath)
+	log.WithField("path", dirPath).Debug("Traversing directory")
 	err := filepath.Walk(dirPath,
 		func(path string, info os.FileInfo, err error) error {
 			// log.Infof("subfolder %v, err: %v", info, err)
@@ -279,7 +282,7 @@ func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 	}
 
 	// parse the env vars file
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Reading env vars from %q \n", envVarsFile))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Reading env vars from %q\n", envVarsFile))
 	absPath, err := filepath.Abs(envVarsFile)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the absolute path for the env vars file %q: %w", envVarsFile, err)
