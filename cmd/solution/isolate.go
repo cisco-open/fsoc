@@ -173,7 +173,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 
 	// create zip if requested
 	if targetFile != "" {
-		zipFile := generateZip(cmd, targetPath)
+		zipFile := generateZip(cmd, targetPath, "")
 		err = os.Rename(zipFile.Name(), targetFile)
 		if err != nil {
 			return "", fmt.Errorf("Failed to rename temp file %q to final file %q: %w", zipFile.Name(), targetFile, err)
