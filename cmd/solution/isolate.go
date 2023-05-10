@@ -122,19 +122,20 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 	var targetPath string
 	// use temp directory if a target is specified as a file
 	if targetFile != "" {
-		zipFileName := filepath.Base(targetFile)
-		//TODO: use path parsing to ensure it works even if the zip file extension is not part of the filename
-		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
-		tempDir, err := os.MkdirTemp("", "temp")
+		// create root directory for archiving, using the base name of the archive file
+		// e.g., for /home/joe/spacefleet4.zip create /tmp/fsocXXXXX/spacefleet4/
+		tempDirRoot, err := os.MkdirTemp("", "fsoc")
 		if err != nil {
 			return fmt.Errorf("Error creating temporary folder %v", err)
 		}
-		tempDir = filepath.Join(tempDir, dirName)
-		defer os.RemoveAll(tempDir)
+		defer os.RemoveAll(tempDirRoot)
+		zipFileName := filepath.Base(targetFile)
+		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
+		tempDir := filepath.Join(tempDirRoot, dirName)
 		if targetPath, err = filepath.Abs(tempDir); err != nil {
 			return fmt.Errorf("Error getting absolute folder path %v", err)
 		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("target path is %s\n", targetPath))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Assembling solution in temp target directory %q\n", targetPath))
 	} else {
 		targetPath, err = filepath.Abs(targetFolder)
 		if err != nil {
@@ -150,6 +151,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 	if err != nil {
 		return err
 	}
+
 	// merge some values from manifest into env vars
 	envVars = addSysVariables(mf, envVars)
 
@@ -277,7 +279,7 @@ func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 	}
 
 	// parse the env vars file
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Loading env vars from %q \n", envVarsFile))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Reading env vars from %q \n", envVarsFile))
 	absPath, err := filepath.Abs(envVarsFile)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the absolute path for the env vars file %q: %w", envVarsFile, err)
