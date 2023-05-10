@@ -109,7 +109,7 @@ func solutionIsolateCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("cannot specify both <tag> and <env-file>")
 	}
 
-	err := isolateSoluton(cmd, srcFolder, targetFolder, targetFile, tag, envVarsFile)
+	err := isolateSolution(cmd, srcFolder, targetFolder, targetFile, tag, envVarsFile)
 	if err != nil {
 		log.Fatalf("Failed to isolate solution: %v", err)
 	}
@@ -119,9 +119,8 @@ func solutionIsolateCommand(cmd *cobra.Command, args []string) {
 
 }
 
-var rgxPError error
-
-func isolateSoluton(cmd *cobra.Command, srcFolder, targetFolder, targetFile, tag, envVarsFile string) error {
+func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, tag, envVarsFile string) error {
+	var rgxPError error
 	rgxp, rgxPError = regexp.Compile(regexPattern)
 	if rgxPError != nil {
 		return fmt.Errorf("Error compiling regex expression %v", rgxPError)
