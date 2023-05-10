@@ -53,14 +53,25 @@ $dependency := function($name) {
 var rgxp *regexp.Regexp // TODO: consider removing the global var
 
 var solutionIsolateCmd = &cobra.Command{
-	Use:   "isolate [--source-dir=<solution-dir>]  (--target-dir=<target-dir>|--target-file=<target-file>] [--env-file=<env-file>]",
-	Args:  cobra.NoArgs,
-	Short: "Creates an isolated solution copy using values in an environment file",
-	Long:  `This command creates a solution isolate from the <source-dir> directory to <target-dir> directory by replacing expressions in the solution artifacts with the values in the <env-file> file`,
+	Use:    "isolate [--source-dir=<solution-dir>]  (--target-dir=<target-dir>|--target-file=<target-file>) [--env-file=<env-file>|--tag=<tag>]",
+	Hidden: true,
+	Args:   cobra.NoArgs,
+	Short:  "Creates an isolated solution copy using values in an environment file",
+	Long: `EXPERIMENTAL! 
+This command creates an isolated solution using a tag specified in the env file (or --tag flag), starting from a solution directory with templated manifest and objects.
+The command produces a solution whose name has the tag as a suffix (e.g., solution "spacefleet" with tag "dev" becomes "spacefleetdev"), allowing multiple copies of the same solution with different tags to coexist in the same environment. The env file may contain additional variables, including tags to use for dependent solutions.
+Note that when the --tag flag is used, the env.json file is ignored and no dependency tags are defined (this is intended to work best with --tag=stable).
+
+The command takes the solution from current directory (or --source-dir) and produces the isolated version either in a directory (if --target-dir is specified) or in a solution zip file (if --target-file is specified).
+
+Note that this command is experimental at this time and it may change or be removed.
+
+See documentation for manifest syntax and examples (link to be added here).
+`,
 	Example: `  
-  fsoc solution --target-dir=../mysolution-joe  # tags come from joe's work directory's private copy of ./env.json
-  fsoc solution --target-file=../mysolution-release.zip --tag=stable
-  fsoc solution --source-dir=mysolution --target-dir=mysolution-staging --env-file=staging-env.json
+  fsoc solution isolate --target-dir=../mysolution-joe  # tags come from the current directory's private copy of ./env.json
+  fsoc solution isolate --target-file=../mysolution-release.zip --tag=stable
+  fsoc solution isolate --source-dir=mysolution --target-dir=mysolution-staging --env-file=staging-env.json
 	`,
 	Run: solutionIsolateCommand,
 }
