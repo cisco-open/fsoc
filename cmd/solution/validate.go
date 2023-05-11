@@ -72,8 +72,15 @@ func getSolutionValidateCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
-		String("bundle-path", "", "fully qualified path name for the solution bundle (can be .zip or a folder)")
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("bundle-path", "bump")
+		String("directory", "", "fully qualified path name for the solution bundle that you want to validate (assumes that the solution folder has not been zipped yet)")
+
+	solutionValidateCmd.Flags().
+		String("solution-bundle", "", "fully qualified path name for the solution bundle (assumes that the solution folder has already been zipped)")
+
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("directory", "bump")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionValidateCmd
@@ -82,7 +89,8 @@ func getSolutionValidateCmd() *cobra.Command {
 func validateSolution(cmd *cobra.Command, args []string) {
 	var manifestPath string
 	var solutionArchivePath string
-	solutionBundlePath, _ := cmd.Flags().GetString("bundle-path")
+	solutionDirectoryRootPath, _ := cmd.Flags().GetString("directory")
+	zippedSolutionPath, _ := cmd.Flags().GetString("solution-bundle")
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
@@ -95,7 +103,7 @@ func validateSolution(cmd *cobra.Command, args []string) {
 		solutionTagFlag = "stable"
 	}
 
-	if solutionBundlePath == "" {
+	if solutionDirectoryRootPath == "" && zippedSolutionPath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
 			log.Fatal(err.Error())
@@ -123,7 +131,11 @@ func validateSolution(cmd *cobra.Command, args []string) {
 		solutionVersion = manifest.SolutionVersion
 		message = fmt.Sprintf("Validating solution with name %s and version %s and tag %s", solutionName, solutionVersion, solutionTagFlag)
 	} else {
-		manifestPath = solutionBundlePath
+		if solutionDirectoryRootPath == "" {
+			manifestPath = zippedSolutionPath
+		} else {
+			manifestPath = solutionDirectoryRootPath
+		}
 		solutionArchivePath = manifestPath
 		message = fmt.Sprintf("Zipping and validating solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
 	}

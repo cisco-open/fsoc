@@ -68,9 +68,16 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("bundle-path", "", "fully qualified path name for the solution bundle (can be .zip or a folder)")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "wait")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("bundle-path", "bump")
+		String("directory", "", "fully qualified path name for the solution root folder")
+
+	solutionPushCmd.Flags().
+		String("solution-bundle", "", "fully qualified path name for solution bundle (this argument expects that the solution is already packaged into a zip file)")
+
+	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "wait")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "bump")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionPushCmd
@@ -86,7 +93,8 @@ func pushSolution(cmd *cobra.Command, args []string) {
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
-	solutionBundlePath, _ := cmd.Flags().GetString("bundle-path")
+	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
 	var solutionArchivePath string
 	var solutionBundleAlreadyZipped bool
 
@@ -94,7 +102,7 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		solutionTagFlag = "stable"
 	}
 
-	if solutionBundlePath == "" {
+	if solutionRootDirectory == "" && solutionBundlePath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
 			log.Fatal(err.Error())
@@ -122,7 +130,11 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		solutionVersion = manifest.SolutionVersion
 		message = fmt.Sprintf("Deploying solution with name %s and version %s and tag %s", solutionName, solutionVersion, solutionTagFlag)
 	} else {
-		manifestPath = solutionBundlePath
+		if solutionRootDirectory == "" {
+			manifestPath = solutionBundlePath
+		} else {
+			manifestPath = solutionRootDirectory
+		}
 		solutionArchivePath = manifestPath
 		message = fmt.Sprintf("Zipping and deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
 	}
