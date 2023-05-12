@@ -34,8 +34,8 @@ var solutionPackageCmd = &cobra.Command{
 	Use:   "package",
 	Short: "Package a solution into a zip file",
 	Long:  `This command packages the solution directory into a zip file that's easy to push or archive`,
-	Example: `  fsoc solution package --solution-bundle <path/to/target/zipfile>
-  fsoc solution package -d <path/to/solution/root/dir> --solution-bundle <path/to/target/zipfile>`,
+	Example: `  fsoc solution package --solution-bundle=../mysolution.zip
+  fsoc solution package -d mysolution --solution-bundle=/somepath/mysolution-1234.zip`,
 	Run: packageSolution,
 }
 
@@ -112,7 +112,7 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 		fileInfo, err = os.Stat(outputPath)
 		if err == nil && fileInfo.IsDir() {
 			outputPath = filepath.Join(filepath.Dir(outputPath), solutionNameWithZipSuffix)
-		} else if !errors.Is(err, os.ErrNotExist) {
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.Fatalf("Failed to access target path %q: %v", outputPath, err)
 		} // else treat as file path, possibly overwriting existing file
 		archive, err = os.Create(outputPath)
@@ -120,12 +120,12 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 		archiveFileTemplate = fmt.Sprintf("%s*.zip", solutionName)
 		archive, err = os.CreateTemp("", archiveFileTemplate)
 	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip: %q\n", archive.Name()))
-	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	if err != nil {
 		log.Fatalf("failed to create file: %s", archive.Name())
 		panic(err)
 	}
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip: %q\n", archive.Name()))
+	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	defer archive.Close()
 	zipWriter := zip.NewWriter(archive)
 

@@ -41,7 +41,9 @@ var solutionValidateCmd = &cobra.Command{
 	Example: `  fsoc solution validate
   fsoc solution validate --bump --tag preprod
   fsoc solution validate --tag dev
-  fsoc solution validate --stable`,
+  fsoc solution validate --stable
+  fsoc solution validate -d mysolution --tag dev
+  fsoc solution validate --solution-bundle=mysolution-1.22.3.zip --tag stable`,
 	Run:              validateSolution,
 	TraverseChildren: true,
 }

@@ -35,7 +35,8 @@ Important details on solution tags:
   fsoc solution push --tag=stable
   fsoc solution push --wait --tag=dev
   fsoc solution push --bump --wait=60
-  fsoc solution push --stable --wait`,
+  fsoc solution push -d mysolution --stable --wait
+  fsoc solution push --solution-bundle=mysolution-1.22.3.zip --tag=stable`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
