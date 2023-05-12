@@ -101,7 +101,7 @@ install-tools:
 	${GO} install github.com/ory/go-acc@v0.2.8
 	${GO} install github.com/t-yuki/gocover-cobertura@v0.0.0-20180217150009-aaee18c8195c
 
-pre-commit: install-tools format go-impi lint vet tidy mod-update ## check all pre-req before committing
+pre-commit: install-tools format go-impi lint vet tidy mod-update dev-build dev-test ## check all pre-req before committing
 	@echo "pre commit checks completed"
 
 build: install-tools mod-update
