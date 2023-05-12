@@ -60,7 +60,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
-	var solutionArchivePath string
 
 	if pushWithStableTag {
 		solutionTagFlag = "stable"
@@ -69,6 +68,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	// prepare archive if needed
 	solutionAlreadyZipped = solutionBundlePath != ""
 	if solutionAlreadyZipped {
+		solutionBundlePath = absolutizePath(solutionBundlePath)
 		solutionFileName := filepath.Base(solutionBundlePath)
 		solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
 		solutionVersion = ""                                                                        // TODO: extract from archive
@@ -130,18 +130,18 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	// read zip file into a buffer
 	file, err := os.Open(solutionBundlePath)
 	if err != nil {
-		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
+		log.Fatalf("Failed to open file %q: %v", solutionBundlePath, err)
 	}
 	defer file.Close()
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	fw, err := writer.CreateFormFile("file", solutionArchivePath)
+	fw, err := writer.CreateFormFile("file", solutionBundlePath)
 	if err != nil {
 		log.Fatalf("Failed to create form file: %v", err)
 	}
 	_, err = io.Copy(fw, file)
 	if err != nil {
-		log.Fatalf("Failed to copy file %q into file writer: %v", solutionArchivePath, err)
+		log.Fatalf("Failed to copy file %q into file writer: %v", solutionBundlePath, err)
 	}
 	writer.Close()
 

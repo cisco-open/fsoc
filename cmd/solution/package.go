@@ -101,11 +101,7 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	// create zip file
 	if outputPath != "" {
 		// absolutize path
-		outputPath, err = filepath.Abs(outputPath)
-		if err != nil {
-			log.Fatalf("Failed to get absolute path for output file: %v", err)
-		}
-		outputPath = filepath.Clean(outputPath)
+		outputPath = absolutizePath(outputPath)
 
 		// if outputPath is an existing directory, place zip there; otherwise, treat as file path
 		var fileInfo os.FileInfo
@@ -119,9 +115,10 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	} else {
 		archiveFileTemplate = fmt.Sprintf("%s*.zip", solutionName)
 		archive, err = os.CreateTemp("", archiveFileTemplate)
+		outputPath = archive.Name()
 	}
 	if err != nil {
-		log.Fatalf("failed to create file: %s", archive.Name())
+		log.Fatalf("failed to create file %s: %v", outputPath, err)
 		panic(err)
 	}
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip: %q\n", archive.Name()))
@@ -130,11 +127,8 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	zipWriter := zip.NewWriter(archive)
 
 	// determine the solution directory's parent folder to start archiving from
-	solutionPath, err = filepath.Abs(solutionPath)
-	if err != nil {
-		log.Fatalf("Couldn't get absolute path to the solution: %v", err)
-	}
-	solutionParentPath := filepath.Dir(filepath.Clean(solutionPath))
+	solutionPath = absolutizePath(solutionPath)
+	solutionParentPath := filepath.Dir(solutionPath)
 
 	// switch cwd to the solution directory for archiving
 	fsocWorkingDir, err := os.Getwd()
@@ -253,4 +247,31 @@ func getSolutionManifest(path string) (*Manifest, error) {
 	}
 
 	return manifest, nil
+}
+
+// absolutizePath takes a path in any form (absolute, relative or home-dir-relative)
+// and converts it to an absolute path (which is also cleaned up/canonicalized).
+// Note that this works both for files and directories, including just "~"
+func absolutizePath(inputPath string) string {
+	path := inputPath // keep original value for error messages
+
+	// replace ~ with home directory, if needed
+	if strings.HasPrefix(path, "~") {
+		dirname, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Failed to get current directory to use for %q: %v", inputPath, err)
+		}
+		path = dirname + path[1:] // can't use Join because source may be just "~"
+	}
+
+	// convert to absolute path
+	path, err := filepath.Abs(path)
+	if err != nil {
+		log.Fatalf("Failed to get absolute path for %q: %v", inputPath, err)
+	}
+
+	// clean path
+	path = filepath.Clean(path)
+
+	return path
 }
