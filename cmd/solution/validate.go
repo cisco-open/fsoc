@@ -72,12 +72,11 @@ func getSolutionValidateCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
-		String("directory", "", "fully qualified path name for the solution bundle that you want to validate (assumes that the solution folder has not been zipped yet)")
+		StringP("directory", "d", "", "fully qualified path name for the solution bundle that you want to validate (assumes that the solution folder has not been zipped yet)")
 
 	solutionValidateCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for the solution bundle (assumes that the solution folder has already been zipped)")
 
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("directory", "bump")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 
@@ -117,15 +116,8 @@ func validateSolution(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
 		}
-
 		if bumpFlag {
-			if err := bumpManifestPatchVersion(manifest); err != nil {
-				log.Fatal(err.Error())
-			}
-			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-			}
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+			bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
 		}
 		solutionName = manifest.Name
 		solutionVersion = manifest.SolutionVersion
@@ -135,6 +127,13 @@ func validateSolution(cmd *cobra.Command, args []string) {
 			manifestPath = zippedSolutionPath
 		} else {
 			manifestPath = solutionDirectoryRootPath
+			manifest, err := getSolutionManifest(manifestPath)
+			if err != nil {
+				log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+			}
+			if bumpFlag {
+				bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
+			}
 		}
 		solutionArchivePath = manifestPath
 		message = fmt.Sprintf("Zipping and validating solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)

@@ -44,7 +44,7 @@ func getSolutionPackageCmd() *cobra.Command {
 		String("solution-bundle", "", "fully qualified path name to directory where you want the packaged solution to exist after creation.  If this isn't specified, the solution zip will be created and stored in a temp directory (the path to which will be specified in the output of the command)")
 
 	solutionPackageCmd.Flags().
-		String("directory", "", "fully qualified path name of the solution folder to be zipped")
+		StringP("directory", "d", "", "fully qualified path name of the solution folder to be zipped")
 
 	return solutionPackageCmd
 }

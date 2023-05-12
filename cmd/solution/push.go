@@ -68,19 +68,26 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		String("directory", "", "fully qualified path name for the solution root folder")
+		StringP("directory", "d", "", "fully qualified path name for the solution root folder")
 
 	solutionPushCmd.Flags().
 		String("solution-bundle", "", "fully qualified path name for solution bundle (this argument expects that the solution is already packaged into a zip file)")
 
-	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "wait")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "bump")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")
 	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
 
 	return solutionPushCmd
+}
+
+func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manifestPath string) {
+	if err := bumpManifestPatchVersion(manifest); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+		log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
+	}
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
 }
 
 func pushSolution(cmd *cobra.Command, args []string) {
@@ -116,15 +123,8 @@ func pushSolution(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
 		}
-
 		if bumpFlag {
-			if err := bumpManifestPatchVersion(manifest); err != nil {
-				log.Fatal(err.Error())
-			}
-			if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-				log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-			}
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
+			bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
 		}
 		solutionName = manifest.Name
 		solutionVersion = manifest.SolutionVersion
@@ -134,6 +134,15 @@ func pushSolution(cmd *cobra.Command, args []string) {
 			manifestPath = solutionBundlePath
 		} else {
 			manifestPath = solutionRootDirectory
+			manifest, err := getSolutionManifest(manifestPath)
+			if err != nil {
+				log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
+			}
+			if bumpFlag {
+				bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
+			}
+			solutionName = manifest.Name
+			solutionVersion = manifest.SolutionVersion
 		}
 		solutionArchivePath = manifestPath
 		message = fmt.Sprintf("Zipping and deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
