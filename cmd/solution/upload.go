@@ -102,6 +102,25 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			bumpSolutionVersionInManifest(cmd, manifest, solutionRootDirectory)
 		}
 
+		// isolate if needed
+		solutionIsolateDirectory, err := embeddedConditionalIsolate(cmd, solutionRootDirectory)
+		if err != nil {
+			log.Fatalf("Failed to isolate solution with tag: %v", err)
+		}
+		if solutionIsolateDirectory != solutionRootDirectory { // if isolated, post-process
+			// set root directory to the isolated version's root
+			solutionRootDirectory = solutionIsolateDirectory
+
+			// re-read manifest, to get the isolated name
+			manifest, err = getSolutionManifest(solutionRootDirectory)
+			if err != nil {
+				log.Fatalf("Failed to read the solution manifest from %q: %v", solutionRootDirectory, err)
+			}
+
+			// update tag to use supported values
+			solutionTagFlag = "stable" // TODO: get it from the env file
+		}
+
 		// create archive
 		solutionArchive := generateZip(cmd, solutionRootDirectory, "")
 		solutionBundlePath = solutionArchive.Name()

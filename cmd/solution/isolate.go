@@ -180,6 +180,8 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 		}
 	}
 
+	log.Info("Pseudo-isolation successfully completed")
+
 	return mf.Name, nil
 }
 

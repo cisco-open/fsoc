@@ -59,15 +59,21 @@ func getSolutionValidateCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
-		StringP("directory", "d", "", "fully qualified path name for the solution bundle that you want to validate (assumes that the solution folder has not been zipped yet)")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionValidateCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name for the solution bundle (assumes that the solution folder has already been zipped)")
+		String("solution-bundle", "", "Path to a prepackaged solution zip bundle")
 
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
+	solutionValidateCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+
+	solutionValidateCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
 
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable")
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")
 
 	return solutionValidateCmd
 }
