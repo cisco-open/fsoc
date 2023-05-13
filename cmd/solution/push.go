@@ -55,15 +55,21 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		StringP("directory", "d", "", "fully qualified path name for the solution root folder")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionPushCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name for solution bundle (this argument expects that the solution is already packaged into a zip file)")
+		String("solution-bundle", "", "Path to a prepackaged solution zip bundle")
+
+	solutionPushCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+
+	solutionPushCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
 
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory") // either solution dir or prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")      // TODO: allow when extracting manifest data
-	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")                // stable is an alias for --tag=stable
+	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")    // stable is an alias for --tag=stable
 
 	return solutionPushCmd
 }

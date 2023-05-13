@@ -33,7 +33,20 @@ import (
 var solutionPackageCmd = &cobra.Command{
 	Use:   "package",
 	Short: "Package a solution into a zip file",
-	Long:  `This command packages the solution directory into a zip file that's easy to push or archive`,
+	Long: `This command packages the solution directory into a zip file that's easy to push or archive.
+	
+The input is a solution directory, defaulting to the current working directory.
+The output is either a directory path (in which a fsoc will create the zip file) or path to the zip flie to create.
+
+If fsoc-based solution pseudo-isolation is desired, then
+use the --tag, --stable or --env-file flags. Isolation is automatically enabled if ${} substitution 
+is present in the solution name in the manifest file. There are several ways to specify the tags, based
+on convenience and use cases. The following priority is available:
+1. --tag=xyz or --stable: use this tag, ignoring env file or env vars
+2. A tag is defined in the FSOC_SOLUTION_TAG environment variable (ignores env file)
+3. An explicitly provided --env-file path
+4. Implicitly looking into env.json file in the solution directory (usually not version controlled)
+`,
 	Example: `  fsoc solution package --solution-bundle=../mysolution.zip
   fsoc solution package -d mysolution --solution-bundle=/somepath/mysolution-1234.zip`,
 	Run: packageSolution,
@@ -42,10 +55,20 @@ var solutionPackageCmd = &cobra.Command{
 func getSolutionPackageCmd() *cobra.Command {
 
 	solutionPackageCmd.Flags().
-		String("solution-bundle", "", "full path to solution zip fileto create (defaults to temp dir)")
+		String("solution-bundle", "", "Path to output directory or file to package into (defaults to temp dir)")
 
 	solutionPackageCmd.Flags().
-		StringP("directory", "d", "", "full path to the solution root directory (defaults to current dir)")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
+
+	solutionPackageCmd.Flags().
+		String("tag", "", "Isolation tag to use if using fsoc isolation; if specified, overrides env.json")
+	solutionPackageCmd.Flags().
+		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
+	solutionPackageCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+	solutionPackageCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+	solutionPackageCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file", "no-isolate")
 
 	return solutionPackageCmd
 }
@@ -64,6 +87,12 @@ func packageSolution(cmd *cobra.Command, args []string) {
 	}
 	if !isSolutionPackageRoot(solutionDirectoryPath) {
 		log.Fatal("Could not find solution manifest") //nb: isSolutionPackageRoot prints clear message
+	}
+
+	// isolate if needed
+	solutionDirectoryPath, err := embeddedConditionalIsolate(cmd, solutionDirectoryPath)
+	if err != nil {
+		log.Fatalf("Failed to isolate solution with tag: %v", err)
 	}
 
 	// load manifest
@@ -228,7 +257,7 @@ func isSolutionPackageRoot(path string) bool {
 }
 
 func getSolutionManifest(path string) (*Manifest, error) {
-	manifestPath := fmt.Sprintf("%s/manifest.json", path)
+	manifestPath := filepath.Join(path, "manifest.json")
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("%q is not a solution package root folder", path)
