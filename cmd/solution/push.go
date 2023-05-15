@@ -15,21 +15,7 @@
 package solution
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"mime/multipart"
-	"net/url"
-	"os"
-	"strings"
-	"time"
-
-	"github.com/apex/log"
 	"github.com/spf13/cobra"
-
-	"github.com/cisco-open/fsoc/cmd/config"
-	"github.com/cisco-open/fsoc/output"
-	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var solutionPushCmd = &cobra.Command{
@@ -49,7 +35,8 @@ Important details on solution tags:
   fsoc solution push --tag=stable
   fsoc solution push --wait --tag=dev
   fsoc solution push --bump --wait=60
-  fsoc solution push --stable --wait`,
+  fsoc solution push -d mysolution --stable --wait
+  fsoc solution push --solution-bundle=mysolution-1.22.3.zip --tag=stable`,
 	Run:              pushSolution,
 	TraverseChildren: true,
 }
@@ -68,174 +55,25 @@ func getSolutionPushCmd() *cobra.Command {
 		BoolP("bump", "b", false, "Increment the patch version before deploying")
 
 	solutionPushCmd.Flags().
-		StringP("directory", "d", "", "fully qualified path name for the solution root folder")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionPushCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name for solution bundle (this argument expects that the solution is already packaged into a zip file)")
+		String("solution-bundle", "", "Path to a prepackaged solution zip bundle")
 
-	solutionPushCmd.MarkFlagsMutuallyExclusive("directory", "solution-bundle")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
-	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable")
+	solutionPushCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+
+	solutionPushCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory") // either solution dir or prepackaged zip
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")      // TODO: allow when extracting manifest data
+	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")    // stable is an alias for --tag=stable
 
 	return solutionPushCmd
 }
 
-func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manifestPath string) {
-	if err := bumpManifestPatchVersion(manifest); err != nil {
-		log.Fatal(err.Error())
-	}
-	if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-		log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
-}
-
 func pushSolution(cmd *cobra.Command, args []string) {
-	manifestPath := ""
-	var message string
-	var solutionName string
-	var solutionVersion string
-
-	waitFlag, _ := cmd.Flags().GetInt("wait")
-	bumpFlag, _ := cmd.Flags().GetBool("bump")
-	solutionTagFlag, _ := cmd.Flags().GetString("tag")
-	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
-	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
-	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
-	var solutionArchivePath string
-	var solutionBundleAlreadyZipped bool
-
-	if pushWithStableTag {
-		solutionTagFlag = "stable"
-	}
-
-	if solutionRootDirectory == "" && solutionBundlePath == "" {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		manifestPath = currentDir
-		if !isSolutionPackageRoot(manifestPath) {
-			log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
-		}
-
-		manifest, err := getSolutionManifest(manifestPath)
-		if err != nil {
-			log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-		}
-		if bumpFlag {
-			bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
-		}
-		solutionName = manifest.Name
-		solutionVersion = manifest.SolutionVersion
-		message = fmt.Sprintf("Deploying solution with name %s and version %s and tag %s", solutionName, solutionVersion, solutionTagFlag)
-	} else {
-		if solutionRootDirectory == "" {
-			manifestPath = solutionBundlePath
-		} else {
-			manifestPath = solutionRootDirectory
-			manifest, err := getSolutionManifest(manifestPath)
-			if err != nil {
-				log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-			}
-			if bumpFlag {
-				bumpSolutionVersionInManifest(cmd, manifest, manifestPath)
-			}
-			solutionName = manifest.Name
-			solutionVersion = manifest.SolutionVersion
-		}
-		solutionArchivePath = manifestPath
-		message = fmt.Sprintf("Zipping and deploying solution specified with path %s with tag %s", solutionArchivePath, solutionTagFlag)
-	}
-
-	solutionBundleAlreadyZipped = strings.HasSuffix(solutionArchivePath, ".zip")
-
-	if !solutionBundleAlreadyZipped {
-		solutionArchive := generateZip(cmd, manifestPath, "")
-		solutionArchivePath = solutionArchive.Name()
-	} else {
-		message = fmt.Sprintf("Deploying already zipped solution with tag %s", solutionTagFlag)
-	}
-
-	log.Infof(message)
-
-	file, err := os.Open(solutionArchivePath)
-	if err != nil {
-		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
-	}
-	defer file.Close()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	fw, err := writer.CreateFormFile("file", solutionArchivePath)
-	if err != nil {
-		log.Fatalf("Failed to create form file: %v", err)
-	}
-
-	_, err = io.Copy(fw, file)
-	if err != nil {
-		log.Fatalf("Failed to copy file %q into file writer: %v", solutionArchivePath, err)
-	}
-
-	writer.Close()
-
-	headers := map[string]string{
-		"tag":          solutionTagFlag,
-		"operation":    "UPLOAD",
-		"Content-Type": writer.FormDataContentType(),
-	}
-
-	var res any
-
-	output.PrintCmdStatus(cmd, fmt.Sprintf("%v\n", message))
-
-	err = api.HTTPPost(getSolutionPushUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
-
-	if err != nil {
-		log.Fatalf("Solution command failed: %v", err)
-	}
-
-	if waitFlag >= 0 && solutionName != "" && solutionVersion != "" {
-		var duration string
-		if waitFlag > 0 {
-			duration = fmt.Sprintf("for %d seconds", waitFlag)
-		} else {
-			duration = "indefinitely"
-		}
-		fmt.Printf("Waiting %s for solution %s version %s to be installed...", duration, solutionName, solutionVersion)
-
-		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s"`, solutionName, solutionVersion)
-		query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filter))
-
-		headers := map[string]string{
-			"layer-type": "TENANT",
-			"layer-id":   config.GetCurrentContext().Tenant,
-		}
-		var statusData StatusData
-		waitStartTime := time.Now()
-		for statusData.SolutionVersion != solutionVersion {
-			if waitFlag > 0 {
-				if time.Since(waitStartTime).Seconds() > float64(waitFlag) {
-					fmt.Println("Timeout")
-					log.Fatalf("Failed to validate solution %s version %s was installed", solutionName, solutionVersion)
-				}
-			}
-			fmt.Printf(".")
-			status := getObject(fmt.Sprintf(getSolutionInstallUrl(), query), headers)
-			statusData = status.StatusData
-			time.Sleep(3 * time.Second)
-		}
-		if !statusData.SuccessfulInstall {
-			fmt.Println("Failed")
-			log.Fatalf("Installation failed: %s", statusData.InstallMessage)
-		}
-		fmt.Println(" Done")
-	}
-	message = fmt.Sprintf("Solution with tag %s was successfully deployed.\n", solutionTagFlag)
-	output.PrintCmdStatus(cmd, message)
-}
-
-func getSolutionPushUrl() string {
-	return "solnmgmt/v1beta/solutions"
+	uploadSolution(cmd, true)
 }

@@ -17,6 +17,7 @@ package solution
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,28 +32,52 @@ import (
 
 var solutionPackageCmd = &cobra.Command{
 	Use:   "package",
-	Short: "Package solution folder into .zip file",
-	Long:  `This command allows the user to turn their solution folder into a zip file from the command line directly`,
-	Example: `  fsoc solution package --directory <path/to/solution/root/folder>
-  fsoc solution package --directory <path/to/solution/root/folder> --solution-bundle <path/to/directory/where/zip/should/exist>`,
+	Short: "Package a solution into a zip file",
+	Long: `This command packages the solution directory into a zip file that's easy to push or archive.
+	
+The input is a solution directory, defaulting to the current working directory.
+The output is either a directory path (in which a fsoc will create the zip file) or path to the zip flie to create.
+
+If fsoc-based solution pseudo-isolation is desired, then
+use the --tag, --stable or --env-file flags. Isolation is automatically enabled if ${} substitution 
+is present in the solution name in the manifest file. There are several ways to specify the tags, based
+on convenience and use cases. The following priority is available:
+1. --tag=xyz or --stable: use this tag, ignoring env file or env vars
+2. A tag is defined in the FSOC_SOLUTION_TAG environment variable (ignores env file)
+3. An explicitly provided --env-file path
+4. Implicitly looking into env.json file in the solution directory (usually not version controlled)
+`,
+	Example: `  fsoc solution package --solution-bundle=../mysolution.zip
+  fsoc solution package -d mysolution --solution-bundle=/somepath/mysolution-1234.zip`,
 	Run: packageSolution,
 }
 
 func getSolutionPackageCmd() *cobra.Command {
 
 	solutionPackageCmd.Flags().
-		String("solution-bundle", "", "fully qualified path name to directory where you want the packaged solution to exist after creation.  If this isn't specified, the solution zip will be created and stored in a temp directory (the path to which will be specified in the output of the command)")
+		String("solution-bundle", "", "Path to output directory or file to package into (defaults to temp dir)")
 
 	solutionPackageCmd.Flags().
-		StringP("directory", "d", "", "fully qualified path name of the solution folder to be zipped")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
+
+	solutionPackageCmd.Flags().
+		String("tag", "", "Isolation tag to use if using fsoc isolation; if specified, overrides env.json")
+	solutionPackageCmd.Flags().
+		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
+	solutionPackageCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+	solutionPackageCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+	solutionPackageCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file", "no-isolate")
 
 	return solutionPackageCmd
 }
 
 func packageSolution(cmd *cobra.Command, args []string) {
+	outputFilePath, _ := cmd.Flags().GetString("solution-bundle")
 	solutionDirectoryPath, _ := cmd.Flags().GetString("directory")
-	outputDirectoryPath, _ := cmd.Flags().GetString("solution-bundle")
 
+	// finalize solution path
 	if solutionDirectoryPath == "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -61,65 +86,90 @@ func packageSolution(cmd *cobra.Command, args []string) {
 		solutionDirectoryPath = currentDir
 	}
 	if !isSolutionPackageRoot(solutionDirectoryPath) {
-		log.Fatal("directory flag doesn't point to a solution root folder")
+		log.Fatal("Could not find solution manifest") //nb: isSolutionPackageRoot prints clear message
 	}
+
+	// isolate if needed
+	solutionDirectoryPath, err := embeddedConditionalIsolate(cmd, solutionDirectoryPath)
+	if err != nil {
+		log.Fatalf("Failed to isolate solution with tag: %v", err)
+	}
+
+	// load manifest
 	manifest, err := getSolutionManifest(solutionDirectoryPath)
 	if err != nil {
 		log.Fatalf("Failed to read solution manifest: %v", err)
 	}
-	var message string
-	message = fmt.Sprintf("Generating solution %s - %s bundle archive \n", manifest.Name, manifest.SolutionVersion)
-	log.WithFields(log.Fields{
-		"solution-bundle": solutionDirectoryPath,
-	}).Info(message)
 
+	var message string
+	message = fmt.Sprintf("Generating solution %s version %s bundle archive\n", manifest.Name, manifest.SolutionVersion)
 	output.PrintCmdStatus(cmd, message)
-	solutionArchive := generateZip(cmd, solutionDirectoryPath, outputDirectoryPath)
+
+	// create archive
+	solutionArchive := generateZip(cmd, solutionDirectoryPath, outputFilePath)
 	solutionArchive.Close()
 
-	message = fmt.Sprintf("Solution %s - %s bundle is ready. \n", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Solution %s version %s bundle is ready in %s\n", manifest.Name, manifest.SolutionVersion, solutionArchive.Name())
 	output.PrintCmdStatus(cmd, message)
 }
 
-// Helper functions for managing solution directory and zip bundle
-func generateZip(cmd *cobra.Command, sltnPackagePath string, outputDirectoryPath string) *os.File {
+// --- Helper functions for managing solution directory and zip bundle
+
+// generateZip creates a solution bundle (zip file) from a given solutionPath directory.
+// If outputPath is specified, the zip will be placed in that directory (if an existing directory) or filename (otherwise);
+// if outputPath is empty, the zip file will be placed in the temp directory.
+// If solutionPath is not specified, the current directory is assumed (it must contain the solution
+// manifest in its final form).
+func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os.File {
 	var archive *os.File
 	var err error
 	var archiveFileTemplate string
-	solutionName := filepath.Base(sltnPackagePath)
+	solutionName := filepath.Base(solutionPath)
 	solutionNameWithZipSuffix := fmt.Sprintf("%s.zip", solutionName)
 
-	if outputDirectoryPath != "" {
-		if filepath.Base(outputDirectoryPath) != solutionNameWithZipSuffix {
-			outputDirectoryPath = filepath.Join(filepath.Dir(outputDirectoryPath), solutionNameWithZipSuffix)
-		}
-		archive, err = os.Create(outputDirectoryPath)
+	// create zip file
+	if outputPath != "" {
+		// absolutize path
+		outputPath = absolutizePath(outputPath)
+
+		// if outputPath is an existing directory, place zip there; otherwise, treat as file path
+		var fileInfo os.FileInfo
+		fileInfo, err = os.Stat(outputPath)
+		if err == nil && fileInfo.IsDir() {
+			outputPath = filepath.Join(filepath.Dir(outputPath), solutionNameWithZipSuffix)
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Fatalf("Failed to access target path %q: %v", outputPath, err)
+		} // else treat as file path, possibly overwriting existing file
+		archive, err = os.Create(outputPath)
 	} else {
 		archiveFileTemplate = fmt.Sprintf("%s*.zip", solutionName)
 		archive, err = os.CreateTemp("", archiveFileTemplate)
+		outputPath = archive.Name()
 	}
-
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip (%q)\n", archive.Name()))
-	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	if err != nil {
-		log.Fatalf("failed to create file: %s", archive.Name())
+		log.Fatalf("failed to create file %s: %v", outputPath, err)
 		panic(err)
 	}
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip: %q\n", archive.Name()))
+	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
 	defer archive.Close()
 	zipWriter := zip.NewWriter(archive)
 
+	// determine the solution directory's parent folder to start archiving from
+	solutionPath = absolutizePath(solutionPath)
+	solutionParentPath := filepath.Dir(solutionPath)
+
+	// switch cwd to the solution directory for archiving
 	fsocWorkingDir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Couldn't read the current working directory: %v", err)
+		log.Fatalf("Couldn't get the current working directory: %v", err)
 	}
-
-	solutionRootFolder := filepath.Dir(sltnPackagePath)
-	err = os.Chdir(solutionRootFolder)
+	err = os.Chdir(solutionParentPath)
 	if err != nil {
-		log.Fatalf("Couldn't switch working folder to solution package folder: %v", err)
+		log.Fatalf("Couldn't switch working folder to solution root's parent directory %q: %v", solutionParentPath, err)
 	}
-
 	defer func() {
+		// restore original working directory
 		err := os.Chdir(fsocWorkingDir)
 		if err != nil {
 			log.Fatalf("Couldn't switch working folder back to starting working folder: %v", err)
@@ -140,7 +190,7 @@ func generateZip(cmd *cobra.Command, sltnPackagePath string, outputDirectoryPath
 		log.Fatalf("Error traversing the folder: %v", err)
 	}
 	zipWriter.Close()
-	log.WithField("path", archive.Name()).Info("Created a temporary solution bundle file")
+	log.WithField("path", archive.Name()).Info("Created a solution bundle file")
 
 	return archive
 }
@@ -207,7 +257,7 @@ func isSolutionPackageRoot(path string) bool {
 }
 
 func getSolutionManifest(path string) (*Manifest, error) {
-	manifestPath := fmt.Sprintf("%s/manifest.json", path)
+	manifestPath := filepath.Join(path, "manifest.json")
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("%q is not a solution package root folder", path)
@@ -226,4 +276,31 @@ func getSolutionManifest(path string) (*Manifest, error) {
 	}
 
 	return manifest, nil
+}
+
+// absolutizePath takes a path in any form (absolute, relative or home-dir-relative)
+// and converts it to an absolute path (which is also cleaned up/canonicalized).
+// Note that this works both for files and directories, including just "~"
+func absolutizePath(inputPath string) string {
+	path := inputPath // keep original value for error messages
+
+	// replace ~ with home directory, if needed
+	if strings.HasPrefix(path, "~") {
+		dirname, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Failed to get current directory to use for %q: %v", inputPath, err)
+		}
+		path = dirname + path[1:] // can't use Join because source may be just "~"
+	}
+
+	// convert to absolute path
+	path, err := filepath.Abs(path)
+	if err != nil {
+		log.Fatalf("Failed to get absolute path for %q: %v", inputPath, err)
+	}
+
+	// clean path
+	path = filepath.Clean(path)
+
+	return path
 }
