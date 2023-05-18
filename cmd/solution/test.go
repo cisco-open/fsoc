@@ -257,7 +257,7 @@ func getSolutionTestStatusUrl(testId string) string {
 }
 
 func getBaseUrl() string {
-	return "rest/kirby-solution-testing-poc/kirby-solution-testing-poc-function"
+	return "rest/fsomon-test-runner-solution/test-runner"
 }
 
 func sanitizeString(input string) string {
