@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package solution
 
 import (
@@ -256,7 +257,7 @@ func getSolutionTestStatusUrl(testId string) string {
 }
 
 func getBaseUrl() string {
-	return "rest/kirby-solution-testing-poc/kirby-solution-testing-poc-function"
+	return "rest/fsomon-test-runner-solution/test-runner"
 }
 
 func sanitizeString(input string) string {
