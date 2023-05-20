@@ -38,6 +38,11 @@ var cfgFile string
 var cfgProfile string
 var outputFormat string
 
+const (
+	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
+	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+)
+
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
 var rootCmd = &cobra.Command{
@@ -49,11 +54,16 @@ Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
 It allows developers to interact with the product environments--developer, test and production--in a
 uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
+You can use --config and --profile to select authentication credentials to use. You can also use 
+environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
+If a profile is not specified otherwise, the current profile from the config file is used.
+
 Examples:
   fsoc login
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
   fsoc solution list
   fsoc solution list -o json
+  FSOC_CONFIG=tenant5-config.yaml fsoc solution subscribe spacefleet --profile admin
 
 For more information, see https://github.com/cisco-open/fsoc
 
@@ -76,7 +86,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is %s)", config.DefaultConfigFile))
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is %s). May be .yaml or .json", config.DefaultConfigFile))
 	rootCmd.PersistentFlags().StringVar(&cfgProfile, "profile", "", "access profile (default is current or \"default\")")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
@@ -98,6 +108,12 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	// use config file from env var
+	if cfgFile == "" { // only if not set from command line (command line has priority)
+		cfgFile = os.Getenv(FSOC_CONFIG_ENVVAR) // remains empty if not found
+	}
+
+	// finalize config file
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -170,12 +186,15 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		"flags":     helperFlagFormatter(cmd.Flags())}).
 		Info("fsoc command line")
 
-	// override the config file's current profile if --profile option is present
+	// override the config file's current profile from cmd line or env var
+	var profile string // used only in this block
 	if cmd.Flags().Changed("profile") {
-		profile, _ := cmd.Flags().GetString("profile")
-		if profile != "" { // allow empty string on cmd line to mean use current
-			config.SetSelectedProfile(profile)
-		}
+		profile, _ = cmd.Flags().GetString("profile")
+	} else {
+		profile = os.Getenv(FSOC_PROFILE_ENVVAR) // remains empty if not defined
+	}
+	if profile != "" { // allow empty string on cmd line to mean use current
+		config.SetSelectedProfile(profile)
 	}
 
 	// Determine if a configured profile is required for this command
