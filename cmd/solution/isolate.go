@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -64,7 +65,7 @@ Note that when the --tag flag is used, the env.json file is ignored and no depen
 
 The command takes the solution from current directory (or --source-dir) and produces the isolated version either in a directory (if --target-dir is specified) or in a solution zip file (if --target-file is specified).
 
-Note that this command is experimental at this time and it may change or be removed.
+Note that this command is experimental and will likely be removed. Please use "push", "validate" or "package" directly.
 
 See documentation for manifest syntax and examples (link to be added here).
 `,
@@ -73,7 +74,9 @@ See documentation for manifest syntax and examples (link to be added here).
   fsoc solution isolate --target-file=../mysolution-release.zip --tag=stable
   fsoc solution isolate --source-dir=mysolution --target-dir=mysolution-staging --env-file=staging-env.json
 	`,
-	Run: solutionIsolateCommand,
+	Run:         solutionIsolateCommand,
+	Annotations: map[string]string{config.AnnotationForConfigBypass: ""},
+	Deprecated:  "please use `push`, `validate` or `package` instead",
 }
 
 func getsolutionIsolateCmd() *cobra.Command {

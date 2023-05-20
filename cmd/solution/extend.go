@@ -24,6 +24,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -34,6 +35,7 @@ var solutionExtendCmd = &cobra.Command{
 	Long:             `This command allows you to easily add new components to your solution package.`,
 	Example:          `  fsoc solution extend --add-knowledge=<knowldgetypename>`,
 	Run:              extendSolution,
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 
