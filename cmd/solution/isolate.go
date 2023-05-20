@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -73,7 +74,8 @@ See documentation for manifest syntax and examples (link to be added here).
   fsoc solution isolate --target-file=../mysolution-release.zip --tag=stable
   fsoc solution isolate --source-dir=mysolution --target-dir=mysolution-staging --env-file=staging-env.json
 	`,
-	Run: solutionIsolateCommand,
+	Run:         solutionIsolateCommand,
+	Annotations: map[string]string{config.AnnotationForConfigBypass: ""},
 }
 
 func getsolutionIsolateCmd() *cobra.Command {

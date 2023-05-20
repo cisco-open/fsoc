@@ -27,6 +27,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -49,7 +50,8 @@ on convenience and use cases. The following priority is available:
 `,
 	Example: `  fsoc solution package --solution-bundle=../mysolution.zip
   fsoc solution package -d mysolution --solution-bundle=/somepath/mysolution-1234.zip`,
-	Run: packageSolution,
+	Run:         packageSolution,
+	Annotations: map[string]string{config.AnnotationForConfigBypass: ""},
 }
 
 func getSolutionPackageCmd() *cobra.Command {
