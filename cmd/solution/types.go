@@ -106,7 +106,7 @@ func (manifest *Manifest) GetFmmEntities() []*FmmEntity {
 					return nil
 				})
 			if err != nil {
-				log.Fatalf("Error traversing the folder: %v", err)
+				log.Fatalf("Error traversing the directory: %v", err)
 			}
 		}
 
@@ -135,7 +135,7 @@ func (manifest *Manifest) GetFmmMetrics() []*FmmMetric {
 					return nil
 				})
 			if err != nil {
-				log.Fatalf("Error traversing the folder: %v", err)
+				log.Fatalf("Error traversing the directory: %v", err)
 			}
 		}
 
@@ -164,7 +164,7 @@ func (manifest *Manifest) GetFmmEvents() []*FmmEvent {
 					return nil
 				})
 			if err != nil {
-				log.Fatalf("Error traversing the folder: %v", err)
+				log.Fatalf("Error traversing the directory: %v", err)
 			}
 		}
 
@@ -231,7 +231,7 @@ func (manifest *Manifest) GetDashuiTemplates() []*DashuiTemplate {
 					return nil
 				})
 			if err != nil {
-				log.Fatalf("Error traversing the folder: %v", err)
+				log.Fatalf("Error traversing the directory: %v", err)
 			}
 		}
 

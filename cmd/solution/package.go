@@ -168,13 +168,13 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	}
 	err = os.Chdir(solutionParentPath)
 	if err != nil {
-		log.Fatalf("Couldn't switch working folder to solution root's parent directory %q: %v", solutionParentPath, err)
+		log.Fatalf("Couldn't switch working directory to solution root's parent directory %q: %v", solutionParentPath, err)
 	}
 	defer func() {
 		// restore original working directory
 		err := os.Chdir(fsocWorkingDir)
 		if err != nil {
-			log.Fatalf("Couldn't switch working folder back to starting working folder: %v", err)
+			log.Fatalf("Couldn't switch working directory back to starting working directory: %v", err)
 		}
 	}()
 
@@ -189,7 +189,7 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 			return nil
 		})
 	if err != nil {
-		log.Fatalf("Error traversing the folder: %v", err)
+		log.Fatalf("Error traversing the directory: %v", err)
 	}
 	zipWriter.Close()
 	log.WithField("path", archive.Name()).Info("Created a solution with path")
@@ -251,7 +251,7 @@ func isSolutionPackageRoot(path string) bool {
 	manifestPath := fmt.Sprintf("%s/manifest.json", path)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Errorf("The folder %s is not a solution root folder", path)
+		log.Errorf("The direcotry %s is not a solution root directory", path)
 		return false
 	}
 	manifestFile.Close()
@@ -262,7 +262,7 @@ func getSolutionManifest(path string) (*Manifest, error) {
 	manifestPath := filepath.Join(path, "manifest.json")
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("%q is not a solution root folder", path)
+		return nil, fmt.Errorf("%q is not a solution root directory", path)
 	}
 	defer manifestFile.Close()
 
