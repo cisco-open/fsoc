@@ -190,7 +190,7 @@ func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName strin
 		log.Fatalf("Solution download failed: %v", err)
 	}
 
-	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in the this directory.\r\n", solutionName)
+	message = fmt.Sprintf("Solution %s was successfully downloaded in the this directory.\r\n", solutionName)
 	output.PrintCmdStatus(cmd, message)
 
 	message = fmt.Sprintf("Changing solution name in manifest to %s.\r\n", forkName)

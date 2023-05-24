@@ -232,7 +232,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 }
 
 func getSolutionValidationErrorsString(total int, errors Errors) string {
-	var message = fmt.Sprintf("\n%d errors detected while validating solution package\n", total)
+	var message = fmt.Sprintf("\n%d errors detected while validating solution\n", total)
 	for _, err := range errors.Items {
 		message += fmt.Sprintf("- Error Content: %+v\n", err)
 	}

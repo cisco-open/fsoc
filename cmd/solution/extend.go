@@ -31,8 +31,8 @@ import (
 var solutionExtendCmd = &cobra.Command{
 	Use:              "extend",
 	Args:             cobra.ExactArgs(0),
-	Short:            "Extends your solution package by adding new components",
-	Long:             `This command allows you to easily add new components to your solution package.`,
+	Short:            "Extends your solution by adding new components",
+	Long:             `This command allows you to easily add new components to your solution.`,
 	Example:          `  fsoc solution extend --add-knowledge=<knowldgetypename>`,
 	Run:              extendSolution,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
@@ -74,7 +74,7 @@ func extendSolution(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
 		componentName = strings.ToLower(componentName)
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution package folder structure... \n", componentName, manifest.Name))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution folder structure... \n", componentName, manifest.Name))
 		folderName := "types"
 		fileName := fmt.Sprintf("%s.json", componentName)
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))

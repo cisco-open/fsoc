@@ -34,7 +34,7 @@ var solutionCheckCmd = &cobra.Command{
 	Use:              "check",
 	Args:             cobra.ExactArgs(0),
 	Short:            "Validate your solution component definitions",
-	Long:             `This command allows the current tenant specified in the profile to build and package a solution bundle to be deployed into the FSO Platform.`,
+	Long:             `This command allows the current tenant specified in the profile to check whether or not each FMM Knowledge Object inside their solution is valid.`,
 	Example:          `  fsoc solution check --entities --metrics`,
 	Run:              checkSolution,
 	TraverseChildren: true,
@@ -42,13 +42,13 @@ var solutionCheckCmd = &cobra.Command{
 
 func getSolutionCheckCmd() *cobra.Command {
 	solutionCheckCmd.Flags().
-		Bool("entities", false, "Validate all the entities and associations components defined in this solution package")
+		Bool("entities", false, "Validate all the entities and associations components defined in this solution")
 
 	solutionCheckCmd.Flags().
-		Bool("metrics", false, "Validate all the metrics, metricmappings and metricaggregations components defined in this solution package")
+		Bool("metrics", false, "Validate all the metrics, metricmappings and metricaggregations components defined in this solution")
 
 	solutionCheckCmd.Flags().
-		Bool("all", false, "Validate all the fmm components defined in this solution package")
+		Bool("all", false, "Validate all the fmm components defined in this solution")
 
 	return solutionCheckCmd
 }
