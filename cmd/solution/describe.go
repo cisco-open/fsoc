@@ -32,7 +32,7 @@ func getSolutionDescribeCmd() *cobra.Command {
 }
 
 func solutionDescribe(cmd *cobra.Command, args []string) {
-	solution := getSolutionNameFromArgs(cmd, args, "solution")
+	solution := getSolutionNameFromArgs(cmd, args, "solution", "")
 
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant

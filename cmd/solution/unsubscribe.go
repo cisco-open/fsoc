@@ -41,13 +41,16 @@ func getUnsubscribeSolutionCmd() *cobra.Command {
 	solutionUnsubscribeCmd.Flags().
 		String("name", "", "The name of the solution the tenant is unsubscribing from")
 	_ = solutionUnsubscribeCmd.Flags().MarkDeprecated("name", "please use argument instead.")
+	solutionUnsubscribeCmd.Flags().
+	String("tag", "", "The tag related to the solution to unsubscribe from. This will default to the stable version of the solution if not specified")
 
 	return solutionUnsubscribeCmd
 
 }
 
 func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name")
+	solutionTag, _ := cmd.Flags().GetString("tag")
+	solutionName := getSolutionNameFromArgs(cmd, args, "name", solutionTag)
 
 	isSystemSolution, err := isSystemSolution(solutionName)
 	if err != nil {
