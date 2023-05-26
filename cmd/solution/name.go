@@ -14,6 +14,8 @@
 package solution
 
 import (
+	"fmt"
+
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +27,7 @@ import (
 func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string) string {
 	// get solution name from a flag, if provided (deprecated but kept for backward compatibility)
 	var nameFromFlag string
+	solutionTag, _ := cmd.Flags().GetString("tag")
 	if flagName != "" {
 		var err error
 		nameFromFlag, err = cmd.Flags().GetString(flagName)
@@ -42,6 +45,9 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 	if name != "" {
 		if nameFromFlag != "" {
 			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
+		}
+		if solutionTag != "" && solutionTag != "stable" {
+			name = fmt.Sprintf("%s.%s", name, solutionTag)
 		}
 		return name
 	}

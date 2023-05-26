@@ -46,6 +46,8 @@ func getSubscribeSolutionCmd() *cobra.Command {
 	solutionSubscribeCmd.Flags().
 		String("name", "", "The name of the solution the tenant is subscribing to")
 	_ = solutionSubscribeCmd.Flags().MarkDeprecated("name", "please use argument instead.")
+	solutionSubscribeCmd.Flags().
+		String("tag", "", "The tag related to the solution to subscribe to. This will default to the stable version of the solution if not specified")
 
 	return solutionSubscribeCmd
 
