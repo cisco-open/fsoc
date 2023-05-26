@@ -54,7 +54,7 @@ func getSubscribeSolutionCmd() *cobra.Command {
 }
 
 func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
-	solutionTag, _ := cmd.Flags().GetString("tag") 
+	solutionTag, _ := cmd.Flags().GetString("tag")
 	solutionName := getSolutionNameFromArgs(cmd, args, "name", solutionTag)
 
 	var message string
