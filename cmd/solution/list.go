@@ -36,8 +36,8 @@ var solutionListCmd = &cobra.Command{
 	Run:              getSolutionList,
 	TraverseChildren: true,
 	Annotations: map[string]string{
-		output.TableFieldsAnnotation:  "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, tag:.data.tag",
-		output.DetailFieldsAnnotation: "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, tag:.data.tag, installDate:.createdAt, updateDate:.updatedAt",
+		output.TableFieldsAnnotation:  "name:.data.name, tag:.data.tag, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies",
+		output.DetailFieldsAnnotation: "name:.data.name, tag:.data.tag, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, installDate:.createdAt, updateDate:.updatedAt",
 	},
 }
 

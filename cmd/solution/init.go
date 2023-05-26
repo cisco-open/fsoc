@@ -64,7 +64,7 @@ func getInitSolutionCmd() *cobra.Command {
 }
 
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name", "")
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionName = strings.ToLower(solutionName)
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution directory structure for %q... \n", solutionName))

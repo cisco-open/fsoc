@@ -24,9 +24,10 @@ import (
 // the first positional argument or from a flag (deprecated but kepts for backward compatibility).
 // The flagName is optional (use "" to omit).
 // Prints error message and terminates if the name is missing/empty
-func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string, tag string) string {
+func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string) string {
 	// get solution name from a flag, if provided (deprecated but kept for backward compatibility)
 	var nameFromFlag string
+	solutionTag, _ := cmd.Flags().GetString("tag")
 	if flagName != "" {
 		var err error
 		nameFromFlag, err = cmd.Flags().GetString(flagName)
@@ -45,8 +46,8 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string,
 		if nameFromFlag != "" {
 			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
 		}
-		if tag != "" {
-			name = fmt.Sprintf("%s.%s", name, tag)
+		if solutionTag != "" && solutionTag != "stable" {
+			name = fmt.Sprintf("%s.%s", name, solutionTag)
 		}
 		return name
 	}

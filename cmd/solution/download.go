@@ -45,7 +45,7 @@ func getSolutionDownloadCmd() *cobra.Command {
 }
 
 func downloadSolution(cmd *cobra.Command, args []string) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name", "")
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionNameWithZipExtension := getSolutionNameWithZip(solutionName)
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 

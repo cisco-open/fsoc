@@ -49,8 +49,7 @@ func getUnsubscribeSolutionCmd() *cobra.Command {
 }
 
 func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
-	solutionTag, _ := cmd.Flags().GetString("tag")
-	solutionName := getSolutionNameFromArgs(cmd, args, "name", solutionTag)
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 
 	isSystemSolution, err := isSystemSolution(solutionName)
 	if err != nil {

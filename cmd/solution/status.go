@@ -190,7 +190,7 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	cfg := config.GetCurrentContext()
 
 	layerType := "TENANT"
-	solutionName := getSolutionNameFromArgs(cmd, args, "name", "")
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 
 	headers := map[string]string{
 		"layer-type": layerType,
