@@ -52,13 +52,13 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
 
 	solutionPushCmd.Flags().
-		BoolP("bump", "b", false, "Increment the patch version before deploying")
+		BoolP("bump", "b", false, "Increment the patch version before deploying solution")
 
 	solutionPushCmd.Flags().
 		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionPushCmd.Flags().
-		String("solution-bundle", "", "Path to a prepackaged solution zip bundle")
+		String("solution-bundle", "", "Path to a prepackaged solution zip")
 
 	solutionPushCmd.Flags().
 		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")

@@ -60,7 +60,7 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf("Solution download command failed: %v", err)
 	}
 
-	message := fmt.Sprintf("Solution bundle %q with tag %s downloaded successfully.\n", solutionName, solutionTagFlag)
+	message := fmt.Sprintf("Solution %q with tag %s downloaded successfully.\n", solutionName, solutionTagFlag)
 	output.PrintCmdStatus(cmd, message)
 }
 

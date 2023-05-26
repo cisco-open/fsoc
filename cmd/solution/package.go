@@ -57,7 +57,7 @@ on convenience and use cases. The following priority is available:
 func getSolutionPackageCmd() *cobra.Command {
 
 	solutionPackageCmd.Flags().
-		String("solution-bundle", "", "Path to output directory or file to package into (defaults to temp dir)")
+		String("solution-bundle", "", "Path to output directory or file to place solution zip into (defaults to temp dir)")
 
 	solutionPackageCmd.Flags().
 		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
@@ -104,14 +104,14 @@ func packageSolution(cmd *cobra.Command, args []string) {
 	}
 
 	var message string
-	message = fmt.Sprintf("Generating solution %s version %s bundle archive\n", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Generating solution %s version %s\n", manifest.Name, manifest.SolutionVersion)
 	output.PrintCmdStatus(cmd, message)
 
 	// create archive
 	solutionArchive := generateZip(cmd, solutionDirectoryPath, outputFilePath)
 	solutionArchive.Close()
 
-	message = fmt.Sprintf("Solution %s version %s bundle is ready in %s\n", manifest.Name, manifest.SolutionVersion, solutionArchive.Name())
+	message = fmt.Sprintf("Solution %s version %s is ready in %s\n", manifest.Name, manifest.SolutionVersion, solutionArchive.Name())
 	output.PrintCmdStatus(cmd, message)
 }
 
@@ -152,8 +152,8 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 		log.Fatalf("failed to create file %s: %v", outputPath, err)
 		panic(err)
 	}
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating archive zip: %q\n", archive.Name()))
-	log.WithField("path", archive.Name()).Info("Creating solution bundle file")
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Creating solution zip: %q\n", archive.Name()))
+	log.WithField("path", archive.Name()).Info("Creating solution file")
 	defer archive.Close()
 	zipWriter := zip.NewWriter(archive)
 
@@ -168,13 +168,13 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	}
 	err = os.Chdir(solutionParentPath)
 	if err != nil {
-		log.Fatalf("Couldn't switch working folder to solution root's parent directory %q: %v", solutionParentPath, err)
+		log.Fatalf("Couldn't switch working directory to solution root's parent directory %q: %v", solutionParentPath, err)
 	}
 	defer func() {
 		// restore original working directory
 		err := os.Chdir(fsocWorkingDir)
 		if err != nil {
-			log.Fatalf("Couldn't switch working folder back to starting working folder: %v", err)
+			log.Fatalf("Couldn't switch working directory back to starting working directory: %v", err)
 		}
 	}()
 
@@ -189,10 +189,10 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 			return nil
 		})
 	if err != nil {
-		log.Fatalf("Error traversing the folder: %v", err)
+		log.Fatalf("Error traversing the directory: %v", err)
 	}
 	zipWriter.Close()
-	log.WithField("path", archive.Name()).Info("Created a solution bundle file")
+	log.WithField("path", archive.Name()).Info("Created a solution with path")
 
 	return archive
 }
@@ -251,7 +251,7 @@ func isSolutionPackageRoot(path string) bool {
 	manifestPath := fmt.Sprintf("%s/manifest.json", path)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Errorf("The folder %s is not a solution package root folder", path)
+		log.Errorf("The direcotry %s is not a solution root directory", path)
 		return false
 	}
 	manifestFile.Close()
@@ -262,7 +262,7 @@ func getSolutionManifest(path string) (*Manifest, error) {
 	manifestPath := filepath.Join(path, "manifest.json")
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("%q is not a solution package root folder", path)
+		return nil, fmt.Errorf("%q is not a solution root directory", path)
 	}
 	defer manifestFile.Close()
 

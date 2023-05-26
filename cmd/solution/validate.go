@@ -37,7 +37,7 @@ var solutionValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Args:  cobra.ExactArgs(0),
 	Short: "Validate solution",
-	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.  The --stable flag provides a default value of 'stable' for the tag associated with the given solution bundle.  `,
+	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.  The --stable flag provides a default value of 'stable' for the tag associated with the given solution.  `,
 	Example: `  fsoc solution validate
   fsoc solution validate --bump --tag preprod
   fsoc solution validate --tag dev
@@ -53,7 +53,7 @@ func getSolutionValidateCmd() *cobra.Command {
 		String("tag", "", "Tag to associate with provided solution.  Ensure tag used for validation & upload are same.")
 
 	solutionValidateCmd.Flags().
-		Bool("stable", false, "Automatically associate the 'stable' tag with solution bundle to be validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
+		Bool("stable", false, "Automatically associate the 'stable' tag with solution to validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
@@ -62,7 +62,7 @@ func getSolutionValidateCmd() *cobra.Command {
 		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionValidateCmd.Flags().
-		String("solution-bundle", "", "Path to a prepackaged solution zip bundle")
+		String("solution-bundle", "", "Path to a prepackaged solution zip")
 
 	solutionValidateCmd.Flags().
 		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")

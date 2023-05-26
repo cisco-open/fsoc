@@ -92,7 +92,7 @@ func testSolution(cmd *cobra.Command, args []string) {
 
 	// Read Test Objects JSON
 	if !isTestPackageRoot(testBundleDir) {
-		log.Fatalf("No test-objects file found in %q; please run this command in a folder with a test-objects file or use the --test-bundle flag", testBundleDir)
+		log.Fatalf("No test-objects file found in %q; please run this command in a directory with a test-objects file or use the --test-bundle flag", testBundleDir)
 	}
 	testObjects, err := getTestObjects(testBundleDir)
 	if err != nil {
@@ -211,7 +211,7 @@ func isTestPackageRoot(path string) bool {
 	testObjectsPath := fmt.Sprintf("%s/test-objects.json", path)
 	testObjectsFile, err := os.Open(testObjectsPath)
 	if err != nil {
-		log.Errorf("The folder %s is not a solution test root folder", path)
+		log.Errorf("The directory %s is not a solution test root directory", path)
 		return false
 	}
 	testObjectsFile.Close()
@@ -222,7 +222,7 @@ func getTestObjects(path string) (*SolutionTestObjects, error) {
 	testObjectsPath := fmt.Sprintf("%s/test-objects.json", path)
 	testObjectsFile, err := os.Open(testObjectsPath)
 	if err != nil {
-		return nil, fmt.Errorf("%q is not a solution test root folder", path)
+		return nil, fmt.Errorf("%q is not a solution test root directory", path)
 	}
 	defer testObjectsFile.Close()
 

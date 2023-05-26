@@ -147,7 +147,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
 		tempDir := filepath.Join(tempDirRoot, dirName)
 		if targetPath, err = filepath.Abs(tempDir); err != nil {
-			return "", fmt.Errorf("Error getting absolute folder path %v", err)
+			return "", fmt.Errorf("Error getting absolute directory path %v", err)
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Assembling solution in temp target directory %q\n", targetPath))
 	} else {

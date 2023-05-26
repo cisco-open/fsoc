@@ -67,7 +67,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionName = strings.ToLower(solutionName)
 
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution folder structure for %q... \n", solutionName))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution directory structure for %q... \n", solutionName))
 
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
 		log.Fatal(err.Error())
