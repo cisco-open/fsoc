@@ -36,13 +36,15 @@ Roles are usually prefixed with the domain, e.g., "iam:observer". Standard FSO r
 "iam:tenantAdmin" and "iam:configManager". Solutions often define their own roles that can be bound to principals
 in order to access solution's functionality.
 
-Aliases for this command group include "rb", "role-binding", "role-bindings" and "iam-role-bindings".`,
-	Aliases: []string{"rb", "role-binding", "role-bindings", "iam-role-bindings"},
+To see and manage roles, use the "iam-role" commands.
+
+Commands from this group require a principal with tenant administrator access.`,
+	Aliases: []string{"iam-role-bindings", "role-binding", "role-bindings", "rb"},
 	Example: `
   fsoc iam-role-bindings list john@example.com
   fsoc rb list john@example.com
   fsoc rb add jill@example.com iam:configManager optimize:optimizationManager
-  fsoc rb remove jay@example.com iam:observer iam:tenantAdmin
+  fsoc rb remove jay@example.com iam:tenantAdmin
   `,
 	TraverseChildren: true,
 }

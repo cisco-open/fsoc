@@ -28,11 +28,12 @@ var iamRolePrincipalsCmd = &cobra.Command{
 	Short: "List principals bound to a role",
 	Long: `List all principals that are bound to a particular role.
 
+Role bindings can be managed with the "iam-role-binding" commands.
+
 This command requires a principal with tenant administrator access.`,
 	Example: `
-  fsoc iam-role principals john@example.com
-  fsoc role principals srv_1ZGdlbcm8NajPxY4o43SNv
-  fsoc role principals john@example.com -o json`,
+  fsoc iam-role principals spacefleet:commandingOfficer
+  fsoc role principals iam:agent -o json`,
 	Args: cobra.ExactArgs(1),
 	Run:  listPrincipals,
 	Annotations: map[string]string{

@@ -27,6 +27,8 @@ var iamRoleListCmd = &cobra.Command{
 	Short: "List roles",
 	Long: `List available roles.
 
+Roles can be assigned to principals using the "iam-role-binding" commands.
+
 This command requires a principal with tenant administrator access.
 
 Detail and json/yaml output include role permissions; the table view contains only role names.`,

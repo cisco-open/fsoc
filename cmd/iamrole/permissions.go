@@ -25,7 +25,7 @@ import (
 var iamRolePermissionsCmd = &cobra.Command{
 	Use:   "permissions <role>",
 	Short: "List permissions that a role provides",
-	Long: `List all permissions that a given role provides.
+	Long: `List all permissions that a given role grants to principals bound to do role.
 
 This command requires a principal with tenant administrator access.
 
@@ -33,8 +33,7 @@ The json/yaml output include the actions and resources for each permissions; the
 	Example: `
   fsoc iam-role permissions iam:observer
   fsoc role permissions spacefleet:commandingOfficer
-  fsoc role permissions john@example.com -o json
-  fsoc role permissions john@example.com -o detail`,
+  fsoc role permissions iam:agent -o json`,
 	Args: cobra.ExactArgs(1),
 	Run:  listPermissions,
 	Annotations: map[string]string{

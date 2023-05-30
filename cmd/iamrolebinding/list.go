@@ -26,11 +26,13 @@ import (
 var iamRbListCmd = &cobra.Command{
 	Use:   "list <principal>",
 	Short: "List role bindings for a principal",
-	Long: `List role bindings for to a principal
+	Long: `List roles bound to a given principal.
 	
 Detail and json/yaml output include role permissions; the table view contains only role names.
 
-Aliases for this command group include "rb", "role-binding", "role-bindings" and "iam-role-bindings".`,
+To manage roles, as well as see permissions and principals for a given role, use the "iam-role" commands.
+
+This command requires a principal with tenant administrator access.`,
 	Example: `
   fsoc iam-role-bindings list john@example.com
   fsoc rb list john@example.com -o json

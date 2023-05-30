@@ -31,8 +31,8 @@ Roles are usually prefixed with the domain, e.g., "iam:observer". Standard FSO r
 "iam:tenantAdmin" and "iam:configManager". Solutions often define their own roles that can be bound to principals
 in order to access solution's functionality.
 
-Aliases for this command group include "role", "roles" and "iam-roles".`,
-	Aliases: []string{"role", "roles", "iam-role-roles"},
+Commands from this group require a principal with tenant administrator access.`,
+	Aliases: []string{"iam-roles", "role", "roles"},
 	Example: `
   fsoc iam-roles list
   fsoc roles list

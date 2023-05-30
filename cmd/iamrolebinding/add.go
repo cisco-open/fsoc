@@ -25,7 +25,11 @@ import (
 var iamRbAddCmd = &cobra.Command{
 	Use:   "add <principal> [<role>]+",
 	Short: "Add roles to a principal",
-	Long:  `Add one or more roles to a principal`,
+	Long: `Add one or more roles to a principal. 
+	
+Use the "list" command to see roles bound to the principal; use the "iam-role list" command to see available roles.
+	
+This command requires a principal with tenant administrator access.`,
 	Example: `
   fsoc rb add john@example.com iam:observer spacefleet:crewMember
   fsoc rb add srv_1ZGdlbcm8NajPxY4o43SNv optimize:optimizationManager`,

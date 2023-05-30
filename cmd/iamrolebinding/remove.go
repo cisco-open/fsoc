@@ -25,7 +25,11 @@ import (
 var iamRbRemoveCmd = &cobra.Command{
 	Use:   "remove <principal> [<role>]+",
 	Short: "Remove roles from a principal",
-	Long:  `Remove one or more roles from a principal that has the roles. Use the "list" command to see roles bound to the principal.`,
+	Long: `Remove one or more roles from a principal that has the roles. 
+	
+To the see roles bound to a principal, use "list" command; to see permissions for a given role, use the "iam-role permissions" command.
+	
+This command requires a principal with tenant administrator access.`,
 	Example: `
   fsoc rb remove riker@example.com iam:tenantAdmin spacefleet:commandingOfficer
   fsoc rb remove srv_1ZGdlbcm8NajPxY4o43SNv optimize:optimizationManager`,
