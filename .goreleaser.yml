@@ -36,7 +36,10 @@ builds:
 archives:
 - id: fsoc-archives
   name_template: 'fsoc-{{ .Os }}-{{ .Arch }}'
-  format: binary
+  format: tar.gz
   builds:
   - fsoc-binaries
+  format_overrides:
+  - goos: windows
+    format: zip
   
