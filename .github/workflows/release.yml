@@ -38,6 +38,6 @@ jobs:
           version: latest
           args: release --clean --timeout 5m
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PUBLISHER_TOKEN }}
           GIT_BRANCH: ${{ github.ref_name }}
           BUILD_IS_DEV: 'false'
