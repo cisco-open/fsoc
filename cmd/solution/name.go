@@ -28,6 +28,7 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 	// get solution name from a flag, if provided (deprecated but kept for backward compatibility)
 	var nameFromFlag string
 	solutionTag, _ := cmd.Flags().GetString("tag")
+	commandName := cmd.Name()
 	if flagName != "" {
 		var err error
 		nameFromFlag, err = cmd.Flags().GetString(flagName)
@@ -46,7 +47,8 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		if nameFromFlag != "" {
 			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
 		}
-		if solutionTag != "" && solutionTag != "stable" {
+		// We only want to append .dev for subscribing/unsubscribing commands
+		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
 			name = fmt.Sprintf("%s.%s", name, solutionTag)
 		}
 		return name
