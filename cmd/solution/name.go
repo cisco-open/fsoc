@@ -28,7 +28,7 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 	// get solution name from a flag, if provided (deprecated but kept for backward compatibility)
 	var nameFromFlag string
 	solutionTag, _ := cmd.Flags().GetString("tag")
-	commandName, _ := cmd.Name()
+	commandName := cmd.Name()
 	if flagName != "" {
 		var err error
 		nameFromFlag, err = cmd.Flags().GetString(flagName)
