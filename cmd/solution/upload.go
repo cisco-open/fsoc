@@ -228,7 +228,38 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Installed %v successfully.\n", solutionDisplayText))
 	}
+	if isSubscribed := cmd.Flag("subscribe").Value.String() == "true"; isSubscribed {
+		var message string
+		if isSubscribed {
+			message = "Subscribing to solution"
+		} else {
+			message = "Unsubscribing from solution"
+		}
+		log.WithField("solution", solutionName).Info(message)
 
+		cfg := config.GetCurrentContext()
+		layerID := cfg.Tenant
+
+		headers = map[string]string{
+			"layer-type": "TENANT",
+			"layer-id":   layerID,
+		}
+
+		subscribe := subscriptionStruct{IsSubscribed: isSubscribed}
+
+		err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscribe, &res, &api.Options{Headers: headers})
+		if err != nil {
+			log.Fatalf("Solution command failed: %v", err)
+		}
+
+		if isSubscribed {
+			message = fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName)
+		} else {
+			message = fmt.Sprintf("Tenant %s has successfully unsubscribed from solution %s\n", layerID, solutionName)
+		}
+
+		output.PrintCmdStatus(cmd, message)
+	}
 }
 
 func getSolutionValidationErrorsString(total int, errors Errors) string {
