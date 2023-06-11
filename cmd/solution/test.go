@@ -257,7 +257,7 @@ func getSolutionTestStatusUrl(testId string) string {
 }
 
 func getBaseUrl() string {
-	return "rest/fsomon-test-runner-solution/test-runner"
+	return "rest/testrunner/test-runner"
 }
 
 func sanitizeString(input string) string {
