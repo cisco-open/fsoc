@@ -143,8 +143,10 @@ func startOptimizer(flags *startFlags) func(cmd *cobra.Command, args []string) e
 			}
 		}
 
+		if flags.restart && config.DesiredState != "stopped" {
+			config.RestartTimestamp = time.Now().UTC().String()
+		}
 		config.DesiredState = "started"
-		config.RestartTimestamp = time.Now().UTC().String()
 
 		if err := flags.updateOptimizerConfiguration(config); err != nil {
 			return fmt.Errorf("flags.updateOptimizerConfiguration: %w", err)
