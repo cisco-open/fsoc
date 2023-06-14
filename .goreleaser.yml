@@ -63,6 +63,7 @@ brews:
   tap:
     owner: Neo2308
     name: homebrew-fsoc-tap
+    branch: "{{ .ProjectName }}/{{ .Tag }}"
     token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     pull_request:
       enabled: true
