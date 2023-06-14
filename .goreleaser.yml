@@ -61,8 +61,8 @@ brews:
   commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
   folder: Formula
   tap:
-    owner: cisco-fsoc
-    name: homebrew-experimental
+    owner: Neo2308
+    name: homebrew-fsoc-tap
   install: |
     Dir.glob("fsoc-*-*") do |f|
       bin.install f => "fsoc"
