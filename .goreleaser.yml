@@ -61,8 +61,8 @@ brews:
   commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
   folder: Formula
   tap:
-    owner: Neo2308
-    name: homebrew-fsoc-tap
+    owner: cisco-open
+    name: homebrew-experimental
     branch: "{{ .ProjectName }}/{{ .Tag }}"
     token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     pull_request:
