@@ -64,6 +64,8 @@ brews:
     owner: Neo2308
     name: homebrew-fsoc-tap
     token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    pull_request:
+      enabled: true
   install: |
     Dir.glob("fsoc-*-*") do |f|
       bin.install f => "fsoc"
