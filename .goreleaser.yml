@@ -72,4 +72,4 @@ brews:
       bin.install f => "fsoc"
     end
   test: |
-    system "#{bin}/fsoc version"
+    system "#{bin}/fsoc", "version"
