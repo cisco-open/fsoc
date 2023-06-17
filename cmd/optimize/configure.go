@@ -398,9 +398,9 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 }
 
 var singleReportTemplate = template.Must(template.New("").Parse(`
-SINCE -1w 
-FETCH events(optimize:profile){attributes} 
-FROM entities({{.}}) 
+SINCE -1w
+FETCH events(k8sprofiler:report){attributes}
+FROM entities({{.}})
 LIMITS events.count(1)
 `))
 
