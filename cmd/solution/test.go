@@ -65,10 +65,10 @@ func getSolutionTestStatusCmd() *cobra.Command {
 
 // Implementation for `fsoc solution test` command.
 // This command takes 1 mandatory argument, called `test-bundle`, which is a path to a directory where the files necessary to run the solution test are present.
-// If no `test-bundle` path is provided, the command will use current directoy as `test-bundle` path.
+// If no `test-bundle` path is provided, the command will use current directory as `test-bundle` path.
 // The command looks for a file called `test-objects.json` in the `test-bundle` directory. This file should contain payload that will be sent to the test-runner server-side component to run the solution test.
 // All the file references present in `test-objects.json` should be relative paths to other files inside `test-bundle` path.
-// The command will try to read those files and replace file refereces in `test-objects.json` with actual file contents.
+// The command will try to read those files and replace file references in `test-objects.json` with actual file contents.
 // Once all this parsing is done, the command will prepare the payload for test-runner; Make http call to it and print the `test-run-id“ string that it gets from the test-runner.
 // The test-run-id returned by this command should be used to check status of the test using `fsoc solution test-status` command.
 func testSolution(cmd *cobra.Command, args []string) {
@@ -84,7 +84,7 @@ func testSolution(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error())
 	}
 	if testBundlePath == "" {
-		fmt.Println("Supplied test-bundle path is empty. Using current directoty to look for test-bundle.")
+		fmt.Println("Supplied test-bundle path is empty. Using current directory to look for test-bundle.")
 		testBundleDir = currentDir
 	} else {
 		testBundleDir = testBundlePath

@@ -251,7 +251,7 @@ func isSolutionPackageRoot(path string) bool {
 	manifestPath := fmt.Sprintf("%s/manifest.json", path)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Errorf("The direcotry %s is not a solution root directory", path)
+		log.Errorf("The directory %s is not a solution root directory", path)
 		return false
 	}
 	manifestFile.Close()
