@@ -120,5 +120,5 @@ func updateObject(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Knowledge object update failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Knowlege object updated successfully.\n")
+	output.PrintCmdStatus(cmd, "Knowledge object updated successfully.\n")
 }

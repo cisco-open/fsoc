@@ -94,7 +94,7 @@ and push the configuration to the knowledge store. You may optionally override t
 
 	configureCmd.Flags().StringVarP(&flags.filePath, "file", "f", "", "Override profiler report values with a local yaml/json file matching the json schema of the optimize:optimizer Orion type")
 
-	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuraiton file")
+	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuration file")
 	configureCmd.Flags().BoolVarP(&flags.start, "start", "s", false, "Set the desired state of the specified or new optimizer to started")
 
 	configureCmd.MarkFlagsMutuallyExclusive("optimizer-id", "create")
