@@ -33,13 +33,13 @@ func newGetObjectCmd() *cobra.Command {
 		Short:   "Fetch a knowledge object or a list of knowledge objects from the Knowledge Store.",
 		Aliases: []string{"g"},
 		Long:    `Fetch a knowledge object from the Knowledge Store using set of properties which can uniquely identify it.`,
-		Example: `  
+		Example: `
   # Get knowledge object [SERVICE principal]
   fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-id=extensibility --layer-type=SOLUTION
-  
+
   # Get object [USER principal]
   fsoc knowledge get --type extensibility:solution --object-id extensibility --layer-type LOCALUSER
-  
+
   # Get list of solution layer knowledge objects that are system solutions
   fsoc knowledge get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
 
@@ -57,12 +57,16 @@ func newGetObjectCmd() *cobra.Command {
 
 	getCmd.PersistentFlags().
 		String("type", "", "Fully qualified type name of knowledge object.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
+	_ = getCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	getCmd.PersistentFlags().String("object-id", "", "Object ID of the knowledge object to fetch")
+	_ = getCmd.RegisterFlagCompletionFunc("object-id", objectCompletionFunc)
+
 	getCmd.PersistentFlags().String("layer-id", "", "Layer ID of the related knowledge object to fetch")
 
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
+	_ = getCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	getCmd.PersistentFlags().String("filter", "", "Filter condition in SCIM filter format for getting knowledge objects")
 	_ = getCmd.MarkPersistentFlagRequired("type")
@@ -93,6 +97,7 @@ func newGetTypeCmd() *cobra.Command {
 
 	// only get type by fqtn is supported.
 	_ = getTypeCmd.MarkPersistentFlagRequired("type")
+	_ = getTypeCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	return getTypeCmd
 }
