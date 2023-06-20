@@ -66,13 +66,14 @@ func getEcpDetails(entity *FmmEntity) *DashuiTemplate {
 }
 
 func getEcpHome(manifest *Manifest) *DashuiTemplatePropsExtension {
-	id := fmt.Sprintf("%s:%sEcpHomeExtension", manifest.Name, manifest.Name)
+	namespaceName := manifest.getNamespaceName()
+	id := fmt.Sprintf("%s:%sEcpHomeExtension", namespaceName, namespaceName)
 	name := "dashui:ecpHome"
 	view := "default"
 	target := "*"
 
-	ecpHomeSectionName := fmt.Sprintf("%sCoreSection", manifest.Name)
-	ecpHomeSectionTitle := fmt.Sprintf("%s - %s", manifest.Name, manifest.SolutionVersion)
+	ecpHomeSectionName := fmt.Sprintf("%sCoreSection", namespaceName)
+	ecpHomeSectionTitle := fmt.Sprintf("%s - %s", namespaceName, manifest.SolutionVersion)
 	ecpHome := &EcpHome{
 		Sections: []*DashuiEcpHomeSection{
 			{
