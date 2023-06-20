@@ -228,7 +228,8 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Installed %v successfully.\n", solutionDisplayText))
 	}
-	if cmd.Flag("subscribe").Changed {
+
+	if cmd.Flag("subscribe").Value.String() == "true" {
 		log.WithField("solution", solutionName).Info("Subscribing to solution")
 		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
@@ -238,7 +239,16 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
 		if err != nil {
-			log.Fatalf("Solution command failed: %v", err)
+			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
+				time.Sleep(time.Second * 2)
+				err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
+				if err != nil {
+					log.Fatalf("Solution command failed: %v", err)
+				}
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+			} else {
+				log.Fatalf("Solution command failed: %v", err)
+			}
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
 	}
