@@ -85,6 +85,14 @@ type SolutionList struct {
 	Items []Solution `json:"items"`
 }
 
+func (manifest *Manifest) getNamespaceName() string {
+	namespaceName := manifest.Name
+	if strings.Contains(manifest.Name, "${") {
+		namespaceName = "${sys.solutionId}"
+	}
+	return namespaceName
+}
+
 func (manifest *Manifest) GetFmmEntities() []*FmmEntity {
 	fmmEntities := make([]*FmmEntity, 0)
 	entityComponentDefs := manifest.GetComponentDefs("fmm:entity")
