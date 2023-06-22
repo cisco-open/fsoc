@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/apex/log"
@@ -68,7 +69,8 @@ func getSolutionNames(prefix string) (names []string) {
 	httpOptions := &api.Options{Headers: headers}
 
 	var res SolutionList
-	err := api.JSONGet(getSolutionListUrl(), &res, httpOptions)
+	url := fmt.Sprintf("%s?max=%d", getSolutionListUrl(), api.MAX_COMPLETION_RESULTS)
+	err := api.JSONGet(url, &res, httpOptions)
 	if err != nil {
 		return names
 	}
