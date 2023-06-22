@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cisco-open/fsoc/platform/api"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 func NewSubCmd() *cobra.Command {
