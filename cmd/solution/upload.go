@@ -228,8 +228,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Installed %v successfully.\n", solutionDisplayText))
 	}
-
-	if cmd.Flag("subscribe").Value.String() == "true" {
+	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
 		log.WithField("solution", solutionName).Info("Subscribing to solution")
 		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
