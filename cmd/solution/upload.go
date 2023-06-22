@@ -228,7 +228,29 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Installed %v successfully.\n", solutionDisplayText))
 	}
-
+	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
+		log.WithField("solution", solutionName).Info("Subscribing to solution")
+		cfg := config.GetCurrentContext()
+		layerID := cfg.Tenant
+		headers = map[string]string{
+			"layer-type": "TENANT",
+			"layer-id":   layerID,
+		}
+		err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
+		if err != nil {
+			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
+				time.Sleep(time.Second * 2)
+				err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
+				if err != nil {
+					log.Fatalf("Solution command failed: %v", err)
+				}
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+			} else {
+				log.Fatalf("Solution command failed: %v", err)
+			}
+		}
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+	}
 }
 
 func getSolutionValidationErrorsString(total int, errors Errors) string {
