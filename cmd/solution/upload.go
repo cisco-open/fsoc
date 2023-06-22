@@ -56,14 +56,16 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		waitFlag = -1
 	}
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
-	solutionTagFlag, _ := cmd.Flags().GetString("tag")
-	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
 
+	// prepare tag-related flags (note: these will be replaced if isolation is attempted)
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
+	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
 	if pushWithStableTag {
 		solutionTagFlag = "stable"
 	}
+	requestedSolutionTag := solutionTagFlag // mostly for display, as solutionTagFlag may be changed to comply with supported API values
 
 	// prepare archive if needed
 	solutionAlreadyZipped = solutionBundlePath != ""
@@ -102,8 +104,10 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			bumpSolutionVersionInManifest(cmd, manifest, solutionRootDirectory)
 		}
 
-		// isolate if needed
-		solutionIsolateDirectory, err := embeddedConditionalIsolate(cmd, solutionRootDirectory)
+		// isolate if needed (update tag values to reflect env var and/or env file settings)
+		solutionIsolateDirectory, tag, err := embeddedConditionalIsolate(cmd, solutionRootDirectory)
+		solutionTagFlag = tag
+		requestedSolutionTag = tag
 		if err != nil {
 			log.Fatalf("Failed to isolate solution with tag: %v", err)
 		}
@@ -118,7 +122,9 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			}
 
 			// update tag to use supported values
-			solutionTagFlag = "stable" // TODO: get it from the env file
+			if solutionTagFlag != "stable" {
+				solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
+			}
 		}
 
 		// create archive
@@ -136,7 +142,15 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"zip_prepackaged": false,
 		}
 	}
-	solutionDisplayText += " with tag " + solutionTagFlag
+	logFields["tag"] = requestedSolutionTag
+	logFields["isolation_tag"] = requestedSolutionTag
+	logFields["header_tag"] = solutionTagFlag
+	solutionDisplayText += " with tag "
+	if solutionTagFlag == requestedSolutionTag {
+		solutionDisplayText += solutionTagFlag
+	} else {
+		solutionDisplayText += fmt.Sprintf("%v (%v)", requestedSolutionTag, solutionTagFlag) // non-stable isolation tag uses "dev" in API header
+	}
 	if push {
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Deploying %s\n", solutionDisplayText))
 	} else {
