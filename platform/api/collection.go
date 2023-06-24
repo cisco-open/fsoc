@@ -30,6 +30,8 @@ const (
 	nextRelName    = "next"
 )
 
+const MAX_COMPLETION_RESULTS = 500
+
 type dataPage struct {
 	Items []any `json:"items"`
 	Total int   `json:"total"`
@@ -95,21 +97,11 @@ func JSONGetCollection(path string, out any, options *Options) error {
 			return fmt.Errorf("Failed to parse collection iterator link(s) %v: %v ", links, err)
 		}
 		nextQuery := nextUrl.RawQuery
-		// Parse queries
-		queries := strings.Split(nextQuery, "&")
-		for i := 0; i < len(queries); i++ {
-			// Take each query and query escape everything after the "="
-			querySplit := strings.Split(queries[i], "=")
-			querySplit[1] = url.QueryEscape(querySplit[1])
-			queries[i] = strings.Join(querySplit, "=")
-		}
-		// join all the queries back together with the &
-		escapedNextQuery := strings.Join(queries, "&")
 		nextUrl, err = url.Parse(path)
 		if err != nil {
 			return fmt.Errorf("Failed to parse path %q: %v", path, err)
 		}
-		nextUrl.RawQuery = escapedNextQuery
+		nextUrl.RawQuery = nextQuery
 		path = nextUrl.String()
 	}
 	log.Infof("Collection page #%v at %q returned %v items (last page)", pageNo+1, path, len(page.Items))
