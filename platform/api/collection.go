@@ -30,8 +30,6 @@ const (
 	nextRelName    = "next"
 )
 
-const MAX_COMPLETION_RESULTS = 500
-
 type dataPage struct {
 	Items []any `json:"items"`
 	Total int   `json:"total"`
