@@ -49,6 +49,8 @@ func getSolutionListCmd() *cobra.Command {
 	solutionListCmd.Flags().
 		Bool("unsubscribed", false, "Use this to only see solutions that you are unsubscribed to")
 
+	solutionListCmd.MarkFlagsMutuallyExclusive("subscribed", "unsubscribed")
+
 	return solutionListCmd
 
 }
@@ -58,10 +60,6 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	// get subscribe and unsubscribe flags
 	subscribed := cmd.Flags().Lookup("subscribed").Changed
 	unsubscribed := cmd.Flags().Lookup("unsubscribed").Changed
-
-	if subscribed && unsubscribed {
-		log.Fatalf("You cannot use both the subscribed flag and the unsubscribed flag")
-	}
 
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant
