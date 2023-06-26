@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -95,7 +94,7 @@ and push the configuration to the knowledge store. You may optionally override t
 
 	configureCmd.Flags().StringVarP(&flags.filePath, "file", "f", "", "Override profiler report values with a local yaml/json file matching the json schema of the optimize:optimizer Orion type")
 
-	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuraiton file")
+	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuration file")
 	configureCmd.Flags().BoolVarP(&flags.start, "start", "s", false, "Set the desired state of the specified or new optimizer to started")
 
 	configureCmd.MarkFlagsMutuallyExclusive("optimizer-id", "create")
@@ -207,7 +206,14 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		err = validateProfilerReportConfigData(&profilerReport, []string{
 			"resource_metadata.namespace_name", "resource_metadata.workload_name", "k8s.deployment.uid",
 			"resource_metadata.cluster_id", "resource_metadata.cluster_name", "report_contents.main_container_name",
-			"report_support_data.cpu_requests", "report_support_data.memory_requests",
+			"report_contents.optimization_configuration.guardrails.cpu.max",
+			"report_contents.optimization_configuration.guardrails.cpu.min",
+			"report_contents.optimization_configuration.guardrails.cpu.pinned",
+			"report_contents.optimization_configuration.guardrails.memory.max",
+			"report_contents.optimization_configuration.guardrails.memory.min",
+			"report_contents.optimization_configuration.guardrails.memory.pinned",
+			"report_contents.optimization_configuration.slo.error_percent.target",
+			"report_contents.optimization_configuration.slo.median_response_time.target",
 		})
 		if err != nil {
 			return fmt.Errorf("validateProfilerReportConfigData: %w", err)
@@ -232,28 +238,59 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Target.K8SDeployment.WorkloadID = strings.Split(workloadId, ":")[2]
 		newOptimizerConfig.Target.K8SDeployment.WorkloadName = profilerReport["resource_metadata.workload_name"].(string)
 		// Config
-		cpuRequest, err := strconv.ParseFloat(profilerReport["report_support_data.cpu_requests"].(string), 64)
+		newOptimizerConfig.Config.Guardrails.CPU.Max, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.guardrails.cpu.max"].(string), 64)
 		if err != nil {
-			return fmt.Errorf("Unable to parse profiler report_support_data.cpu_requests into float64: %w", err)
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.cpu.max into float64: %w", err)
 		}
-		newOptimizerConfig.Config.Guardrails.CPU.Max = cpuRequest * 1.5
-		newOptimizerConfig.Config.Guardrails.CPU.Min = cpuRequest * 0.5
-		newOptimizerConfig.Config.Guardrails.CPU.Pinned = false
-
-		memRequest, err := strconv.ParseFloat(profilerReport["report_support_data.memory_requests"].(string), 64)
+		newOptimizerConfig.Config.Guardrails.CPU.Min, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.guardrails.cpu.min"].(string), 64)
 		if err != nil {
-			return fmt.Errorf("Unable to parse profiler report_support_data.memory_requests into float64: %w", err)
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.cpu.min into float64: %w", err)
 		}
-		// convert from bytes to GiB
-		memRequest = memRequest / math.Pow(1024, 3)
-		newOptimizerConfig.Config.Guardrails.Mem.Max = memRequest * 1.5
-		newOptimizerConfig.Config.Guardrails.Mem.Min = memRequest * 0.5
-		newOptimizerConfig.Config.Guardrails.Mem.Pinned = false
+		newOptimizerConfig.Config.Guardrails.CPU.Pinned, err = strconv.ParseBool(
+			profilerReport["report_contents.optimization_configuration.guardrails.cpu.pinned"].(string))
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.cpu.pinned into boolean: %w", err)
+		}
+		newOptimizerConfig.Config.Guardrails.Mem.Max, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.guardrails.memory.max"].(string), 64)
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.memory.max into float64: %w", err)
+		}
+		newOptimizerConfig.Config.Guardrails.Mem.Min, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.guardrails.memory.min"].(string), 64)
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.memory.min into float64: %w", err)
+		}
+		newOptimizerConfig.Config.Guardrails.Mem.Pinned, err = strconv.ParseBool(
+			profilerReport["report_contents.optimization_configuration.guardrails.memory.pinned"].(string))
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.guardrails.memory.pinned into boolean: %w", err)
+		}
+		// SLOs
+		newOptimizerConfig.Config.Slo.ErrorPercent.Target, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.slo.error_percent.target"].(string), 64)
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.slo.error_percent.target into float64: %w", err)
+		}
+		newOptimizerConfig.Config.Slo.MedianResponseTime.Target, err = strconv.ParseFloat(
+			profilerReport["report_contents.optimization_configuration.slo.median_response_time.target"].(string), 64)
+		if err != nil {
+			return fmt.Errorf(
+				"Unable to parse profiler report_contents.optimization_configuration.slo.median_response_time.target into float64: %w", err)
+		}
 		// Set suspensions to empty object
 		newOptimizerConfig.Suspensions = make(map[string]Suspension)
 
 		// config file overrides
-		// TODO test this path
 		if flags.filePath != "" {
 			configFile, err := os.Open(flags.filePath)
 			if err != nil {
@@ -288,7 +325,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			}
 		}
 
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer configured with ID %q", newOptimizerConfig.OptimizerID))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer configured with ID %q\n", newOptimizerConfig.OptimizerID))
 		return nil
 	}
 }
@@ -361,9 +398,9 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 }
 
 var singleReportTemplate = template.Must(template.New("").Parse(`
-SINCE -1w 
-FETCH events(optimize:profile){attributes} 
-FROM entities({{.}}) 
+SINCE -1w
+FETCH events(k8sprofiler:report){attributes}
+FROM entities({{.}})
 LIMITS events.count(1)
 `))
 

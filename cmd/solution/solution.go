@@ -49,7 +49,6 @@ func NewSubCmd() *cobra.Command {
 	solutionCmd.AddCommand(getSolutionExtendCmd())
 	solutionCmd.AddCommand(getSolutionPackageCmd())
 	solutionCmd.AddCommand(getSolutionPushCmd())
-	solutionCmd.AddCommand(getAuthorCmd())
 	solutionCmd.AddCommand(getSolutionDownloadCmd())
 	solutionCmd.AddCommand(getSolutionValidateCmd())
 	solutionCmd.AddCommand(GetSolutionForkCommand())
@@ -57,6 +56,9 @@ func NewSubCmd() *cobra.Command {
 	solutionCmd.AddCommand(getSolutionStatusCmd())
 	solutionCmd.AddCommand(getSolutionDescribeCmd())
 	solutionCmd.AddCommand(getSolutionBumpCmd())
+	solutionCmd.AddCommand(getSolutionTestCmd())
+	solutionCmd.AddCommand(getSolutionTestStatusCmd())
+	solutionCmd.AddCommand(getsolutionIsolateCmd())
 	solutionListCmd.Flags().StringP("output", "o", "", "Output format (human*, json, yaml)")
 
 	return solutionCmd

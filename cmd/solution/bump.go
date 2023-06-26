@@ -21,6 +21,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -32,6 +33,7 @@ it for validation or push.`,
 	Example:          `  fsoc solution bump`,
 	Args:             cobra.ExactArgs(0),
 	Run:              bumpSolutionVersion,
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 

@@ -34,7 +34,7 @@ import (
 var solutionForkCmd = &cobra.Command{
 	Use:     "fork <solution-name> <target-name>",
 	Args:    cobra.MaximumNArgs(2),
-	Short:   "Fork a solution into the specified folder",
+	Short:   "Fork a solution into the specified directory",
 	Long:    `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
 	Example: `  fsoc solution fork spacefleet myfleet`,
 	Run:     solutionForkCommand,
@@ -77,13 +77,13 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	fileSystemRoot := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
 
 	if solutionNameFolderInvalid(fileSystemRoot, forkName) {
-		log.Fatalf(fmt.Sprintf("A non empty folder with the name %s already exists", forkName))
+		log.Fatalf(fmt.Sprintf("A non empty directory with the name %s already exists", forkName))
 	}
 
 	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory+"/"+forkName)
 
 	if manifestExists(fileSystem, forkName) {
-		log.Fatalf("There is already a manifest file in this folder")
+		log.Fatalf("There is already a manifest file in this directory")
 	}
 
 	downloadSolutionZip(cmd, solutionName, forkName)
@@ -112,11 +112,11 @@ func solutionNameFolderInvalid(fileSystem afero.Fs, forkName string) bool {
 	} else {
 		err := fileSystem.Mkdir(forkName, os.ModeDir)
 		if err != nil {
-			log.Fatalf("Failed to create folder in this directory")
+			log.Fatalf("Failed to create directory in this directory")
 		}
 		err = os.Chmod(forkName, 0700)
 		if err != nil {
-			log.Fatalf("Failed to set permission on folder")
+			log.Fatalf("Failed to set permission on directory")
 		}
 	}
 	return false
@@ -131,7 +131,6 @@ func manifestExists(fileSystem afero.Fs, forkName string) bool {
 }
 
 func extractZip(rootFileSystem afero.Fs, fileSystem afero.Fs, solutionName string) error {
-	println("./" + solutionName + ".zip")
 	zipFile, err := rootFileSystem.OpenFile("./"+solutionName+".zip", os.O_RDONLY, os.FileMode(0644))
 	if err != nil {
 		log.Fatalf("Error opening zip file: %v", err)
@@ -191,7 +190,7 @@ func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName strin
 		log.Fatalf("Solution download failed: %v", err)
 	}
 
-	message = fmt.Sprintf("Solution bundle %s was successfully downloaded in the this directory.\r\n", solutionName)
+	message = fmt.Sprintf("Solution %s was successfully downloaded in the this directory.\r\n", solutionName)
 	output.PrintCmdStatus(cmd, message)
 
 	message = fmt.Sprintf("Changing solution name in manifest to %s.\r\n", forkName)

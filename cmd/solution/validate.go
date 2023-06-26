@@ -15,18 +15,7 @@
 package solution
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"mime/multipart"
-	"os"
-	"path/filepath"
-
-	"github.com/apex/log"
 	"github.com/spf13/cobra"
-
-	"github.com/cisco-open/fsoc/output"
-	"github.com/cisco-open/fsoc/platform/api"
 )
 
 type ErrorItem struct {
@@ -44,19 +33,17 @@ type Result struct {
 	Valid  bool   `json:"valid"`
 }
 
-func getSolutionValidateUrl() string {
-	return "solnmgmt/v1beta/solutions"
-}
-
 var solutionValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Args:  cobra.ExactArgs(0),
 	Short: "Validate solution",
-	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.  The --stable flag provides a default value of 'stable' for the tag associated with the given solution bundle.  `,
+	Long:  `This command allows the current tenant specified in the profile to upload the solution in the current directory just to validate its contents.  The --stable flag provides a default value of 'stable' for the tag associated with the given solution.  `,
 	Example: `  fsoc solution validate
   fsoc solution validate --bump --tag preprod
   fsoc solution validate --tag dev
-  fsoc solution validate --stable`,
+  fsoc solution validate --stable
+  fsoc solution validate -d mysolution --tag dev
+  fsoc solution validate --solution-bundle=mysolution-1.22.3.zip --tag stable`,
 	Run:              validateSolution,
 	TraverseChildren: true,
 }
@@ -66,118 +53,31 @@ func getSolutionValidateCmd() *cobra.Command {
 		String("tag", "", "Tag to associate with provided solution.  Ensure tag used for validation & upload are same.")
 
 	solutionValidateCmd.Flags().
-		Bool("stable", false, "Automatically associate the 'stable' tag with solution bundle to be validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
+		Bool("stable", false, "Automatically associate the 'stable' tag with solution to validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
 
 	solutionValidateCmd.Flags().
-		String("solution-bundle", "", "The fully qualified path name for the solution bundle .zip file that you want to validate")
-	_ = solutionValidateCmd.Flags().MarkDeprecated("solution-bundle", "it is no longer available.")
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
+
+	solutionValidateCmd.Flags().
+		String("solution-bundle", "", "Path to a prepackaged solution zip")
+
+	solutionValidateCmd.Flags().
+		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+
+	solutionValidateCmd.Flags().
+		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
-	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable")
+
+	solutionValidateCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")
 
 	return solutionValidateCmd
 }
 
 func validateSolution(cmd *cobra.Command, args []string) {
-	var manifestPath string
-	var solutionArchivePath string
-	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
-	bumpFlag, _ := cmd.Flags().GetBool("bump")
-	solutionTagFlag, _ := cmd.Flags().GetString("tag")
-	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
-
-	if pushWithStableTag {
-		solutionTagFlag = "stable"
-	}
-
-	if solutionBundlePath != "" {
-		log.Fatalf("The --solution-bundle flag is no longer available; please use direct validate instead.")
-	}
-
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	manifestPath = currentDir
-	if !isSolutionPackageRoot(manifestPath) {
-		log.Fatalf("No solution manifest found in %q; please run this command in a folder with a solution or use the --solution-bundle flag", manifestPath)
-	}
-	manifest, err := getSolutionManifest(manifestPath)
-	if err != nil {
-		log.Fatalf("Failed to read the solution manifest in %q: %v", manifestPath, err)
-	}
-	if bumpFlag {
-		if err := bumpManifestPatchVersion(manifest); err != nil {
-			log.Fatal(err.Error())
-		}
-		if err := writeSolutionManifest(manifestPath, manifest); err != nil {
-			log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
-		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
-	}
-
-	// create a temporary solution archive
-	// solutionArchive := generateZipNoCmd(manifestPath)
-	solutionArchive := generateZip(cmd, manifestPath)
-	solutionArchivePath = filepath.Base(solutionArchive.Name())
-
-	var message string
-
-	file, err := os.Open(solutionArchivePath)
-	if err != nil {
-		log.Fatalf("Failed to open file %q: %v", solutionArchivePath, err)
-	}
-	defer file.Close()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	fw, err := writer.CreateFormFile("file", solutionArchivePath)
-	if err != nil {
-		log.Fatalf("Failed to create form file: %v", err)
-	}
-
-	_, err = io.Copy(fw, file)
-	if err != nil {
-		writer.Close()
-		log.Fatalf("Failed to copy file %q into file writer: %v", solutionArchivePath, err)
-	}
-
-	writer.Close()
-
-	headers := map[string]string{
-		"tag":          solutionTagFlag,
-		"operation":    "VALIDATE",
-		"Content-Type": writer.FormDataContentType(),
-	}
-
-	var res Result
-
-	err = api.HTTPPost(getSolutionValidateUrl(), body.Bytes(), &res, &api.Options{Headers: headers})
-	if err != nil {
-		log.Fatalf("Solution validate request failed: %v", err)
-	}
-
-	if res.Valid {
-		message = fmt.Sprintf("Solution %s version %s and tag %s was successfully validated.\n", manifest.Name, manifest.SolutionVersion, solutionTagFlag)
-		//message = fmt.Sprintf("Solution bundle %s validated successfully.\n", solutionArchivePath)
-	} else {
-		message = getSolutionValidationErrorsString(res.Errors.Total, res.Errors)
-	}
-	output.PrintCmdStatus(cmd, message)
-	if !res.Valid {
-		log.Fatalf("%d error(s) found while validating the solution", res.Errors.Total)
-	}
-}
-
-func getSolutionValidationErrorsString(total int, errors Errors) string {
-	var message = fmt.Sprintf("\n%d errors detected while validating solution package\n", total)
-	for _, err := range errors.Items {
-		message += fmt.Sprintf("- Error Content: %+v\n", err)
-	}
-	message += "\n"
-
-	return message
+	uploadSolution(cmd, false)
 }

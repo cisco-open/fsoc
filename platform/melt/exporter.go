@@ -430,6 +430,15 @@ func toKeyValueList(a map[string]string) []*common.KeyValue {
 					},
 				},
 			}
+		} else if boolValue, err := strconv.ParseBool(v); err == nil {
+			value = &common.KeyValue{
+				Key: key,
+				Value: &common.AnyValue{
+					Value: &common.AnyValue_BoolValue{
+						BoolValue: boolValue,
+					},
+				},
+			}
 
 		} else {
 			value = &common.KeyValue{

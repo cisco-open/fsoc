@@ -33,12 +33,12 @@ var objStoreUpdateCmd = &cobra.Command{
 	Long: `This command allows the an existent knowledge object to be updated according to the fields and values provided in a .json file.
 
 	Usage:
-	fsoc knowledge update --type=<fully-qualified-typename> 
+	fsoc knowledge update --type=<fully-qualified-typename>
 	--object-id=<object id>
-	--object-file=<fully-qualified-path> 
+	--object-file=<fully-qualified-path>
 	--layer-type=[SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER]
 	--layer-id=<respective-layer-id>
-	
+
 	Flags/Options:
 	--type - Flag to indicate the fully qualified type name of the knowldge object that you would like to update
 	--object-id - Flag to indicate the ID of the knowledge object that you want to update
@@ -55,10 +55,12 @@ func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
 		String("type", "", "The fully qualified type name of the related knowledge object to update.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
+	_ = objStoreUpdateCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	objStoreUpdateCmd.Flags().
 		String("object-id", "", "The id of the knowledge object to update")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("type")
+	_ = objStoreUpdateCmd.RegisterFlagCompletionFunc("object-id", objectCompletionFunc)
 
 	objStoreUpdateCmd.Flags().
 		String("object-file", "", "The fully qualified path to the json file containing the updated knowledge object data definition")
@@ -67,6 +69,7 @@ func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
 		String("layer-type", "", "The layer-type of the knowledge object to update")
 	_ = objStoreUpdateCmd.MarkPersistentFlagRequired("layer-type")
+	_ = objStoreUpdateCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	objStoreUpdateCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")
@@ -120,5 +123,5 @@ func updateObject(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Knowledge object update failed: %v", err)
 	}
-	output.PrintCmdStatus(cmd, "Knowlege object updated successfully.\n")
+	output.PrintCmdStatus(cmd, "Knowledge object updated successfully.\n")
 }

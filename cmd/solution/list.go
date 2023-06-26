@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -37,8 +38,8 @@ var solutionListCmd = &cobra.Command{
 	Run:              getSolutionList,
 	TraverseChildren: true,
 	Annotations: map[string]string{
-		output.TableFieldsAnnotation:  "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies",
-		output.DetailFieldsAnnotation: "name:.data.name, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, installDate:.createdAt, updateDate:.updatedAt",
+		output.TableFieldsAnnotation:  "name:.data.name, tag:.data.tag, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies",
+		output.DetailFieldsAnnotation: "name:.data.name, tag:.data.tag, isSystem:.data.isSystem, isSubscribed:.data.isSubscribed, dependencies:.data.dependencies, installDate:.createdAt, updateDate:.updatedAt",
 	},
 }
 
@@ -93,7 +94,8 @@ func getSolutionNames(prefix string) (names []string) {
 	httpOptions := &api.Options{Headers: headers}
 
 	var res SolutionList
-	err := api.JSONGet(getSolutionListUrl(), &res, httpOptions)
+	url := fmt.Sprintf("%s?max=%d", getSolutionListUrl(), api.MAX_COMPLETION_RESULTS)
+	err := api.JSONGet(url, &res, httpOptions)
 	if err != nil {
 		return names
 	}
