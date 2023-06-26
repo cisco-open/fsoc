@@ -68,7 +68,7 @@ func getSolutionPushCmd() *cobra.Command {
 
 	solutionPushCmd.Flags().
 		Bool("subscribe", false, "Subscribe to the solution that you are pushing")
-	solutionPushCmd.Flags().MarkHidden("subscribe") // TODO: unify with isolation before showing
+	_ = solutionPushCmd.Flags().MarkHidden("subscribe") // TODO: unify with isolation before showing
 
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory") // either solution dir or prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
