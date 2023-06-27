@@ -57,7 +57,7 @@ func newCmdConfigSet() *cobra.Command {
 		Use:         "set [--profile CONTEXT] --auth=AUTH [flags]",
 		Short:       "Create or modify a context entry in an fsoc config file",
 		Long:        setContextLong,
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.MaximumNArgs(9),
 		Example:     setContextExample,
 		Annotations: map[string]string{AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
@@ -66,9 +66,11 @@ func newCmdConfigSet() *cobra.Command {
 	cmd.Flags().String(AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
 	cmd.Flags().String(AppdPty, "", "pty to use (local auth type only, provide raw value to be encoded)")
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
+	_ = cmd.Flags().MarkDeprecated("url", "TODO") // TODO: Change Deprecation Message
 	cmd.Flags().String("server", "", "Set server host name")
 	_ = cmd.Flags().MarkDeprecated("server", "The --server flag is deprecated, please use --url instead.")
 	cmd.Flags().String("url", "", "Set server URL (with http or https schema)")
+	_ = cmd.Flags().MarkDeprecated("url", "The --server flag is deprecated, please use --url instead.") // TODO: Change Deprecation Message
 	cmd.Flags().String("tenant", "", "Set tenant ID")
 	cmd.Flags().String("token", "", "Set token value (use --token=- to get from stdin)")
 	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv) or agent principal (.yaml)")
@@ -95,13 +97,39 @@ func validateUrl(providedUrl string) (string, error) {
 	return parsedUrl.String(), nil
 }
 
+func validateArgs(cmd *cobra.Command, args []string) error {
+	flags := cmd.Flags()
+	allowedArgs := []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file"}
+	for i := 0; i < len(args); i++ {
+		// check arg format ∑+=∑+
+		stringSegments := strings.Split(args[i], "=")
+		name, value := stringSegments[0], stringSegments[1]
+		if len(stringSegments) != 2 {
+			return fmt.Errorf("parameter name and value cannot contain \"=\"")
+		}
+		// check arg name is valid (i.e. no disallowed flags)
+		if !slices.Contains(allowedArgs, name) {
+			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
+		}
+		// make sure flag isn't already set
+		if flags.Changed(name) {
+			return fmt.Errorf("cannot have both flag and argument with same name")
+		}
+		// Set flag manually
+		err := flags.Set(name, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func configSetContext(cmd *cobra.Command, args []string) {
 	var contextName string
 
 	// Check that either context name or current context is specified
-	if len(args) > 0 {
-		_ = cmd.Help()
-		log.Fatalf("Unexpected args: %v", args)
+	if err := validateArgs(cmd, args); err != nil {
+		log.Fatalf("%v", err)
 	}
 
 	// Check that at least one value is specified (including empty)
