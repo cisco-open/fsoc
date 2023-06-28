@@ -128,7 +128,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 	}
 
 	// parse env vars
-	envVars, err := loadEnvVars(cmd, tag, envVarsFile)
+	envVars, err := LoadEnvVars(cmd, tag, envVarsFile)
 	if err != nil {
 		return "", "", err
 	}
@@ -186,7 +186,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 
 	log.Info("Pseudo-isolation successfully completed")
 
-	return mf.Name, getTag(envVars), nil
+	return mf.Name, GetTag(envVars), nil
 }
 
 func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interface{}) error {
@@ -287,7 +287,7 @@ func traverseSolutionFolder(dirPath string, mf *Manifest, srcPath, targetPath st
 	return err
 }
 
-func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, error) {
+func LoadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, error) {
 	// create ad-hoc env vars if the tag flag is specified (instead of an env json file)
 	if tag != "" {
 		envVars := map[string]interface{}{
@@ -317,7 +317,7 @@ func loadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 	return envVars, nil
 }
 
-func getTag(envVars interface{}) string {
+func GetTag(envVars interface{}) string {
 	if root, ok := envVars.(map[string]any); ok {
 		if env, ok := root["env"].(map[string]any); ok {
 			if tag, ok := env["tag"].(string); ok && tag != "" {

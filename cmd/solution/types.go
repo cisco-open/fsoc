@@ -16,6 +16,7 @@ package solution
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -85,12 +86,24 @@ type SolutionList struct {
 	Items []Solution `json:"items"`
 }
 
-func (manifest *Manifest) getNamespaceName() string {
+func (manifest *Manifest) GetNamespaceName() string {
 	namespaceName := manifest.Name
-	if strings.Contains(manifest.Name, "${") {
+	if manifest.HasIsolation() {
 		namespaceName = "${sys.solutionId}"
 	}
 	return namespaceName
+}
+
+func (manifest *Manifest) GetSolutionName() string {
+	solutionName := manifest.Name
+	if manifest.HasIsolation() {
+		solutionName = strings.Split(manifest.Name, "${")[0]
+	}
+	return solutionName
+}
+
+func (manifest *Manifest) HasIsolation() bool {
+	return strings.Contains(manifest.Name, "${")
 }
 
 func (manifest *Manifest) GetFmmEntities() []*FmmEntity {
@@ -210,6 +223,12 @@ func (manifest *Manifest) GetComponentDef(typeName string) *ComponentDef {
 
 func (manifest *Manifest) GetComponentDefs(typeName string) []ComponentDef {
 	var componentDefs []ComponentDef
+	typeConvention := strings.Split(typeName, ":")
+	depIsolation := fmt.Sprintf("${$dependency('%s')}", typeConvention[0])
+	if manifest.HasIsolation() && manifest.CheckDependencyExists(depIsolation) {
+		typeName = fmt.Sprintf("%s:%s", depIsolation, typeConvention[1])
+	}
+
 	for _, compDefs := range manifest.Objects {
 		if compDefs.Type == typeName {
 			componentDefs = append(componentDefs, compDefs)
