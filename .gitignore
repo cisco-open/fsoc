@@ -42,3 +42,6 @@ coverage.txt
 # vendor/
 
 .DS_Store
+
+# ensures no nodejs modules are added
+node_modules

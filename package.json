@@ -1,0 +1,18 @@
+{
+  "name": "fsoc",
+  "version": "1.0.0",
+  "description": "[![Release](https://img.shields.io/github/release/cisco-open/fsoc.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest) [![stability-alpha](https://img.shields.io/badge/stability-alpha-f4d03f.svg?style=for-the-badge)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#alpha) [![Go Report Card](https://goreportcard.com/badge/github.com/cisco-open/fsoc?style=for-the-badge)](https://goreportcard.com/report/github.com/cisco-open/fsoc)  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE) [![Github All Releases](https://img.shields.io/github/downloads/cisco-open/fsoc/total.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest)",
+  "main": "jsonata.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jsonata": "^2.0.3"
+  }
+}

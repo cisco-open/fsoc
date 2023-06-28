@@ -1,0 +1,9 @@
+(
+  $otel := {
+    "applicationData": applicationData,
+    "events": events,
+    "metrics": metrics,
+    "resources": resources
+  };
+  $merge([$otel, $])
+)

@@ -15,6 +15,7 @@ require (
 	github.com/peterhellberg/link v1.2.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/relvacode/iso8601 v1.3.0
+	github.com/robertkrimen/otto v0.2.1
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -44,6 +45,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/grpc v1.56.1 // indirect
+	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )
 
 require (
