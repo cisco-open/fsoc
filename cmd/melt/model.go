@@ -101,7 +101,7 @@ func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest, isolationNames
 			fmmAttrsDefs := e.AttributeDefinitions.Attributes
 			for k, v := range fmmAttrsDefs {
 				if strings.Contains(k, realNamespace) {
-					entityAttr := k[len(realNamespace)+1 : len(k)]
+					entityAttr := k[len(realNamespace)+1:]
 					newKey := fmt.Sprintf("%s.%s", e.Namespace.Name, entityAttr)
 					newValue := v
 					delete(fmmAttrsDefs, k)
