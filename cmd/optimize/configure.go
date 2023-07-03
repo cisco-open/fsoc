@@ -166,13 +166,17 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				}
 			}
 
-			if workloadIdsFound := len(resp.Main().Data); workloadIdsFound != 1 {
+			mainDataSet := resp.Main()
+			if mainDataSet == nil {
+				return errors.New("Unable to configure optimizer. UQL main data set was nil for the given criteria.")
+			}
+			if workloadIdsFound := len(mainDataSet.Data); workloadIdsFound != 1 {
 				return fmt.Errorf("Unable to configure optimizer. Found %v workload IDs for the given criteria.", workloadIdsFound)
 			}
 			var ok bool
-			workloadId, ok = resp.Main().Data[0][0].(string)
+			workloadId, ok = mainDataSet.Data[0][0].(string)
 			if !ok {
-				return fmt.Errorf("Unable to convert workloadId query value %q to string", resp.Main().Data[0][0])
+				return fmt.Errorf("Unable to convert workloadId query value %q to string", mainDataSet.Data[0][0])
 			}
 
 			profilerReport, err = getProfilerReport(workloadId)
@@ -423,7 +427,11 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 		}
 	}
 
-	mainDataSetData := resp.Main().Data
+	mainDataSet := resp.Main()
+	if mainDataSet == nil {
+		return nil, errors.New("No events found, main data set was nil")
+	}
+	mainDataSetData := mainDataSet.Data
 	if len(mainDataSetData) < 1 {
 		return nil, errors.New("No events found, main data set had no rows")
 	}
