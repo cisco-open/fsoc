@@ -51,7 +51,7 @@ var (
 
 var reportTemplate = template.Must(template.New("").Parse(`
 SINCE -1w
-FETCH id, attributes, events(k8sprofiler:report){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes}
+FETCH id, attributes, events(k8sprofiler:report){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes, timestamp}
 FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFilters}}[{{.}}]{{end}}
 LIMITS events.count(1)
 `))
@@ -153,6 +153,7 @@ func extractReportData(response *uql.Response) ([]reportRow, error) {
 		if !ok {
 			return results, fmt.Errorf("entity id string type assertion failed on main dataset row %v: %+v", index, row)
 		}
+		log.WithField("workloadId", workloadId).Info("Processing workload report")
 		reportRow := reportRow{WorkloadId: workloadId}
 
 		workloadAttributeDataset, ok := row[1].(*uql.DataSet)
