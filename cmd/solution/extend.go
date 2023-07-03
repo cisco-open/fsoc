@@ -184,7 +184,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	var namespaceName string
 	if strings.Contains(componentType, "fmm") {
 		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
-		namespaceName = manifest.getNamespaceName()
+		namespaceName = manifest.GetNamespaceName()
 	}
 
 	switch componentType {

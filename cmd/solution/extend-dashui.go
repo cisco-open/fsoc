@@ -66,7 +66,7 @@ func getEcpDetails(entity *FmmEntity) *DashuiTemplate {
 }
 
 func getEcpHome(manifest *Manifest) *DashuiTemplatePropsExtension {
-	namespaceName := manifest.getNamespaceName()
+	namespaceName := manifest.GetNamespaceName()
 	id := fmt.Sprintf("%s:%sEcpHomeExtension", namespaceName, namespaceName)
 	name := "dashui:ecpHome"
 	view := "default"
