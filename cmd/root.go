@@ -69,6 +69,7 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
+	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -220,6 +221,14 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Infof("Unable to read config file (%v), proceeding without a config", err)
 		} else {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
+		}
+	}
+}
+
+func postExecHook(cmd *cobra.Command, args []string) {
+	if cmd.Name() == "cmd" {
+		if err := api.Login(); err != nil {
+			log.Fatalf(err.Error())
 		}
 	}
 }
