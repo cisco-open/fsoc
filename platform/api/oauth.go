@@ -425,11 +425,12 @@ func callbackHandler(respChan chan authCodes, w http.ResponseWriter, r *http.Req
 		Scope: safeExtractFirstValue(values, "scope"),
 		State: safeExtractFirstValue(values, "state"),
 	}
-	//log.Infof("response codes %+v", codes)
-	respChan <- codes
 
 	// provide a stub page to be displayed in the browser after login
 	fmt.Fprint(w, "Login successful. You can close this browser window.")
+
+	//log.Infof("response codes %+v", codes)
+	respChan <- codes
 }
 
 func safeExtractFirstValue(queryValues url.Values, field string) string {
