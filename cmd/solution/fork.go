@@ -48,10 +48,11 @@ var solutionForkCmd = &cobra.Command{
 }
 
 func GetSolutionForkCommand() *cobra.Command {
-	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be downloaded")
+	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be forked and downloaded")
 	_ = solutionForkCmd.Flags().MarkDeprecated("source-name", "please use argument instead.")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
 	_ = solutionForkCmd.Flags().MarkDeprecated("name", "please use argument instead.")
+	solutionForkCmd.Flags().String("tag", "stable", "tag related to the solution to fork and download")
 	return solutionForkCmd
 }
 
@@ -177,11 +178,12 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 
 func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName string) {
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	var message string
 
 	headers := map[string]string{
 		"stage":            "STABLE",
-		"tag":              "stable",
+		"tag":              solutionTagFlag,
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}
