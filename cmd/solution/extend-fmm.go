@@ -27,7 +27,7 @@ import (
 
 func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
 	var newResoureMapping *FmmResourceMapping
-	namespaceName := manifest.getNamespaceName()
+	namespaceName := manifest.GetNamespaceName()
 	entity := findEntity(entityName, manifest)
 	name := fmt.Sprintf("%s_%s_entity_mapping", namespaceName, entityName)
 	entityType := fmt.Sprintf("%s:%s", namespaceName, entityName)
@@ -268,8 +268,8 @@ func getServiceComponent(serviceName string) *ServiceDef {
 
 func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
 	componentType := "fmm:namespace"
-	namespaceName := manifest.getNamespaceName()
-	fileName := namespaceName + ".json"
+	namespaceName := manifest.GetNamespaceName()
+	fileName := manifest.GetSolutionName() + ".json"
 	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
 
 	componentDef := manifest.GetComponentDef(componentType)

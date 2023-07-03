@@ -256,7 +256,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 	var err error
 	for _, objDef := range objDefs {
 		if objDef.ObjectsFile != "" {
-			err = replaceStringInFile(fileSystem, objDef.ObjectsFile, manifest.Name, forkName)
+			err = ReplaceStringInFile(fileSystem, objDef.ObjectsFile, manifest.Name, forkName)
 		} else {
 			wkDir, _ := os.Getwd()
 			dirPath := fmt.Sprintf("%s/%s/%s", wkDir, forkName, objDef.ObjectsDir)
@@ -268,7 +268,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 					if !info.IsDir() {
 						removeStr := fmt.Sprintf("%s/%s/", wkDir, forkName)
 						filePath := strings.ReplaceAll(path, removeStr, "")
-						err = replaceStringInFile(fileSystem, filePath, manifest.Name, forkName)
+						err = ReplaceStringInFile(fileSystem, filePath, manifest.Name, forkName)
 					}
 					return err
 				})
@@ -277,7 +277,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 	return err
 }
 
-func replaceStringInFile(fileSystem afero.Fs, filePath string, searchValue string, replaceValue string) error {
+func ReplaceStringInFile(fileSystem afero.Fs, filePath string, searchValue string, replaceValue string) error {
 	data, err := afero.ReadFile(fileSystem, filePath)
 	if err != nil {
 		return err

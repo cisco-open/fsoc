@@ -3,9 +3,11 @@ package melt
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v2"
@@ -25,34 +27,121 @@ var meltModelCmd = &cobra.Command{
 }
 
 func init() {
+	meltModelCmd.Flags().String("tag", "", "tag for the solution")
+	meltModelCmd.Flags().String("env-file", "./env.json", "path to the env vars json file")
+
+	meltModelCmd.MarkFlagsMutuallyExclusive("tag", "env-file")
+
 	meltCmd.AddCommand(meltModelCmd)
 }
 
 func meltModel(cmd *cobra.Command, args []string) {
 	manifest := sol.GetManifest()
-	fileName := fmt.Sprintf("%s-%s-melt.yaml", manifest.Name, manifest.SolutionVersion)
-	fsocData := getFsocDataModel(cmd, manifest)
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Generating %s\n", fileName))
-	writeDataFile(fsocData, fileName)
+	if manifest.HasIsolation() {
+
+		if !(cmd.Flags().Changed("tag") || cmd.Flags().Changed("env-file")) {
+			log.Fatal("One of the required tags (--tag or --env-file) required for isolation support is missing!")
+		}
+
+		tag, _ := cmd.Flags().GetString("tag")
+		envVarsFile, _ := cmd.Flags().GetString("env-file")
+		if tag != "" {
+			envVarsFile = "" // remove default when tag is specified
+		}
+
+		envVars, err := sol.LoadEnvVars(cmd, tag, envVarsFile)
+		if err != nil {
+			log.Fatalf("Failed to define isolation environment: %v", err)
+		}
+
+		currentDirectory, err := filepath.Abs(".")
+		if err != nil {
+			log.Fatalf("Error getting current directory: %v", err)
+		}
+
+		fileSystemRoot := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
+
+		isolateNamespace := fmt.Sprintf("%s%s", strings.Split(manifest.Name, "$")[0], sol.GetTag(envVars))
+		fileName := fmt.Sprintf("%s-%s-melt.yaml", isolateNamespace, manifest.SolutionVersion)
+
+		fsocData := getFsocDataModel(cmd, manifest, isolateNamespace)
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Generating %s\n", fileName))
+		writeDataFile(fsocData, fileName)
+
+		err = sol.ReplaceStringInFile(fileSystemRoot, fileName, "${sys.solutionId}", isolateNamespace)
+		if err != nil {
+			log.Fatalf("Error isolating melt model file: %v", err)
+		}
+	} else {
+		fileName := fmt.Sprintf("%s-%s-melt.yaml", manifest.Name, manifest.SolutionVersion)
+		fsocData := getFsocDataModel(cmd, manifest, "")
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Generating %s\n", fileName))
+		writeDataFile(fsocData, fileName)
+	}
+
 }
 
-func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest) *melt.FsocData {
+func getFsocDataModel(cmd *cobra.Command, manifest *sol.Manifest, isolationNamespace string) *melt.FsocData {
 	fsocData := &melt.FsocData{}
 	fmmEntities := manifest.GetFmmEntities()
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v entities to the fsoc data model\n", len(fmmEntities)))
 
 	fmmMetrics := manifest.GetFmmMetrics()
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v metrics to the fsoc data model\n", len(fmmMetrics)))
-	fsocMetrics := GetFsocMetrics(fmmMetrics)
 
 	fmmEvents := manifest.GetFmmEvents()
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %v events to the fsoc data model\n", len(fmmEvents)))
-	fsocEvents := GetFsocEvents(fmmEvents)
 
+	if isolationNamespace != "" {
+		realNamespace := manifest.GetSolutionName()
+
+		for _, e := range fmmEntities {
+			e.Namespace.Name = isolationNamespace
+
+			fmmAttrsDefs := e.AttributeDefinitions.Attributes
+			for k, v := range fmmAttrsDefs {
+				if strings.Contains(k, realNamespace) {
+					entityAttr := k[len(realNamespace)+1:]
+					newKey := fmt.Sprintf("%s.%s", e.Namespace.Name, entityAttr)
+					newValue := v
+					delete(fmmAttrsDefs, k)
+					fmmAttrsDefs[newKey] = newValue
+				}
+			}
+
+			metricRefs := e.MetricTypes
+			e.MetricTypes = GetIsolatedRefs(metricRefs, manifest, isolationNamespace)
+
+			evtRefs := e.EventTypes
+			e.EventTypes = GetIsolatedRefs(evtRefs, manifest, isolationNamespace)
+
+		}
+		for _, m := range fmmMetrics {
+			m.Namespace.Name = isolationNamespace
+		}
+		for _, evt := range fmmEvents {
+			evt.Namespace.Name = isolationNamespace
+		}
+	}
+
+	fsocMetrics := GetFsocMetrics(fmmMetrics)
+	fsocEvents := GetFsocEvents(fmmEvents)
 	fsocEntities := GetFsocEntities(fmmEntities, fsocMetrics, fsocEvents)
 	fsocData.Melt = fsocEntities
 
 	return fsocData
+}
+
+func GetIsolatedRefs(fmmTypeRefs []string, manifest *sol.Manifest, isolationNamespace string) []string {
+	newFmmTypeRefs := make([]string, 0)
+	for _, typeRef := range fmmTypeRefs {
+		fmmTypeConvention := strings.Split(typeRef, ":")
+		if strings.Contains(fmmTypeConvention[0], manifest.GetNamespaceName()) {
+			isolateMetricRef := fmt.Sprintf("%s:%s", isolationNamespace, fmmTypeConvention[1])
+			newFmmTypeRefs = append(newFmmTypeRefs, isolateMetricRef)
+		}
+	}
+	return newFmmTypeRefs
 }
 
 func GetFsocEvents(fmmEvents []*sol.FmmEvent) []*melt.Log {
