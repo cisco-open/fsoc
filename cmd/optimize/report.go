@@ -142,7 +142,11 @@ func listReports(cmd *cobra.Command, args []string) error {
 }
 
 func extractReportData(response *uql.Response) ([]reportRow, error) {
-	resp_data := &response.Main().Data
+	mainDataSet := response.Main()
+	if mainDataSet == nil {
+		return []reportRow{}, nil
+	}
+	resp_data := &mainDataSet.Data
 	results := make([]reportRow, 0, len(*resp_data))
 	for index, row := range *resp_data {
 		if len(row) < 3 {
