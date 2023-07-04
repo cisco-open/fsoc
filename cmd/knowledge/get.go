@@ -118,24 +118,9 @@ func getType(cmd *cobra.Command, args []string) error {
 func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	log.Info("Fetching object...")
 
-	fqtn, err := cmd.Flags().GetString("type")
+	fqtn, objID, layerID, layerType, err := parseObjectInfo(cmd)
 	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "type", err)
-	}
-
-	objID, err := cmd.Flags().GetString("object-id")
-	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "object-id", err)
-	}
-
-	var layerType string = string(ltFlag)
-	layerID, _ := cmd.Flags().GetString("layer-id")
-	if layerID == "" {
-		if layerType == "SOLUTION" {
-			return fmt.Errorf("Requests made to the SOLUTION layer require the --layer-id flag")
-		} else {
-			layerID = getCorrectLayerID(layerType, fqtn)
-		}
+		return err
 	}
 
 	headers := map[string]string{

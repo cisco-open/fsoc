@@ -48,6 +48,7 @@ for more information on the Knowledge Store. `,
 	knowledgeStoreCmd.AddCommand(getUpdateObjectCmd())
 	knowledgeStoreCmd.AddCommand(getDeleteObjectCmd())
 	knowledgeStoreCmd.AddCommand(getCreatePatchObjectCmd())
+	knowledgeStoreCmd.AddCommand(editObjectCmd())
 
 	return knowledgeStoreCmd
 }
@@ -62,7 +63,8 @@ type TypeList struct {
 }
 
 type Object struct {
-	ID string `json:"id"`
+	ID   string                 `json:"id"`
+	Data map[string]interface{} `json:"data"`
 }
 
 type ObjectList struct {
@@ -147,4 +149,34 @@ func getTypes(prefix string) (types []string) {
 		}
 	}
 	return types
+}
+
+func parseObjectInfo(cmd *cobra.Command) (typeName string, objectID string, layerID string, layerType string, err error) {
+	typeName, err = cmd.Flags().GetString("type")
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("error trying to get %q flag value: %w", "type", err)
+	}
+
+	objectID, err = cmd.Flags().GetString("object-id")
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("error trying to get %q flag value: %w", "object-id", err)
+	}
+
+	layerTypeFlag := cmd.Flags().Lookup("layer-type") // works with string and enum flags
+	if layerTypeFlag == nil {
+		return "", "", "", "", fmt.Errorf("error trying to get %q flag value: %w", "layer-type", err)
+	}
+	layerType = layerTypeFlag.Value.String()
+
+	layerID, _ = cmd.Flags().GetString("layer-id")
+	if layerID == "" {
+		if layerType == "SOLUTION" {
+			err = fmt.Errorf("requests made to the SOLUTION layer require the --layer-id flag")
+			return "", "", "", "", err
+		} else {
+			layerID = getCorrectLayerID(layerType, typeName)
+		}
+	}
+
+	return typeName, objectID, layerID, layerType, nil
 }
