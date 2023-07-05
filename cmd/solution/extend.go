@@ -181,9 +181,10 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	}
 
 	var newComponents []*newComponent
-
+	var namespaceName string
 	if strings.Contains(componentType, "fmm") {
 		checkCreateSolutionNamespace(cmd, manifest, "objects/model/namespaces")
+		namespaceName = manifest.GetNamespaceName()
 	}
 
 	switch componentType {
@@ -201,7 +202,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			entity := &newComponent{
 				Filename:   componentName + ".json",
 				Type:       componentType,
-				Definition: getEntityComponent(componentName, manifest.Name),
+				Definition: getEntityComponent(componentName, namespaceName),
 			}
 
 			newComponents = append(newComponents, entity)
@@ -236,7 +237,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			metric := &newComponent{
 				Filename:   componentName + ".json",
 				Type:       componentType,
-				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, manifest.Name),
+				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, namespaceName),
 			}
 
 			newComponents = append(newComponents, metric)
@@ -246,7 +247,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			event := &newComponent{
 				Filename:   componentName + ".json",
 				Type:       componentType,
-				Definition: getEventComponent(componentName, manifest.Name),
+				Definition: getEventComponent(componentName, namespaceName),
 			}
 
 			newComponents = append(newComponents, event)

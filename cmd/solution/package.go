@@ -92,7 +92,7 @@ func packageSolution(cmd *cobra.Command, args []string) {
 	}
 
 	// isolate if needed
-	solutionDirectoryPath, err := embeddedConditionalIsolate(cmd, solutionDirectoryPath)
+	solutionDirectoryPath, tag, err := embeddedConditionalIsolate(cmd, solutionDirectoryPath)
 	if err != nil {
 		log.Fatalf("Failed to isolate solution with tag: %v", err)
 	}
@@ -104,7 +104,7 @@ func packageSolution(cmd *cobra.Command, args []string) {
 	}
 
 	var message string
-	message = fmt.Sprintf("Generating solution %s version %s\n", manifest.Name, manifest.SolutionVersion)
+	message = fmt.Sprintf("Packaging solution %s version %s with tag %s\n", manifest.Name, manifest.SolutionVersion, tag)
 	output.PrintCmdStatus(cmd, message)
 
 	// create archive
@@ -251,7 +251,7 @@ func isSolutionPackageRoot(path string) bool {
 	manifestPath := fmt.Sprintf("%s/manifest.json", path)
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
-		log.Errorf("The direcotry %s is not a solution root directory", path)
+		log.Errorf("The directory %s is not a solution root directory", path)
 		return false
 	}
 	manifestFile.Close()

@@ -29,27 +29,33 @@ import (
 // (i.e., uses templates in the manifest/objects), then this function ensures that
 // template vars are fully replaced. The function is specifically made to be convenient
 // to call from handlers of cobra commands and rely on common definition of flags.
-// To perform isolation without command dependencies, use isolateSolution()
-func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, error) {
+// The function returns the directory to use (original content if not isolating or
+// rendered values if isolating), the tag value and error.
+// To perform isolation without command dependencies, use isolateSolution().
+func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, string, error) {
+	// finalize flags (regardless of isolation)
+	tag, envVarsFile := determineTagEnvFile(cmd, sourceDir)
+
 	// don't try to isolate if --no-isolate is specified (ignored if flag not defined)
 	noIsolate, _ := cmd.Flags().GetBool("no-isolate")
 	if noIsolate {
-		return sourceDir, nil
+		if envVarsFile != "" {
+			log.Warnf("--no-isolate flag specified while an isolation env file %q is present", envVarsFile)
+		}
+		return sourceDir, tag, nil
 	}
 
 	// return the solution folder as is if the manifest does not use isolation
 	manifest, err := getSolutionManifest(sourceDir)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if !strings.Contains(manifest.Name, "${") {
-		//TODO: consider failing if env vars file is specified/present
-		//      as this is doesn't make sense for solutions that don't support isolation
-		return sourceDir, nil
+		if envVarsFile != "" {
+			log.Warnf("Isolation env file %q is present for a solution that doesn't use isolation variables", envVarsFile)
+		}
+		return sourceDir, tag, nil
 	}
-
-	// finalize flags
-	tag, envVarsFile := determineTagEnvFile(cmd, sourceDir)
 
 	// prepare target directory
 	// TODO: instead of fsoc as prefix, use as much as we can extract from the solution name
@@ -57,24 +63,26 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, e
 	//       and use that as a prefix). This will have only cosmetic advantages.
 	targetDir, err := os.MkdirTemp("", "fsoc")
 	if err != nil {
-		return "", fmt.Errorf("Failed to create a temporary directory: %v", err)
+		return "", "", fmt.Errorf("Failed to create a temporary directory: %v", err)
 	}
 	log.WithField("temp_solution_dir", targetDir).Info("Assembling solution in temp target directory")
 
 	// render templates to produce the final solution
-	name, err := isolateSolution(cmd, sourceDir, targetDir, "", tag, envVarsFile)
+	name, tag, err := isolateSolution(cmd, sourceDir, targetDir, "", tag, envVarsFile)
 	if err != nil {
 		os.RemoveAll(targetDir)
-		return "", nil
+		return "", "", err
 	}
 
 	log.WithFields(log.Fields{
 		"isolated_solution_name": name,
 		"from_directory":         sourceDir,
 		"to_directory":           targetDir,
+		"isolation_tag":          tag,
+		"isolation_env_file":     envVarsFile,
 	}).Info("Isolated solution")
 
-	return targetDir, nil
+	return targetDir, tag, nil
 }
 
 func determineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) {

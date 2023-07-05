@@ -50,9 +50,9 @@ var (
 )
 
 var reportTemplate = template.Must(template.New("").Parse(`
-SINCE -1w 
-FETCH id, attributes, events(optimize:profile){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes} 
-FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFilters}}[{{.}}]{{end}} 
+SINCE -1w
+FETCH id, attributes, events(k8sprofiler:report){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes, timestamp}
+FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFilters}}[{{.}}]{{end}}
 LIMITS events.count(1)
 `))
 
@@ -62,7 +62,7 @@ var reportCmd = &cobra.Command{
 	Short: "List workloads and optimization eligibility",
 	Long: `
 List workloads and optimization eligibility
-	
+
 If no flags are provided, all deployment workloads will be listed
 You can optionally filter worklaods to by cluster, namespace and/or name
 You may specify also particular workloadId to fetch details for a single workload (recommended with -o detail or -o yaml)
@@ -142,7 +142,11 @@ func listReports(cmd *cobra.Command, args []string) error {
 }
 
 func extractReportData(response *uql.Response) ([]reportRow, error) {
-	resp_data := &response.Main().Data
+	mainDataSet := response.Main()
+	if mainDataSet == nil {
+		return []reportRow{}, nil
+	}
+	resp_data := &mainDataSet.Data
 	results := make([]reportRow, 0, len(*resp_data))
 	for index, row := range *resp_data {
 		if len(row) < 3 {
@@ -153,6 +157,7 @@ func extractReportData(response *uql.Response) ([]reportRow, error) {
 		if !ok {
 			return results, fmt.Errorf("entity id string type assertion failed on main dataset row %v: %+v", index, row)
 		}
+		log.WithField("workloadId", workloadId).Info("Processing workload report")
 		reportRow := reportRow{WorkloadId: workloadId}
 
 		workloadAttributeDataset, ok := row[1].(*uql.DataSet)
@@ -173,7 +178,7 @@ func extractReportData(response *uql.Response) ([]reportRow, error) {
 			// uql LIMITS events.count(1) means we're only interested in the first (and only) row of returned events
 			firstRow := profileAttributesDataSet.Data[0]
 			if len(firstRow) < 2 {
-				log.Warnf("optimize:profile dataset had incomplete row at index %s: %+v", index, firstRow)
+				log.Warnf("k8sprofiler:report dataset had incomplete row at index %s: %+v", index, firstRow)
 				continue
 			}
 			firstRowComplexData, ok := firstRow[0].(uql.ComplexData)

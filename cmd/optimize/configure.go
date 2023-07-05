@@ -94,7 +94,7 @@ and push the configuration to the knowledge store. You may optionally override t
 
 	configureCmd.Flags().StringVarP(&flags.filePath, "file", "f", "", "Override profiler report values with a local yaml/json file matching the json schema of the optimize:optimizer Orion type")
 
-	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuraiton file")
+	configureCmd.Flags().BoolVarP(&flags.create, "create", "", false, "Create a new optimizer from report data and provided configuration file")
 	configureCmd.Flags().BoolVarP(&flags.start, "start", "s", false, "Set the desired state of the specified or new optimizer to started")
 
 	configureCmd.MarkFlagsMutuallyExclusive("optimizer-id", "create")
@@ -166,13 +166,17 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				}
 			}
 
-			if workloadIdsFound := len(resp.Main().Data); workloadIdsFound != 1 {
+			mainDataSet := resp.Main()
+			if mainDataSet == nil {
+				return errors.New("Unable to configure optimizer. UQL main data set was nil for the given criteria.")
+			}
+			if workloadIdsFound := len(mainDataSet.Data); workloadIdsFound != 1 {
 				return fmt.Errorf("Unable to configure optimizer. Found %v workload IDs for the given criteria.", workloadIdsFound)
 			}
 			var ok bool
-			workloadId, ok = resp.Main().Data[0][0].(string)
+			workloadId, ok = mainDataSet.Data[0][0].(string)
 			if !ok {
-				return fmt.Errorf("Unable to convert workloadId query value %q to string", resp.Main().Data[0][0])
+				return fmt.Errorf("Unable to convert workloadId query value %q to string", mainDataSet.Data[0][0])
 			}
 
 			profilerReport, err = getProfilerReport(workloadId)
@@ -398,9 +402,9 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 }
 
 var singleReportTemplate = template.Must(template.New("").Parse(`
-SINCE -1w 
-FETCH events(optimize:profile){attributes} 
-FROM entities({{.}}) 
+SINCE -1w
+FETCH events(k8sprofiler:report){attributes}
+FROM entities({{.}})
 LIMITS events.count(1)
 `))
 
@@ -423,7 +427,11 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 		}
 	}
 
-	mainDataSetData := resp.Main().Data
+	mainDataSet := resp.Main()
+	if mainDataSet == nil {
+		return nil, errors.New("No events found, main data set was nil")
+	}
+	mainDataSetData := mainDataSet.Data
 	if len(mainDataSetData) < 1 {
 		return nil, errors.New("No events found, main data set had no rows")
 	}

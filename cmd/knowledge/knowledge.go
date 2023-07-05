@@ -15,7 +15,12 @@
 package knowledge
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 func NewSubCmd() *cobra.Command {
@@ -26,7 +31,7 @@ func NewSubCmd() *cobra.Command {
 		Short:   "Perform Knowledge Store interactions.",
 		Long: `
 
-Perform Knowledge Store interactions. See https://developer.cisco.com/docs/fso/#!use-the-knowledge-store-introduction 
+Perform Knowledge Store interactions. See https://developer.cisco.com/docs/fso/#!use-the-knowledge-store-introduction
 for more information on the Knowledge Store. `,
 		Example: `# Get knowledge object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
@@ -45,4 +50,101 @@ for more information on the Knowledge Store. `,
 	knowledgeStoreCmd.AddCommand(getCreatePatchObjectCmd())
 
 	return knowledgeStoreCmd
+}
+
+type Type struct {
+	Name     string `json:"name"`
+	Solution string `json:"solution"`
+}
+
+type TypeList struct {
+	Items []Type `json:"items"`
+}
+
+type Object struct {
+	ID string `json:"id"`
+}
+
+type ObjectList struct {
+	Items []Object `json:"items"`
+}
+
+// completion functions
+var typeCompletionFunc = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return getTypes(toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+var objectCompletionFunc = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	typeName, err := cmd.Flags().GetString("type")
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	layerID, _ := cmd.Flags().GetString("layer-id")
+	layerTypeFlag := cmd.Flags().Lookup("layer-type") // works with string and enum flags
+	if layerTypeFlag == nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	layerType := layerTypeFlag.Value.String()
+
+	return getObjectsForType(typeName, layerType, layerID, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+var layerTypeCompletionFunc = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return []string{string(solution), string(account), string(globalUser), string(tenant), string(localUser)},
+		cobra.ShellCompDirectiveNoFileComp
+}
+
+func getObjectsForType(typeName string, lType string, layerID string, prefix string) (objects []string) {
+
+	if lType == "" {
+		lType = "TENANT" // might as well default to something
+	}
+
+	if layerID == "" {
+		if lType == "SOLUTION" {
+			return objects // Not suppored
+		} else {
+			layerID = getCorrectLayerID(lType, typeName)
+		}
+	}
+
+	headers := map[string]string{
+		"layer-type": lType,
+		"layer-id":   layerID,
+	}
+
+	httpOptions := &api.Options{Headers: headers}
+
+	var res ObjectList
+	url := fmt.Sprintf("%s?max=%d", getObjectListUrl(typeName), api.MAX_COMPLETION_RESULTS)
+	err := api.JSONGet(url, &res, httpOptions)
+	if err != nil {
+		return objects
+	}
+
+	for _, s := range res.Items {
+		if strings.HasPrefix(s.ID, prefix) {
+			objects = append(objects, s.ID)
+		}
+	}
+
+	return objects
+}
+
+func getTypes(prefix string) (types []string) {
+
+	var res TypeList
+	url := fmt.Sprintf("%s?max=%d", getTypeUrl(""), api.MAX_COMPLETION_RESULTS)
+	err := api.JSONGet(url, &res, nil)
+	if err != nil {
+		return types
+	}
+
+	for _, s := range res.Items {
+		t := fmt.Sprintf("%s:%s", s.Solution, s.Name)
+		if strings.HasPrefix(t, prefix) {
+			types = append(types, t)
+		}
+	}
+	return types
 }

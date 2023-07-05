@@ -48,10 +48,11 @@ var solutionForkCmd = &cobra.Command{
 }
 
 func GetSolutionForkCommand() *cobra.Command {
-	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be downloaded")
+	solutionForkCmd.Flags().String("source-name", "", "name of the solution that needs to be forked and downloaded")
 	_ = solutionForkCmd.Flags().MarkDeprecated("source-name", "please use argument instead.")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
 	_ = solutionForkCmd.Flags().MarkDeprecated("name", "please use argument instead.")
+	solutionForkCmd.Flags().String("tag", "stable", "tag related to the solution to fork and download")
 	return solutionForkCmd
 }
 
@@ -177,11 +178,12 @@ func editManifest(fileSystem afero.Fs, forkName string) {
 
 func downloadSolutionZip(cmd *cobra.Command, solutionName string, forkName string) {
 	var solutionNameWithZipExtension = getSolutionNameWithZip(solutionName)
+	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 	var message string
 
 	headers := map[string]string{
 		"stage":            "STABLE",
-		"tag":              "stable",
+		"tag":              solutionTagFlag,
 		"solutionFileName": solutionNameWithZipExtension,
 	}
 	httpOptions := api.Options{Headers: headers}
@@ -256,7 +258,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 	var err error
 	for _, objDef := range objDefs {
 		if objDef.ObjectsFile != "" {
-			err = replaceStringInFile(fileSystem, objDef.ObjectsFile, manifest.Name, forkName)
+			err = ReplaceStringInFile(fileSystem, objDef.ObjectsFile, manifest.Name, forkName)
 		} else {
 			wkDir, _ := os.Getwd()
 			dirPath := fmt.Sprintf("%s/%s/%s", wkDir, forkName, objDef.ObjectsDir)
@@ -268,7 +270,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 					if !info.IsDir() {
 						removeStr := fmt.Sprintf("%s/%s/", wkDir, forkName)
 						filePath := strings.ReplaceAll(path, removeStr, "")
-						err = replaceStringInFile(fileSystem, filePath, manifest.Name, forkName)
+						err = ReplaceStringInFile(fileSystem, filePath, manifest.Name, forkName)
 					}
 					return err
 				})
@@ -277,7 +279,7 @@ func refactorSolution(fileSystem afero.Fs, manifest *Manifest, forkName string) 
 	return err
 }
 
-func replaceStringInFile(fileSystem afero.Fs, filePath string, searchValue string, replaceValue string) error {
+func ReplaceStringInFile(fileSystem afero.Fs, filePath string, searchValue string, replaceValue string) error {
 	data, err := afero.ReadFile(fileSystem, filePath)
 	if err != nil {
 		return err
