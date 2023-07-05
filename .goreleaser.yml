@@ -62,7 +62,7 @@ brews:
   folder: Formula
   tap:
     owner: cisco-open
-    name: homebrew-experimental
+    name: homebrew-tap
     branch: "{{ .ProjectName }}/{{ .Tag }}"
     token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     pull_request:
