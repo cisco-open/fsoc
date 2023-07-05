@@ -27,16 +27,16 @@ import (
 
 func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *FmmResourceMapping {
 	var newResoureMapping *FmmResourceMapping
-
+	namespaceName := manifest.GetNamespaceName()
 	entity := findEntity(entityName, manifest)
-	name := fmt.Sprintf("%s_%s_entity_mapping", manifest.Name, entityName)
-	entityType := fmt.Sprintf("%s:%s", manifest.Name, entityName)
+	name := fmt.Sprintf("%s_%s_entity_mapping", namespaceName, entityName)
+	entityType := fmt.Sprintf("%s:%s", namespaceName, entityName)
 	scopeFilterFields := make([]string, 0)
 	attributeMaps := make(FmmNameMappings, 0)
-	displayName := fmt.Sprintf("Resource mapping configuration for the %q entity", entityType)
+	displayName := fmt.Sprintf("Resource mapping configuration for the %s entity", entityType)
 	fmmTypeDef := &FmmTypeDef{
 		Namespace: &FmmNamespaceAssignTypeDef{
-			Name:    manifest.Name,
+			Name:    namespaceName,
 			Version: 1,
 		},
 		Kind:        "resourceMapping",
@@ -45,12 +45,12 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 	}
 
 	for _, requiredField := range entity.AttributeDefinitions.Required {
-		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, requiredField)
+		scopeForField := fmt.Sprintf("%s.%s.%s", namespaceName, entityName, requiredField)
 		scopeFilterFields = append(scopeFilterFields, scopeForField)
 	}
 
 	for k := range entity.AttributeDefinitions.Attributes {
-		scopeForField := fmt.Sprintf("%s.%s.%s", manifest.Name, entityName, k)
+		scopeForField := fmt.Sprintf("%s.%s.%s", namespaceName, entityName, k)
 		attributeMaps[k] = scopeForField
 	}
 
@@ -268,8 +268,8 @@ func getServiceComponent(serviceName string) *ServiceDef {
 
 func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
 	componentType := "fmm:namespace"
-	namespaceName := manifest.Name
-	fileName := namespaceName + ".json"
+	namespaceName := manifest.GetNamespaceName()
+	fileName := manifest.GetSolutionName() + ".json"
 	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
 
 	componentDef := manifest.GetComponentDef(componentType)

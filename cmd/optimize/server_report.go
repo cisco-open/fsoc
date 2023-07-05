@@ -89,7 +89,11 @@ func getWorkloadId(workloadName string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	workloadIds := columnValues(response.Main(), 0)
+	mainDataSet := response.Main()
+	if mainDataSet == nil {
+		return nil, fmt.Errorf("nil main data set when querying for workloads with name %q", workloadName)
+	}
+	workloadIds := columnValues(mainDataSet, 0)
 
 	// Check if either none or multiple workload IDs found
 	if len(workloadIds) < 1 {

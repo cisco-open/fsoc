@@ -66,6 +66,10 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.Flags().
 		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
 
+	solutionPushCmd.Flags().
+		Bool("subscribe", false, "Subscribe to the solution that you are pushing")
+	_ = solutionPushCmd.Flags().MarkHidden("subscribe") // TODO: unify with isolation before showing
+
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory") // either solution dir or prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")      // TODO: allow when extracting manifest data

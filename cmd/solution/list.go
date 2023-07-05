@@ -15,6 +15,8 @@
 package solution
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/apex/log"
@@ -27,7 +29,7 @@ import (
 )
 
 var solutionListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [--subscribed | --unsubscribed]",
 	Args:  cobra.ExactArgs(0),
 	Short: "List all solutions available in this tenant",
 	Long:  `This command list all the solutions that are deployed in the current tenant specified in the profile.`,
@@ -41,8 +43,23 @@ var solutionListCmd = &cobra.Command{
 	},
 }
 
+func getSolutionListCmd() *cobra.Command {
+	solutionListCmd.Flags().
+		Bool("subscribed", false, "Use this to only see solutions that you are subscribed to")
+	solutionListCmd.Flags().
+		Bool("unsubscribed", false, "Use this to only see solutions that you are unsubscribed to")
+
+	solutionListCmd.MarkFlagsMutuallyExclusive("subscribed", "unsubscribed")
+
+	return solutionListCmd
+
+}
+
 func getSolutionList(cmd *cobra.Command, args []string) {
 	log.Info("Fetching the list of solutions...")
+	// get subscribe and unsubscribe flags
+	subscribed := cmd.Flags().Lookup("subscribed").Changed
+	unsubscribed := cmd.Flags().Lookup("unsubscribed").Changed
 
 	cfg := config.GetCurrentContext()
 	layerID := cfg.Tenant
@@ -53,7 +70,14 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	}
 
 	// get data and display
-	cmdkit.FetchAndPrint(cmd, getSolutionListUrl(), &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
+	solutionBaseURL := getSolutionListUrl()
+	if subscribed {
+		solutionBaseURL += "?filter=" + url.QueryEscape("data.isSubscribed eq true")
+	} else if unsubscribed {
+		solutionBaseURL += "?filter=" + url.QueryEscape("data.isSubscribed ne true")
+	}
+	println(solutionBaseURL)
+	cmdkit.FetchAndPrint(cmd, solutionBaseURL, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
 }
 
 func getSolutionListUrl() string {
@@ -68,7 +92,8 @@ func getSolutionNames(prefix string) (names []string) {
 	httpOptions := &api.Options{Headers: headers}
 
 	var res SolutionList
-	err := api.JSONGet(getSolutionListUrl(), &res, httpOptions)
+	url := fmt.Sprintf("%s?max=%d", getSolutionListUrl(), api.MAX_COMPLETION_RESULTS)
+	err := api.JSONGet(url, &res, httpOptions)
 	if err != nil {
 		return names
 	}

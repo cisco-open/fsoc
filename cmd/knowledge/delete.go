@@ -46,14 +46,17 @@ func getDeleteObjectCmd() *cobra.Command {
 	objStoreDeleteCmd.Flags().
 		String("type", "", "The fully qualified type name of the knowledge object to delete.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
+	_ = objStoreDeleteCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	objStoreDeleteCmd.Flags().
 		String("object-id", "", "The id of the knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("type")
+	_ = objStoreDeleteCmd.RegisterFlagCompletionFunc("object-id", objectCompletionFunc)
 
 	objStoreDeleteCmd.Flags().
 		String("layer-type", "", "The layer-type of knowledge object to delete")
 	_ = objStoreDeleteCmd.MarkPersistentFlagRequired("layer-type")
+	_ = objStoreDeleteCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	objStoreDeleteCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to delete. Optional for TENANT and SOLUTION layers ")

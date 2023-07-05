@@ -46,6 +46,7 @@ func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
 		String("type", "", "The fully qualified type name of the knowledge object to create.  The fully qualified type name follows the format solutionName:typeName (e.g. extensibility:solution)")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("type")
+	_ = objStoreInsertCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	objStoreInsertCmd.Flags().
 		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data")
@@ -54,6 +55,7 @@ func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
 		String("layer-type", "", "The layer-type that the created knowledge object will be added to")
 	_ = objStoreInsertCmd.MarkPersistentFlagRequired("layer-type")
+	_ = objStoreInsertCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	objStoreInsertCmd.Flags().
 		String("layer-id", "", "The layer-id that the created knowledge object will be added to. Optional for TENANT and SOLUTION layers ")
