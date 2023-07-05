@@ -64,7 +64,6 @@ brews:
     owner: cisco-open
     name: homebrew-tap
     branch: "{{ .ProjectName }}/{{ .Tag }}"
-    token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     pull_request:
       enabled: true
   install: |
