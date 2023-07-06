@@ -59,6 +59,7 @@ type Suspension struct {
 }
 type K8SDeployment struct {
 	ClusterID     string `json:"clusterId"`
+	DeploymentUID string `json:"deploymentUid"`
 	ClusterName   string `json:"clusterName"`
 	ContainerName string `json:"containerName"`
 	NamespaceName string `json:"namespaceName"`
