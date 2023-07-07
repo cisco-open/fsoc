@@ -223,6 +223,12 @@ func processFile(file *os.File) error {
 				fileLines[i] = line[2:]
 			}
 		}
+		if fileLines[i] == "# SEE ALSO" {
+			fileLines[i] = "# See Also"
+		}
+		if fileLines[i] == "# Options inherited from parent commands" {
+			fileLines[i] = "# Options Inherited From Parent Commands"
+		}
 	}
 
 	if err := os.Truncate(file.Name(), 0); err != nil {
