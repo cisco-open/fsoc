@@ -19,6 +19,7 @@
 package gendocs
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -105,6 +106,19 @@ func genDocs(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error generating fsoc docs table of contents: %v", err)
 	}
 
+	files := getListOfFiles(path)
+	log.Infof("There are %d files to edit\n", len(files))
+
+	for i := 0; i < len(files); i++ {
+		file := files[i]
+		log.Infof("Starting to process file %s\n", file.Name())
+
+		err := processFile(file)
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+	}
+
 	output.PrintCmdStatus(cmd, "Documentation generated successfully.\n")
 }
 
@@ -162,4 +176,67 @@ func genTOCNode(root *cobra.Command) *tocEntry {
 	}
 
 	return &entry
+}
+
+func getFileFromArgs(fileLoc string) *os.File {
+	file, err := os.Open(fileLoc)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	return file
+}
+
+func getListOfFiles(dir string) []*os.File {
+	var files []*os.File
+	err := filepath.Walk(dir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			file := getFileFromArgs(path)
+			isFileMarkdown := strings.Contains(file.Name(), ".md")
+			if isFileMarkdown {
+				log.Infof("Adding %s to the list of files to edit\n", file.Name())
+				files = append(files, file)
+			}
+			return nil
+		})
+	if err != nil {
+		log.Infof(err.Error())
+	}
+	return files
+}
+
+func processFile(file *os.File) error {
+	fileScanner := bufio.NewScanner(file)
+	fileScanner.Split(bufio.ScanLines)
+	var fileLines []string
+
+	for fileScanner.Scan() {
+		fileLines = append(fileLines, fileScanner.Text())
+	}
+
+	for i := 1; i < len(fileLines); i++ {
+		line := fileLines[i]
+		if len(line) > 2 {
+			if line[0:2] == "##" {
+				fileLines[i] = line[2:]
+			}
+		}
+	}
+
+	if err := os.Truncate(file.Name(), 0); err != nil {
+		log.Infof("Failed to truncate: %v", err)
+	}
+
+	newFile, _ := os.OpenFile(file.Name(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	dataWriter := bufio.NewWriter(newFile)
+
+	for _, data := range fileLines {
+		_, _ = dataWriter.WriteString(data + "\n")
+	}
+
+	dataWriter.Flush()
+
+	return nil
 }
