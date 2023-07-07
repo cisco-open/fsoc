@@ -17,16 +17,21 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
-	"path"
-
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/tcnksm/go-latest"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
@@ -69,6 +74,7 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
+	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -215,11 +221,84 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			"existing":    exists,
 		}).
 			Info("fsoc context")
+		lastCommand := viper.GetInt64("lastRun")
+		if time.Now().Unix()-lastCommand >= 86400 {
+			// Check for Update
+			checkForUpdate()
+		}
 	} else {
 		if bypass {
 			log.Infof("Unable to read config file (%v), proceeding without a config", err)
 		} else {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
+		}
+	}
+}
+
+func checkForUpdate() {
+	githubTag := &latest.GithubTag{
+		Owner:      "cisco-open",
+		Repository: "fsoc",
+	}
+
+	//println(version.GetVersion().Version)
+	currentVer := "0.1.0" //TODO: Get Ver here
+
+	res, err := latest.Check(githubTag, currentVer)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	if res.Outdated {
+		fmt.Printf("%s is not latest, you should upgrade to %s", currentVer, res.Current)
+	}
+
+}
+
+func postExecHook(cmd *cobra.Command, args []string) {
+	// Record Last Run
+	viper.Set("lastRun", time.Now().Unix())
+
+	// set up config file in viper
+	viper.SetConfigType("yaml")
+	if viper.ConfigFileUsed() == "" {
+		home, _ := os.UserHomeDir()
+		configFileLocation := strings.Replace("~/.fsoc", "~", home, 1)
+		viper.SetConfigFile(configFileLocation)
+	}
+	viper.SetConfigPermissions(0600) // o=rw
+
+	// ensure file exists (viper fails to create it, likely a bug in viper)
+	ensureConfigFile()
+
+	// update file contents
+	err := viper.WriteConfig()
+	if err != nil {
+		log.Fatalf("failed to write config file %q: %v", viper.ConfigFileUsed(), err)
+	}
+}
+
+func ensureConfigFile() {
+	appFs := afero.NewOsFs()
+
+	// finalize the path to use
+	var fileLoc = viper.ConfigFileUsed()
+	if strings.Contains(fileLoc[:2], "~/") {
+		homeDir, _ := os.UserHomeDir()
+		fileLoc = strings.Replace(fileLoc, "~", homeDir, 1)
+	}
+	configPath, _ := filepath.Abs(fileLoc)
+
+	// try to open the file, create it if it doesn't exist
+	_, err := appFs.Open(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			_, err = appFs.Create(configPath)
+			if err != nil {
+				log.Fatalf("failed to create config file %q: %v", configPath, err)
+			}
+			viper.SetConfigFile(configPath)
+		} else {
+			log.Fatalf("failed to open config file %q: %v", configPath, err)
 		}
 	}
 }
