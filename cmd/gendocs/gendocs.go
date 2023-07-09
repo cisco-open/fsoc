@@ -52,6 +52,8 @@ The directory should either be empty or not exist.`,
 }
 
 func NewSubCmd() *cobra.Command {
+	gendocsCmd.Flags().
+		Bool("h1", false, "This flag will change all generated headers to start at an h1 level heading")
 	return gendocsCmd
 }
 
@@ -106,16 +108,20 @@ func genDocs(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error generating fsoc docs table of contents: %v", err)
 	}
 
-	files := getListOfFiles(path)
-	log.Infof("There are %d files to edit\n", len(files))
+	if cmd.Flag("h1").Changed {
+		log.Infof("Editing headers in files\n")
 
-	for i := 0; i < len(files); i++ {
-		file := files[i]
-		log.Infof("Starting to process file %s\n", file.Name())
+		files := getListOfFiles(path)
+		log.Infof("There are %d files to edit\n", len(files))
 
-		err := processFile(file)
-		if err != nil {
-			log.Fatalf(err.Error())
+		for i := 0; i < len(files); i++ {
+			file := files[i]
+			log.Infof("Starting to process file %s\n", file.Name())
+
+			err := processFile(file)
+			if err != nil {
+				log.Fatalf(err.Error())
+			}
 		}
 	}
 
