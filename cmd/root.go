@@ -18,16 +18,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/json"
-	"github.com/apex/log/handlers/multi"
-	"github.com/cisco-open/fsoc/cmd/config"
-	"github.com/cisco-open/fsoc/cmd/version"
-	"github.com/cisco-open/fsoc/logfilter"
-	"github.com/cisco-open/fsoc/platform/api"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"io/fs"
 	"net/http"
 	"os"
@@ -36,6 +26,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/json"
+	"github.com/apex/log/handlers/multi"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+
+	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/cmd/version"
+	"github.com/cisco-open/fsoc/logfilter"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var cfgFile string
@@ -282,8 +284,7 @@ func checkForUpdate() {
 			log.Fatalf(err.Error())
 		}
 	}()
-	var newestVersion string
-	newestVersion = <-newestVersionChan
+	var newestVersion = <-newestVersionChan
 	if compareVersion(newestVersion) {
 		log.Warnf("There is a newer version of FSOC available, please upgrade to version %s", newestVersion)
 	}
