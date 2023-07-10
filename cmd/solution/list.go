@@ -71,13 +71,14 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 
 	// get data and display
 	solutionBaseURL := getSolutionListUrl()
+	var filters []string
 	if subscribed {
-		solutionBaseURL += "?filter=" + url.QueryEscape("data.isSubscribed eq true")}
+		filters = []string{"filter=" + url.QueryEscape("data.isSubscribed eq true")}
 	} else if unsubscribed {
-		solutionBaseURL += "?filter=" + url.QueryEscape("data.isSubscribed ne true")}
+		filters = []string{"filter=" + url.QueryEscape("data.isSubscribed ne true")}
 	}
 	println(solutionBaseURL)
-	cmdkit.FetchAndPrint(cmd, solutionBaseURL, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
+	cmdkit.FetchAndPrint(cmd, solutionBaseURL, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true, Filters: filters})
 }
 
 func getSolutionListUrl() string {
