@@ -17,26 +17,25 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
-	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"github.com/tcnksm/go-latest"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
-	"time"
-
 	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
 	"github.com/cisco-open/fsoc/logfilter"
 	"github.com/cisco-open/fsoc/platform/api"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"io/fs"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var cfgFile string
@@ -221,11 +220,6 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			"existing":    exists,
 		}).
 			Info("fsoc context")
-		lastCommand := viper.GetInt64("lastRun")
-		if time.Now().Unix()-lastCommand >= 86400 {
-			// Check for Update
-			checkForUpdate()
-		}
 	} else {
 		if bypass {
 			log.Infof("Unable to read config file (%v), proceeding without a config", err)
@@ -233,73 +227,116 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
 		}
 	}
+	if time.Now().Unix()-getRecentTimestamp() > 86000 {
+		checkForUpdate()
+	}
 }
 
-func checkForUpdate() {
-	githubTag := &latest.GithubTag{
-		Owner:      "cisco-open",
-		Repository: "fsoc",
-	}
-
-	//println(version.GetVersion().Version)
-	currentVer := "0.1.0" //TODO: Get Ver here
-
-	res, err := latest.Check(githubTag, currentVer)
+func getRecentTimestamp() int64 {
+	potentialFiles, err := findFiles(os.TempDir())
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	if res.Outdated {
-		fmt.Printf("%s is not latest, you should upgrade to %s", currentVer, res.Current)
+	var largestTimestamp int64 = 0
+	for i := 0; i < len(potentialFiles); i++ {
+		stringSections := strings.Split(potentialFiles[i].Name(), "/")
+		desiredSections := strings.Split(stringSections[len(stringSections)-1], "fsoctimestamp")
+		newTimestamp, _ := strconv.ParseInt(desiredSections[0], 10, 64)
+		if largestTimestamp < newTimestamp {
+			largestTimestamp = newTimestamp
+		}
 	}
 
+	for i := 0; i < len(potentialFiles); i++ {
+		err := os.Remove(potentialFiles[i].Name())
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+	}
+
+	return largestTimestamp
+}
+
+func findFiles(root string) ([]*os.File, error) {
+	var files []*os.File
+	err := filepath.WalkDir(root, func(pathh string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			if ok := strings.Contains(pathh, "fsoctimestamp"); ok && err == nil {
+				file, err := os.Open(pathh)
+				if err != nil {
+					log.Fatalf(err.Error())
+				}
+				files = append(files, file)
+			}
+		}
+		return nil
+	})
+	return files, err
+}
+
+func checkForUpdate() {
+	newestVersionChan := make(chan string)
+	go func() {
+		err := getVersion(newestVersionChan)
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+	}()
+	var newestVersion string
+	newestVersion = <-newestVersionChan
+	if compareVersion(newestVersion) {
+		log.Warnf("There is a newer version of FSOC available, please upgrade to version %s", newestVersion)
+	}
+}
+
+func getVersion(ver chan string) error {
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get("https://github.com/cisco-open/fsoc/releases/latest")
+	if err != nil {
+		return err
+	}
+
+	split := strings.Split(resp.Header.Get("Location"), "/")
+	ver <- split[len(split)-1]
+	return nil
+}
+
+func compareVersion(newestVersion string) bool { // Returns if the parameter is a newer version than the installed one
+	currentVersion := version.GetVersion()
+	newestVersionMajor, newestVersionMinor, newestVersionPatch := parseVersion(newestVersion)
+	newerMajorVersion := uint(newestVersionMajor) > currentVersion.VersionMajor
+	newerMinorVersion := uint(newestVersionMinor) > currentVersion.VersionMinor
+	newerPatchVersion := uint(newestVersionPatch) > currentVersion.VersionPatch
+	if newerMajorVersion {
+		return true
+	}
+	if newerMinorVersion {
+		return true
+	}
+	if newerPatchVersion {
+		return true
+	}
+	return false
+}
+
+func parseVersion(version string) (uint64, uint64, uint64) {
+	version = version[1:]
+	versionSections := strings.Split(version, ".")
+	major, _ := strconv.ParseUint(versionSections[0], 10, 32)
+	minor, _ := strconv.ParseUint(versionSections[1], 10, 32)
+	patch, _ := strconv.ParseUint(versionSections[2], 10, 32)
+	return major, minor, patch
 }
 
 func postExecHook(cmd *cobra.Command, args []string) {
-	// Record Last Run
-	viper.Set("lastRun", time.Now().Unix())
-
-	// set up config file in viper
-	viper.SetConfigType("yaml")
-	if viper.ConfigFileUsed() == "" {
-		home, _ := os.UserHomeDir()
-		configFileLocation := strings.Replace("~/.fsoc", "~", home, 1)
-		viper.SetConfigFile(configFileLocation)
-	}
-	viper.SetConfigPermissions(0600) // o=rw
-
-	// ensure file exists (viper fails to create it, likely a bug in viper)
-	ensureConfigFile()
-
-	// update file contents
-	err := viper.WriteConfig()
+	// Create File
+	_, err := os.CreateTemp(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+"fsoctimestamp")
 	if err != nil {
-		log.Fatalf("failed to write config file %q: %v", viper.ConfigFileUsed(), err)
-	}
-}
-
-func ensureConfigFile() {
-	appFs := afero.NewOsFs()
-
-	// finalize the path to use
-	var fileLoc = viper.ConfigFileUsed()
-	if strings.Contains(fileLoc[:2], "~/") {
-		homeDir, _ := os.UserHomeDir()
-		fileLoc = strings.Replace(fileLoc, "~", homeDir, 1)
-	}
-	configPath, _ := filepath.Abs(fileLoc)
-
-	// try to open the file, create it if it doesn't exist
-	_, err := appFs.Open(configPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			_, err = appFs.Create(configPath)
-			if err != nil {
-				log.Fatalf("failed to create config file %q: %v", configPath, err)
-			}
-			viper.SetConfigFile(configPath)
-		} else {
-			log.Fatalf("failed to open config file %q: %v", configPath, err)
-		}
+		log.Fatalf(err.Error())
 	}
 }
 
