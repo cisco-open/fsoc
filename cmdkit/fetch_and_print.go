@@ -16,7 +16,6 @@ package cmdkit
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -31,7 +30,6 @@ type FetchAndPrintOptions struct {
 	Body         any               // body to send with the request (nil for no body)
 	ResponseType *reflect.Type     // structure type to parse response into (for schema validation & fields) (nil for none)
 	IsCollection bool              // set to true for GET to request a collection that may be paginated (see platform/api/collection.go)
-	Filters      []string
 }
 
 // FetchAndPrint consolidates the common sequence of fetching from the server and
@@ -63,19 +61,6 @@ func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOption
 
 	// fetch data
 	var err error
-
-	if options.Filters != nil {
-		// If there are filters, apply them to query path
-		numberOfFilters := len(strings.Split(path, "?"))
-		if numberOfFilters != 1 && numberOfFilters != 0 {
-			// Case 1: There is already a query in path append to the path
-			path += "&" + strings.Join(options.Filters, "&")
-		} else {
-			// Case 2: There is no query in path
-			path += "?" + strings.Join(options.Filters, "&")
-		}
-	}
-
 	if options != nil && options.IsCollection {
 		if method != "GET" {
 			log.Fatalf("bug: cannot request %q for a collection at %q, only GET is supported for collections", method, path)
