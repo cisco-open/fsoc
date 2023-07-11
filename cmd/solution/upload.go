@@ -82,7 +82,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"zip_prepackaged": true,
 		}
 	} else {
-		println("HERE")
 		if solutionRootDirectory == "" {
 			solutionRootDirectory, err = os.Getwd()
 			if err != nil {
@@ -124,7 +123,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			if err != nil {
 				log.Fatalf("Failed to read the solution manifest from %q: %v", solutionRootDirectory, err)
 			}
-			println("HERE3")
 
 			// update tag to use supported values
 			if solutionTagFlag != "stable" {
