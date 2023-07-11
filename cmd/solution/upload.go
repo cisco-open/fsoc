@@ -113,7 +113,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		if err != nil {
 			log.Fatalf("Failed to isolate solution with tag: %v", err)
 		}
-
 		if solutionIsolateDirectory != solutionRootDirectory { // if isolated, post-process
 			// set root directory to the isolated version's root
 			solutionRootDirectory = solutionIsolateDirectory
