@@ -82,6 +82,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"zip_prepackaged": true,
 		}
 	} else {
+		println("HERE")
 		if solutionRootDirectory == "" {
 			solutionRootDirectory, err = os.Getwd()
 			if err != nil {
@@ -113,6 +114,9 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		if err != nil {
 			log.Fatalf("Failed to isolate solution with tag: %v", err)
 		}
+		println(solutionIsolateDirectory)
+		println(solutionRootDirectory)
+
 		if solutionIsolateDirectory != solutionRootDirectory { // if isolated, post-process
 			// set root directory to the isolated version's root
 			solutionRootDirectory = solutionIsolateDirectory
@@ -122,13 +126,13 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			if err != nil {
 				log.Fatalf("Failed to read the solution manifest from %q: %v", solutionRootDirectory, err)
 			}
+			println("HERE3")
 
 			// update tag to use supported values
 			if solutionTagFlag != "stable" {
 				solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
 			}
 		}
-
 		// create archive
 		solutionArchive := generateZip(cmd, solutionRootDirectory, "")
 		solutionBundlePath = solutionArchive.Name()
