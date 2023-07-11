@@ -114,8 +114,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		if err != nil {
 			log.Fatalf("Failed to isolate solution with tag: %v", err)
 		}
-		println(solutionIsolateDirectory)
-		println(solutionRootDirectory)
 
 		if solutionIsolateDirectory != solutionRootDirectory { // if isolated, post-process
 			// set root directory to the isolated version's root
@@ -215,6 +213,9 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	}
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
+		if solutionTagFlag != "stable" {
+			solutionName += ".dev"
+		}
 		log.WithField("solution", solutionName).Info("Subscribing to solution")
 		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
