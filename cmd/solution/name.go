@@ -15,7 +15,6 @@ package solution
 
 import (
 	"fmt"
-
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 )
@@ -49,14 +48,26 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		}
 		// We only want to append .dev for subscribing/unsubscribing commands
 		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
-			name = fmt.Sprintf("%s.%s", name, solutionTag)
+			if solutionTag == "dev" {
+				name = fmt.Sprintf("%s.%s", name, solutionTag)
+			} else {
+				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
+			}
 		}
 		return name
 	}
 
 	// return the solution name from flag, if provided
 	if nameFromFlag != "" {
-		return nameFromFlag
+		name = nameFromFlag
+		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
+			if solutionTag == "dev" {
+				name = fmt.Sprintf("%s.%s", name, solutionTag)
+			} else {
+				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
+			}
+		}
+		return name
 	}
 
 	// fail
