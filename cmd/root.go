@@ -18,13 +18,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"net/http"
 	"os"
 	"path"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -47,6 +42,10 @@ var outputFormat string
 const (
 	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
 	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+)
+
+const (
+	secondInDay = time.Hour * 24
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -75,7 +74,6 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
-	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -100,6 +98,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
+	rootCmd.PersistentFlags().Bool("no-update-warning", false, "Removes daily warning for updates")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -229,116 +228,26 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
 		}
 	}
-	if time.Now().Unix()-getRecentTimestamp() > 86000 {
-		checkForUpdate()
-	}
-}
 
-func getRecentTimestamp() int64 {
-	potentialFiles, err := findFiles(os.TempDir())
+	// Do version checking
+	noUpdateWarning, _ := cmd.Flags().GetBool("no-update-warning")
+	if int(time.Now().Unix())-getRecentTimestamp() > int(secondInDay) && !noUpdateWarning {
+		version.CheckForUpdate()
+	}
+	// Create new timestamp file
+	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
+	file, err = os.Create(os.TempDir() + "fsoc.timestamp")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	var largestTimestamp int64 = 0
-	for i := 0; i < len(potentialFiles); i++ {
-		stringSections := strings.Split(potentialFiles[i].Name(), "/")
-		desiredSections := strings.Split(stringSections[len(stringSections)-1], "fsoctimestamp")
-		newTimestamp, _ := strconv.ParseInt(desiredSections[0], 10, 64)
-		if largestTimestamp < newTimestamp {
-			largestTimestamp = newTimestamp
-		}
-	}
-
-	for i := 0; i < len(potentialFiles); i++ {
-		err := os.Remove(potentialFiles[i].Name())
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
-	}
-
-	return largestTimestamp
 }
 
-func findFiles(root string) ([]*os.File, error) {
-	var files []*os.File
-	err := filepath.WalkDir(root, func(pathh string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			if ok := strings.Contains(pathh, "fsoctimestamp"); ok && err == nil {
-				file, err := os.Open(pathh)
-				if err != nil {
-					log.Fatalf(err.Error())
-				}
-				files = append(files, file)
-			}
-		}
-		return nil
-	})
-	return files, err
-}
-
-func checkForUpdate() {
-	newestVersionChan := make(chan string)
-	go func() {
-		err := getVersion(newestVersionChan)
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
-	}()
-	var newestVersion = <-newestVersionChan
-	if compareVersion(newestVersion) {
-		log.Warnf("There is a newer version of FSOC available, please upgrade to version %s", newestVersion)
-	}
-}
-
-func getVersion(ver chan string) error {
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := client.Get("https://github.com/cisco-open/fsoc/releases/latest")
+func getRecentTimestamp() int {
+	fInfo, err := os.Stat(os.TempDir() + "fsoc.timestamp")
 	if err != nil {
-		return err
+		return 0
 	}
-
-	split := strings.Split(resp.Header.Get("Location"), "/")
-	ver <- split[len(split)-1]
-	return nil
-}
-
-func compareVersion(newestVersion string) bool { // Returns if the parameter is a newer version than the installed one
-	currentVersion := version.GetVersion()
-	newestVersionMajor, newestVersionMinor, newestVersionPatch := parseVersion(newestVersion)
-	newerMajorVersion := uint(newestVersionMajor) > currentVersion.VersionMajor
-	newerMinorVersion := uint(newestVersionMinor) > currentVersion.VersionMinor
-	newerPatchVersion := uint(newestVersionPatch) > currentVersion.VersionPatch
-	if newerMajorVersion {
-		return true
-	}
-	if newerMinorVersion {
-		return true
-	}
-	if newerPatchVersion {
-		return true
-	}
-	return false
-}
-
-func parseVersion(version string) (uint64, uint64, uint64) {
-	version = version[1:]
-	versionSections := strings.Split(version, ".")
-	major, _ := strconv.ParseUint(versionSections[0], 10, 32)
-	minor, _ := strconv.ParseUint(versionSections[1], 10, 32)
-	patch, _ := strconv.ParseUint(versionSections[2], 10, 32)
-	return major, minor, patch
-}
-
-func postExecHook(cmd *cobra.Command, args []string) {
-	// Create File
-	_, err := os.CreateTemp(os.TempDir(), strconv.FormatInt(time.Now().Unix(), 10)+"fsoctimestamp")
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
+	return fInfo.ModTime().Second()
 }
 
 func bypassConfig(cmd *cobra.Command) bool {

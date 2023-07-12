@@ -16,6 +16,10 @@ package version
 
 import (
 	"fmt"
+	"github.com/Masterminds/semver/v3"
+	"github.com/apex/log"
+	"net/http"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -63,4 +67,44 @@ func displayVersion(cmd *cobra.Command) {
 		Lines:   [][]string{values},
 		Detail:  true,
 	})
+}
+
+func GetLatestVersion() (string, error) {
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { // no redirect
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get("https://github.com/cisco-open/fsoc/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	split := strings.Split(resp.Header.Get("Location"), "/")
+	if len(split) < 1 {
+		return "", fmt.Errorf("version request did not return a version")
+	}
+	return split[len(split)-1], nil
+}
+
+func CheckForUpdate() {
+	log.Infof("Checking for newer version of FSOC")
+	newestVersion, err := GetLatestVersion()
+	log.Infof("Latest version available: %s", newestVersion)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	currentVersion := GetVersion()
+	currentVersionSemVer := semver.New(
+		uint64(currentVersion.VersionMajor),
+		uint64(currentVersion.VersionMajor),
+		uint64(currentVersion.VersionMajor),
+		currentVersion.VersionMeta, "")
+	newestVersionSemVar := semver.MustParse(newestVersion)
+	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) == -1
+	var debugFields = log.Fields{"newerVersionAvailable": newerVersionAvailable, "oldVersion": currentVersionSemVer.String(), "newVersion": newestVersionSemVar.String()}
+	if newerVersionAvailable {
+		log.WithFields(debugFields).Warnf("There is a newer version of FSOC available, please upgrade from version %s to version %s", currentVersionSemVer.String(), newestVersionSemVar.String())
+	} else {
+		log.WithFields(debugFields)
+	}
 }
