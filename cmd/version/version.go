@@ -102,11 +102,7 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 
 func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 	currentVersion := GetVersion()
-	currentVersionSemVer := semver.New(
-		uint64(currentVersion.VersionMajor),
-		uint64(currentVersion.VersionMajor),
-		uint64(currentVersion.VersionMajor),
-		currentVersion.VersionMeta, "")
+	currentVersionSemVer := ConvertVerToSemVar(currentVersion)
 	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) == -1
 	var debugFields = log.Fields{"newerVersionAvailable": newerVersionAvailable, "oldVersion": currentVersionSemVer.String(), "newVersion": newestVersionSemVar.String()}
 
@@ -116,4 +112,12 @@ func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 		log.WithFields(debugFields)
 	}
 
+}
+
+func ConvertVerToSemVar(data VersionData) *semver.Version {
+	return semver.New(
+		uint64(data.VersionMajor),
+		uint64(data.VersionMajor),
+		uint64(data.VersionMajor),
+		data.VersionMeta, "")
 }

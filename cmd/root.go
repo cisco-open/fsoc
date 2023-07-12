@@ -50,7 +50,6 @@ const (
 )
 
 var updateChannel chan *semver.Version
-var updateChecked bool
 
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
@@ -237,9 +236,11 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	// Do version checking
 	noUpdateWarning, _ := cmd.Flags().GetBool("no-update-warning")
 	updateChecked := int(time.Now().Unix())-getRecentTimestamp() > int(secondInDay) && !noUpdateWarning
+	updateChannel = make(chan *semver.Version)
 	if updateChecked {
-		updateChannel = make(chan *semver.Version)
 		go version.CheckForUpdate(updateChannel)
+	} else {
+		go func() { updateChannel <- version.ConvertVerToSemVar(version.GetVersion()) }()
 	}
 	// Create new timestamp file
 	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
@@ -258,10 +259,8 @@ func getRecentTimestamp() int {
 }
 
 func postExecHook(cmd *cobra.Command, args []string) {
-	if updateChecked {
-		var updateSemVar = <-updateChannel
-		version.CompareAndLogVersions(updateSemVar)
-	}
+	var updateSemVar = <-updateChannel
+	version.CompareAndLogVersions(updateSemVar)
 }
 
 func bypassConfig(cmd *cobra.Command) bool {
