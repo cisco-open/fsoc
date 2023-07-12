@@ -16,11 +16,11 @@ package version
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver/v3"
-	"github.com/apex/log"
 	"net/http"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
@@ -98,7 +98,6 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 		log.Fatalf(err.Error())
 	}
 	versionChannel <- newestVersionSemVar
-	return
 }
 
 func CompareAndLogVersions(newestVersionSemVar *semver.Version) {

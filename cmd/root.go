@@ -18,11 +18,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/Masterminds/semver/v3"
 	"os"
 	"path"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
@@ -243,7 +243,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 	// Create new timestamp file
 	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
-	file, err = os.Create(os.TempDir() + "fsoc.timestamp")
+	_, err = os.Create(os.TempDir() + "fsoc.timestamp")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
