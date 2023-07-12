@@ -35,9 +35,10 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3
         with:
-          version: latest
+          version: 'v1.18.2'
           args: release --clean --timeout 5m
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.PUBLISHER_CLASSIC_TOKEN }}
           GIT_BRANCH: ${{ github.ref_name }}
           BUILD_IS_DEV: 'false'

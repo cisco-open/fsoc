@@ -34,9 +34,42 @@ builds:
   - CGO_ENABLED=0
 
 archives:
-- id: fsoc-archives
+- id: fsoc-binary-archives
   name_template: 'fsoc-{{ .Os }}-{{ .Arch }}'
   format: binary
   builds:
   - fsoc-binaries
-  
+- id: fsoc-archives
+  name_template: 'fsoc-{{ .Os }}-{{ .Arch }}'
+  format: tar.gz
+  builds:
+  - fsoc-binaries
+  format_overrides:
+  - goos: windows
+    format: zip
+
+brews:
+- name: fsoc
+  ids:
+  - fsoc-archives
+  homepage: https://github.com/cisco-open/fsoc
+  description: "Cisco FSO Platform Developer's Control Tool"
+  license: "Apache-2.0"
+  commit_author:
+    name: goreleaserbot
+    email: bot@goreleaser.com
+  commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+  folder: Formula
+  tap:
+    owner: cisco-open
+    name: homebrew-tap
+    branch: "{{ .ProjectName }}/{{ .Tag }}"
+    token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    pull_request:
+      enabled: true
+  install: |
+    Dir.glob("fsoc-*-*") do |f|
+      bin.install f => "fsoc"
+    end
+  test: |
+    system "#{bin}/fsoc", "version"
