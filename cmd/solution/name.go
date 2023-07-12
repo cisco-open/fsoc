@@ -60,15 +60,7 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 
 	// return the solution name from flag, if provided
 	if nameFromFlag != "" {
-		name = nameFromFlag
-		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
-			if solutionTag == "dev" {
-				name = fmt.Sprintf("%s.%s", name, solutionTag)
-			} else {
-				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
-			}
-		}
-		return name
+		return nameFromFlag
 	}
 
 	// fail

@@ -210,10 +210,11 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	}
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
+		var solutionObjName = solutionName
 		if solutionTagFlag != "stable" {
-			solutionName += ".dev"
+			solutionObjName += ".dev"
 		}
-		log.WithField("solution", solutionName).Info("Subscribing to solution")
+		log.WithField("solution", solutionObjName).Info("Subscribing to solution")
 		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
 		headers = map[string]string{
@@ -221,10 +222,10 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"layer-id":   layerID,
 		}
 		for i := 1; i <= MAX_SUBSCRIBE_TRIES; i++ {
-			url := getSolutionSubscribeUrl() + "/" + solutionName
+			url := getSolutionSubscribeUrl() + "/" + solutionObjName
 			err = api.JSONPatch(url, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
 			if err == nil {
-				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionObjName))
 				break
 			}
 			time.Sleep(time.Second * time.Duration(i))
