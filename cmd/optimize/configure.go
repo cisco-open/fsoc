@@ -236,6 +236,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		}
 		// Target
 		newOptimizerConfig.Target.K8SDeployment.ClusterID = profilerReport["resource_metadata.cluster_id"].(string)
+		newOptimizerConfig.Target.K8SDeployment.DeploymentUID = profilerReport["k8s.deployment.uid"].(string)
 		newOptimizerConfig.Target.K8SDeployment.ClusterName = profilerReport["resource_metadata.cluster_name"].(string)
 		newOptimizerConfig.Target.K8SDeployment.ContainerName = profilerReport["report_contents.main_container_name"].(string)
 		newOptimizerConfig.Target.K8SDeployment.NamespaceName = profilerReport["resource_metadata.namespace_name"].(string)
