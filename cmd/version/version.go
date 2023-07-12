@@ -87,7 +87,12 @@ func GetLatestVersion() (string, error) {
 }
 
 func CheckForUpdate(versionChannel chan *semver.Version) {
-	defer func() { recover() }()
+	defer func() {
+		r := recover()
+		if r != nil {
+			log.Warnf("Error occurred while checking version, continuing")
+		}
+	}()
 	log.Infof("Checking for newer version of FSOC")
 	newestVersion, err := GetLatestVersion()
 	log.Infof("Latest version available: %s", newestVersion)
