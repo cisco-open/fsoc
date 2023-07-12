@@ -60,7 +60,7 @@ brews:
     email: bot@goreleaser.com
   commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
   folder: Formula
-  tap:
+  repository:
     owner: cisco-open
     name: homebrew-tap
     branch: "{{ .ProjectName }}/{{ .Tag }}"
