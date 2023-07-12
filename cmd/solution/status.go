@@ -27,23 +27,6 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
-type SubscriptionStatusData struct {
-	IsDeleted    string `json:"isDeleted,omitempty"`
-	SolutionID   string `json:"solutionID,omitempty"`
-	SolutionName string `json:"solutionName,omitempty"`
-	Tag          string `json:"tag,omitempty"`
-	TenantId     string `json:"tenantId,omitempty"`
-}
-
-type SubscriptionStatusItem struct {
-	SubscriptionStatusData SubscriptionStatusData `json:"data"`
-	CreatedAt              string                 `json:"createdAt"`
-}
-
-type SubscriptionStatusResponseBlob struct {
-	Items []SubscriptionStatusItem `json:"items"`
-}
-
 type StatusData struct {
 	InstallTime       string `json:"installTime,omitempty"`
 	InstallMessage    string `json:"installMessage,omitempty"`
@@ -59,6 +42,17 @@ type StatusItem struct {
 
 type ResponseBlob struct {
 	Items []StatusItem `json:"items"`
+}
+
+type GetExtensibilitySolutionObjectByIdResponse struct {
+	Id        string                          `json:"id,omitempty"`
+	LayerId   string                          `json:"layerId,omitempty"`
+	LayerType string                          `json:"layerType,omitempty"`
+	Data      ExtensibilitySolutionObjectData `json:"data,omitempty"`
+}
+
+type ExtensibilitySolutionObjectData struct {
+	IsSubscribed bool `json:"isSubscribed,omitempty"`
 }
 
 var solutionStatusCmd = &cobra.Command{
@@ -92,7 +86,7 @@ func getSolutionStatusCmd() *cobra.Command {
 	return solutionStatusCmd
 }
 
-func getObject(url string, headers map[string]string) StatusItem {
+func getObjects(url string, headers map[string]string) StatusItem {
 	var res ResponseBlob
 	var emptyData StatusItem
 
@@ -109,32 +103,28 @@ func getObject(url string, headers map[string]string) StatusItem {
 	}
 }
 
-func getEnvironmentSubscriptionObject(url string, headers map[string]string) SubscriptionStatusItem {
-	var res SubscriptionStatusResponseBlob
-	var emptyData SubscriptionStatusItem
+func getExtensibilitySolutionObject(url string, headers map[string]string) ExtensibilitySolutionObjectData {
+	var res GetExtensibilitySolutionObjectByIdResponse
 
 	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
 
 	if err != nil {
-		log.Fatalf("Error fetching environment:subscription object %q: %v", url, err)
+		log.Fatalf("Error fetching extensibility:solution object %q: %v", url, err)
 	}
 
-	if len(res.Items) > 0 {
-		return res.Items[0]
-	} else {
-		return emptyData
-	}
+	return res.Data
+
 }
 
 func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, subscriptionStatusQuery string, solutionName string, requestHeaders map[string]string, cmd *cobra.Command) {
-	uploadStatusItem := getObject(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
-	installStatusItem := getObject(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
-	subscriptionStatusItem := getEnvironmentSubscriptionObject(fmt.Sprintf(getEnvironmentSubscriptionUrl(), subscriptionStatusQuery), requestHeaders)
+	uploadStatusItem := getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
+	installStatusItem := getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
+	solutionStatusItem := getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionName), requestHeaders)
 
 	installStatusData := installStatusItem.StatusData
 	uploadStatusData := uploadStatusItem.StatusData
 	uploadStatusTimestamp := uploadStatusItem.CreatedAt
-	isTenantSubscribedToSolution := (!subscriptionStatusItem.IsEmpty() && subscriptionStatusItem.SubscriptionStatusData.IsDeleted == "false")
+	isTenantSubscribedToSolution := (!solutionStatusItem.IsEmpty() && solutionStatusItem.IsSubscribed)
 
 	headers := []string{"Solution Name"}
 	values := []string{solutionName}
@@ -216,18 +206,18 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (s SubscriptionStatusItem) IsEmpty() bool {
-	return reflect.DeepEqual(s, SubscriptionStatusItem{})
+func (s ExtensibilitySolutionObjectData) IsEmpty() bool {
+	return reflect.DeepEqual(s, ExtensibilitySolutionObjectData{})
 }
 
 func getSolutionReleaseUrl() string {
-	return "objstore/v1beta/objects/extensibility:solutionRelease%s"
+	return "knowledge-store/v1/objects/extensibility:solutionRelease%s"
 }
 
 func getSolutionInstallUrl() string {
-	return "objstore/v1beta/objects/extensibility:solutionInstall%s"
+	return "knowledge-store/v1/objects/extensibility:solutionInstall%s"
 }
 
-func getEnvironmentSubscriptionUrl() string {
-	return "objstore/v1beta/objects/environment:subscription%s"
+func getExtensibilitySolutionUrl() string {
+	return "knowledge-store/v1/objects/extensibility:solution/%s"
 }
