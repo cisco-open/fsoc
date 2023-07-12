@@ -32,6 +32,8 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
+const MAX_SUBSCRIBE_TRIES = 4
+
 func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manifestPath string) {
 	if err := bumpManifestPatchVersion(manifest); err != nil {
 		log.Fatal(err.Error())
@@ -208,6 +210,29 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Successfully validated %v.\n", solutionDisplayText))
 	}
 
+	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
+		log.WithField("solution", solutionName).Info("Subscribing to solution")
+		cfg := config.GetCurrentContext()
+		layerID := cfg.Tenant
+		headers = map[string]string{
+			"layer-type": "TENANT",
+			"layer-id":   layerID,
+		}
+		for i := 1; i <= MAX_SUBSCRIBE_TRIES; i++ {
+			url := getSolutionSubscribeUrl() + "/" + solutionName
+			err = api.JSONPatch(url, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
+			if err == nil {
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+				break
+			}
+			time.Sleep(time.Second * time.Duration(i))
+		}
+		if err != nil {
+			log.Fatalf("Solution command failed: %v", err)
+		}
+
+	}
+
 	// wait for installation, if requested (and possible)
 	if push && waitFlag >= 0 && solutionName != "" && solutionVersion != "" {
 		var duration string
@@ -241,29 +266,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			log.Fatalf("Failed to install %s: %s", solutionDisplayText, statusData.InstallMessage)
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Installed %v successfully.\n", solutionDisplayText))
-	}
-	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
-		log.WithField("solution", solutionName).Info("Subscribing to solution")
-		cfg := config.GetCurrentContext()
-		layerID := cfg.Tenant
-		headers = map[string]string{
-			"layer-type": "TENANT",
-			"layer-id":   layerID,
-		}
-		err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
-		if err != nil {
-			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
-				time.Sleep(time.Second * 2)
-				err = api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
-				if err != nil {
-					log.Fatalf("Solution command failed: %v", err)
-				}
-				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
-			} else {
-				log.Fatalf("Solution command failed: %v", err)
-			}
-		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
 	}
 }
 

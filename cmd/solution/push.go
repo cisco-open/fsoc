@@ -68,11 +68,11 @@ func getSolutionPushCmd() *cobra.Command {
 
 	solutionPushCmd.Flags().
 		Bool("subscribe", false, "Subscribe to the solution that you are pushing")
-	_ = solutionPushCmd.Flags().MarkHidden("subscribe") // TODO: unify with isolation before showing
 
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory") // either solution dir or prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")      // TODO: allow when extracting manifest data
+	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "subscribe") // TODO: allow when extracting manifest data
 	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")    // stable is an alias for --tag=stable
 
 	return solutionPushCmd
