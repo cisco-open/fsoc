@@ -221,12 +221,11 @@ func processFile(file *os.File) error {
 	for fileScanner.Scan() {
 		fileLines = append(fileLines, fileScanner.Text())
 	}
-
-	for i := 1; i < len(fileLines); i++ {
+	for i := 0; i < len(fileLines); i++ {
 		line := fileLines[i]
 		if len(line) > 2 {
 			if line[0:2] == "##" {
-				fileLines[i] = line[2:]
+				fileLines[i] = line[1:]
 			}
 		}
 		if fileLines[i] == "# SEE ALSO" {
