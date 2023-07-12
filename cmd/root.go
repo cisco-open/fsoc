@@ -246,7 +246,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
 	_, err = os.Create(os.TempDir() + "fsoc.timestamp")
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Errorf(err.Error())
 	}
 }
 
