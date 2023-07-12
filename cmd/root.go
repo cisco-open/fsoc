@@ -18,6 +18,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	"os"
 	"path"
 	"time"
@@ -48,6 +49,9 @@ const (
 	secondInDay = time.Hour * 24
 )
 
+var updateChannel chan *semver.Version
+var updateChecked bool
+
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
 var rootCmd = &cobra.Command{
@@ -74,6 +78,7 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
+	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -231,8 +236,10 @@ func preExecHook(cmd *cobra.Command, args []string) {
 
 	// Do version checking
 	noUpdateWarning, _ := cmd.Flags().GetBool("no-update-warning")
-	if int(time.Now().Unix())-getRecentTimestamp() > int(secondInDay) && !noUpdateWarning {
-		version.CheckForUpdate()
+	updateChecked := int(time.Now().Unix())-getRecentTimestamp() > int(secondInDay) && !noUpdateWarning
+	if updateChecked {
+		updateChannel = make(chan *semver.Version)
+		go version.CheckForUpdate(updateChannel)
 	}
 	// Create new timestamp file
 	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
@@ -248,6 +255,13 @@ func getRecentTimestamp() int {
 		return 0
 	}
 	return fInfo.ModTime().Second()
+}
+
+func postExecHook(cmd *cobra.Command, args []string) {
+	if updateChecked {
+		var updateSemVar = <-updateChannel
+		version.CompareAndLogVersions(updateSemVar)
+	}
 }
 
 func bypassConfig(cmd *cobra.Command) bool {

@@ -86,25 +86,35 @@ func GetLatestVersion() (string, error) {
 	return split[len(split)-1], nil
 }
 
-func CheckForUpdate() {
+func CheckForUpdate(versionChannel chan *semver.Version) {
 	log.Infof("Checking for newer version of FSOC")
 	newestVersion, err := GetLatestVersion()
 	log.Infof("Latest version available: %s", newestVersion)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
+	newestVersionSemVar, err := semver.NewVersion(newestVersion) // This panics, so we need to be ready to recover
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	versionChannel <- newestVersionSemVar
+	return
+}
+
+func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 	currentVersion := GetVersion()
 	currentVersionSemVer := semver.New(
 		uint64(currentVersion.VersionMajor),
 		uint64(currentVersion.VersionMajor),
 		uint64(currentVersion.VersionMajor),
 		currentVersion.VersionMeta, "")
-	newestVersionSemVar := semver.MustParse(newestVersion)
 	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) == -1
 	var debugFields = log.Fields{"newerVersionAvailable": newerVersionAvailable, "oldVersion": currentVersionSemVer.String(), "newVersion": newestVersionSemVar.String()}
+
 	if newerVersionAvailable {
 		log.WithFields(debugFields).Warnf("There is a newer version of FSOC available, please upgrade from version %s to version %s", currentVersionSemVer.String(), newestVersionSemVar.String())
 	} else {
 		log.WithFields(debugFields)
 	}
+
 }
