@@ -258,7 +258,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 					log.Fatalf("Failed to validate %s was installed: timed out", solutionDisplayText)
 				}
 			}
-			status := getObject(fmt.Sprintf(getSolutionInstallUrl(), query), headers)
+			status := getObjects(fmt.Sprintf(getSolutionInstallUrl(), query), headers)
 			statusData = status.StatusData
 			time.Sleep(3 * time.Second)
 		}
