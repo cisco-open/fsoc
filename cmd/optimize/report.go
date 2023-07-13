@@ -123,9 +123,44 @@ func listReports(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	reportRows, err := extractReportData(resp)
+	mainDataSet := resp.Main()
+	if mainDataSet == nil {
+		output.PrintCmdStatus(cmd, "No results found for given input\n")
+		return nil
+	}
+
+	reportRows, err := extractReportData(mainDataSet)
 	if err != nil {
 		return fmt.Errorf("extractReportData: %w", err)
+	}
+
+	_, next_ok := mainDataSet.Links["next"]
+	for page := 2; next_ok; page++ {
+		resp, err = uql.ContinueQuery(mainDataSet, "next")
+		if err != nil {
+			return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+		}
+
+		if resp.HasErrors() {
+			log.Errorf("Continuation of report query (page %v) encountered errors. Returned data may not be complete!", page)
+			for _, e := range resp.Errors() {
+				log.Errorf("%s: %s", e.Title, e.Detail)
+			}
+		}
+
+		mainDataSet = resp.Main()
+		if mainDataSet == nil {
+			log.Errorf("Continuation of report query (page %v) has nil main data. Returned data may not be complete!", page)
+			break
+		}
+
+		newRows, err := extractReportData(mainDataSet)
+		if err != nil {
+			return fmt.Errorf("page %v extractReportData: %w", page, err)
+		}
+
+		reportRows = append(reportRows, newRows...)
+		_, next_ok = mainDataSet.Links["next"]
 	}
 
 	if len(reportRows) < 1 {
@@ -141,12 +176,8 @@ func listReports(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractReportData(response *uql.Response) ([]reportRow, error) {
-	mainDataSet := response.Main()
-	if mainDataSet == nil {
-		return []reportRow{}, nil
-	}
-	resp_data := &mainDataSet.Data
+func extractReportData(dataset *uql.DataSet) ([]reportRow, error) {
+	resp_data := &dataset.Data
 	results := make([]reportRow, 0, len(*resp_data))
 	for index, row := range *resp_data {
 		if len(row) < 3 {
