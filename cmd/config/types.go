@@ -100,7 +100,7 @@ type AuthFieldConfig int8
 
 const (
 	ClearField AuthFieldConfig = 0
-	AllowField                 = 1
+	AllowField AuthFieldConfig = 1
 )
 
 type AuthFieldConfigRow map[string]AuthFieldConfig
