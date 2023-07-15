@@ -16,6 +16,7 @@ package version
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"

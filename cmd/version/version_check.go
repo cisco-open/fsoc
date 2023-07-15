@@ -2,10 +2,11 @@ package version
 
 import (
 	"fmt"
-	"github.com/Masterminds/semver/v3"
-	"github.com/apex/log"
 	"net/http"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
+	"github.com/apex/log"
 )
 
 const (
@@ -40,7 +41,7 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 	}
 	newestVersionSemVar, err := semver.NewVersion(newestVersion)
 	if err != nil {
-		log.WithField("unparseable version", newestVersion).Warnf("Could not parse version string: %w", err.Error())
+		log.WithField("unparseable version", newestVersion).Warnf("Could not parse version string: %v", err.Error())
 	}
 	versionChannel <- newestVersionSemVar
 }

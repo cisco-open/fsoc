@@ -252,7 +252,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	_ = os.Remove(os.TempDir() + timestampFileName)
 	_, err = os.Create(os.TempDir() + timestampFileName)
 	if err != nil {
-		log.Errorf("failed to create version check timestamp file: %w", err.Error())
+		log.Errorf("failed to create version check timestamp file: %v", err.Error())
 	}
 }
 
