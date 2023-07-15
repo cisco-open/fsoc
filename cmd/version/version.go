@@ -16,11 +16,6 @@ package version
 
 import (
 	"fmt"
-	"net/http"
-	"strings"
-
-	"github.com/Masterminds/semver/v3"
-	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
@@ -67,63 +62,4 @@ func displayVersion(cmd *cobra.Command) {
 		Lines:   [][]string{values},
 		Detail:  true,
 	})
-}
-
-func GetLatestVersion() (string, error) {
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error { // no redirect
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := client.Get("https://github.com/cisco-open/fsoc/releases/latest")
-	if err != nil {
-		return "", err
-	}
-	split := strings.Split(resp.Header.Get("Location"), "/")
-	if len(split) < 1 {
-		return "", fmt.Errorf("version request did not return a version")
-	}
-	return split[len(split)-1], nil
-}
-
-func CheckForUpdate(versionChannel chan *semver.Version) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			log.Warnf("Error occurred while checking version, continuing")
-		}
-	}()
-	log.Infof("Checking for newer version of FSOC")
-	newestVersion, err := GetLatestVersion()
-	log.Infof("Latest version available: %s", newestVersion)
-	if err != nil {
-		log.Warnf(err.Error())
-	}
-	newestVersionSemVar, err := semver.NewVersion(newestVersion) // This panics, so we need to be ready to recover
-	if err != nil {
-		log.Warnf(err.Error())
-	}
-	versionChannel <- newestVersionSemVar
-}
-
-func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
-	currentVersion := GetVersion()
-	currentVersionSemVer := ConvertVerToSemVar(currentVersion)
-	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) == -1
-	var debugFields = log.Fields{"newerVersionAvailable": newerVersionAvailable, "oldVersion": currentVersionSemVer.String(), "newVersion": newestVersionSemVar.String()}
-
-	if newerVersionAvailable {
-		log.WithFields(debugFields).Warnf("There is a newer version of FSOC available, please upgrade from version %s to version %s", currentVersionSemVer.String(), newestVersionSemVar.String())
-	} else {
-		log.WithFields(debugFields)
-	}
-
-}
-
-func ConvertVerToSemVar(data VersionData) *semver.Version {
-	return semver.New(
-		uint64(data.VersionMajor),
-		uint64(data.VersionMajor),
-		uint64(data.VersionMajor),
-		data.VersionMeta, "")
 }

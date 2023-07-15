@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -41,12 +42,14 @@ var cfgProfile string
 var outputFormat string
 
 const (
-	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
-	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+	FSOC_CONFIG_ENVVAR    = "FSOC_CONFIG"
+	FSOC_PROFILE_ENVVAR   = "FSOC_PROFILE"
+	FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 )
 
 const (
-	secondInDay = time.Hour * 24
+	secondInDay       = time.Hour * 24
+	timestampFileName = "fsoc.timestamp"
 )
 
 var updateChannel chan *semver.Version
@@ -102,7 +105,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
-	rootCmd.PersistentFlags().Bool("no-update-warning", false, "Removes daily warning for updates")
+	rootCmd.PersistentFlags().Bool("no-version-check", false, "Removes daily check for new versions of FSOC")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -234,33 +237,38 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 
 	// Do version checking
-	noUpdateWarning, _ := cmd.Flags().GetBool("no-update-warning")
-	updateChecked := int(time.Now().Unix())-getRecentTimestamp() > int(secondInDay) && !noUpdateWarning
-	updateChannel = make(chan *semver.Version)
+	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
+	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
+	if err != nil {
+		envNoVerCheck = false
+	}
+	noVerCheck = noVerCheck || envNoVerCheck
+	updateChecked := int(time.Now().Unix())-getLastVersionCheckTime() > int(secondInDay) && !noVerCheck
 	if updateChecked {
+		updateChannel = make(chan *semver.Version)
 		go version.CheckForUpdate(updateChannel)
-	} else {
-		go func() { updateChannel <- version.ConvertVerToSemVar(version.GetVersion()) }()
 	}
 	// Create new timestamp file
-	_ = os.Remove(os.TempDir() + "fsoc.timestamp")
-	_, err = os.Create(os.TempDir() + "fsoc.timestamp")
+	_ = os.Remove(os.TempDir() + timestampFileName)
+	_, err = os.Create(os.TempDir() + timestampFileName)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("failed to create version check timestamp file: %w", err.Error())
 	}
 }
 
-func getRecentTimestamp() int {
-	fInfo, err := os.Stat(os.TempDir() + "fsoc.timestamp")
+func getLastVersionCheckTime() int {
+	fInfo, err := os.Stat(os.TempDir() + timestampFileName)
 	if err != nil {
 		return 0
 	}
-	return fInfo.ModTime().Second()
+	return int(fInfo.ModTime().Unix())
 }
 
 func postExecHook(cmd *cobra.Command, args []string) {
-	var updateSemVar = <-updateChannel
-	version.CompareAndLogVersions(updateSemVar)
+	if updateChannel != nil {
+		var updateSemVar = <-updateChannel
+		version.CompareAndLogVersions(updateSemVar)
+	}
 }
 
 func bypassConfig(cmd *cobra.Command) bool {
