@@ -49,7 +49,11 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		}
 		// We only want to append .dev for subscribing/unsubscribing commands
 		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
-			name = fmt.Sprintf("%s.%s", name, solutionTag)
+			if solutionTag == "dev" {
+				name = fmt.Sprintf("%s.%s", name, solutionTag)
+			} else {
+				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
+			}
 		}
 		return name
 	}

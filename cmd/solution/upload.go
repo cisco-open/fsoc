@@ -128,7 +128,6 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 				solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
 			}
 		}
-
 		// create archive
 		solutionArchive := generateZip(cmd, solutionRootDirectory, "")
 		solutionBundlePath = solutionArchive.Name()
@@ -211,7 +210,11 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	}
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
-		log.WithField("solution", solutionName).Info("Subscribing to solution")
+		var solutionObjName = solutionName
+		if solutionTagFlag != "stable" {
+			solutionObjName += ".dev"
+		}
+		log.WithField("solution", solutionObjName).Info("Subscribing to solution")
 		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
 		headers = map[string]string{
@@ -219,10 +222,10 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"layer-id":   layerID,
 		}
 		for i := 1; i <= MAX_SUBSCRIBE_TRIES; i++ {
-			url := getSolutionSubscribeUrl() + "/" + solutionName
+			url := getSolutionSubscribeUrl() + "/" + solutionObjName
 			err = api.JSONPatch(url, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
 			if err == nil {
-				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName))
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionObjName))
 				break
 			}
 			time.Sleep(time.Second * time.Duration(i))
