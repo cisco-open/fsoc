@@ -8,12 +8,12 @@ While at this time we are not accepting contributions, if there is a bugfix or a
 
 ### Set up a Go development environment
 
-fsoc is written in Go (1.19+); both development and usage are intentionally multiplatform. Supported development environments include: Linux (e.g., Ubuntu), Mac OS (Intel, M1) and Windows 10/11 with WSL (non-WSL environment may be supported if there is interest).
+fsoc is written in Go (1.20+); both development and usage are intentionally multiplatform. Supported development environments include: Linux (e.g., Ubuntu), Mac OS (Intel, M1) and Windows 10/11 with WSL (non-WSL environment may be supported if there is interest).
 
 To develop fsoc, you will need the following tools:
 
 1. git
-1. Go 1.19.1+ (follow the instructions at https://go.dev/doc/install)
+1. Go 1.20.1+ (follow the instructions at https://go.dev/doc/install)
 1. GNU Make (install with `sudo apt install` make on Ubuntu/Debian)
 1. goimports (install with `go install golang.org/x/tools/cmd/goimports@latest`)
 1. godoc (only if you want to see fsoc packages docs in a browser on your laptop, install with `go install golang.org/x/tools/cmd/godoc@latest`)
