@@ -20,7 +20,10 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
+	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
@@ -39,9 +42,17 @@ var cfgProfile string
 var outputFormat string
 
 const (
-	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
-	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+	FSOC_CONFIG_ENVVAR    = "FSOC_CONFIG"
+	FSOC_PROFILE_ENVVAR   = "FSOC_PROFILE"
+	FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 )
+
+const (
+	secondInDay       = time.Hour * 24
+	timestampFileName = "fsoc.timestamp"
+)
+
+var updateChannel chan *semver.Version
 
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
@@ -69,6 +80,7 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
+	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -93,6 +105,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
+	rootCmd.PersistentFlags().Bool("no-version-check", false, "Removes daily check for new versions of FSOC")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -221,6 +234,40 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		} else {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
 		}
+	}
+
+	// Do version checking
+	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
+	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
+	if err != nil {
+		envNoVerCheck = false
+	}
+	noVerCheck = noVerCheck || envNoVerCheck
+	updateChecked := int(time.Now().Unix())-getLastVersionCheckTime() > int(secondInDay) && !noVerCheck
+	if updateChecked {
+		updateChannel = make(chan *semver.Version)
+		go version.CheckForUpdate(updateChannel)
+	}
+	// Create new timestamp file
+	_ = os.Remove(os.TempDir() + timestampFileName)
+	_, err = os.Create(os.TempDir() + timestampFileName)
+	if err != nil {
+		log.Errorf("failed to create version check timestamp file: %v", err.Error())
+	}
+}
+
+func getLastVersionCheckTime() int {
+	fInfo, err := os.Stat(os.TempDir() + timestampFileName)
+	if err != nil {
+		return 0
+	}
+	return int(fInfo.ModTime().Unix())
+}
+
+func postExecHook(cmd *cobra.Command, args []string) {
+	if updateChannel != nil {
+		var updateSemVar = <-updateChannel
+		version.CompareAndLogVersions(updateSemVar)
 	}
 }
 
