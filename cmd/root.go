@@ -73,6 +73,7 @@ fsoc checks once a day if a newer version is available on github and warns if no
 You can use --no-version-check or the FSOC_NO_VERSION_CHECK=1 environment variable to suppress the check.
 
 Examples:
+  fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
   fsoc login
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
   fsoc solution list

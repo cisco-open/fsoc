@@ -105,7 +105,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	if ctx.cfg.Tenant == "" {
 		// some credentials formats include the tenant, use it if it's provided
 		if credentials.TenantID == "" {
-			return fmt.Errorf("Missing tenant ID, please specify using `fsoc config set --tenant=TENANTID`")
+			return fmt.Errorf(`Missing tenant ID, please specify using "fsoc config set tenant=TENANTID"`)
 		}
 		ctx.cfg.Tenant = credentials.TenantID
 		log.WithField("tenantID", ctx.cfg.Tenant).Info("Extracted tenant ID from the credentials file")
@@ -113,7 +113,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	if ctx.cfg.URL == "" {
 		// some credentials formats provide the tokenURL from which we can get the server URL
 		if credentials.TokenURL == "" {
-			return fmt.Errorf("Missing server URL, please specify using `fsoc config set --url=SERVERURL`")
+			return fmt.Errorf(`Missing server URL, please specify using "fsoc config set url=https://MYTENANT.observe.appdynamics.com"`)
 		}
 		urlStruct, err := url.Parse(credentials.TokenURL)
 		if err != nil {

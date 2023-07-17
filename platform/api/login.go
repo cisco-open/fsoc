@@ -37,7 +37,7 @@ var requiredSettings = map[string][]string{
 // fieldToFlag maps a config.Context field to CLI flag name, so that we can display better
 // help/error message for missing fields
 var fieldToFlag = map[string]string{
-	"Server":                   "server",
+	"Url":                      "url",
 	"Token":                    "token",
 	"SecretFile":               "secret-file",
 	"AuthMethod":               "auth",
@@ -144,7 +144,7 @@ func checkConfigForAuth(cfg *config.Context) error {
 		}
 		return fmt.Errorf(`Authentication method %q is not supported yet, please use one of {"%v"} 
 		Example:
-		fsoc config set --secret-file=~/secret.json --auth=service-principal`, cfg.AuthMethod, strings.Join(methods, `", "`))
+		fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com`, cfg.AuthMethod, strings.Join(methods, `", "`))
 	}
 
 	// fail if any of the required settings for this method are not set
@@ -166,7 +166,7 @@ func checkConfigForAuth(cfg *config.Context) error {
 		for _, field := range missing {
 			missList = append(missList, fieldToFlag[field])
 		}
-		usage := "Use `fsoc config set [--profile=PROFILE] --server=myhost.mydomain.com --tenant=TENANT --secret-file=CREDENTIALS`"
+		usage := `Use "fsoc config set [--config CONFIG_FILE] [--profile=PROFILE] auth=AUTH_METHOD ..."`
 		return fmt.Errorf("The current context is missing required configuration to perform a login: %v\n%v", strings.Join(missList, ","), usage)
 	}
 
