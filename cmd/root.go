@@ -48,7 +48,7 @@ const (
 )
 
 const (
-	secondInDay       = time.Hour * 24
+	secondsInDay      = 24 * 60 * 60
 	timestampFileName = "fsoc.timestamp"
 )
 
@@ -68,6 +68,9 @@ uniform way and to perform common tasks. fsoc primarily targets developers build
 You can use --config and --profile to select authentication credentials to use. You can also use 
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
 If a profile is not specified otherwise, the current profile from the config file is used.
+
+fsoc checks once a day if a newer version is available on github and warns if not running the latest stable version.
+You can use --no-version-check or the FSOC_NO_VERSION_CHECK=1 environment variable to suppress the check.
 
 Examples:
   fsoc login
@@ -105,7 +108,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
-	rootCmd.PersistentFlags().Bool("no-version-check", false, "Removes daily check for new versions of FSOC")
+	rootCmd.PersistentFlags().Bool("no-version-check", false, "Skip the daily check for new versions of fsoc")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -243,32 +246,39 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		envNoVerCheck = false
 	}
 	noVerCheck = noVerCheck || envNoVerCheck
-	updateChecked := int(time.Now().Unix())-getLastVersionCheckTime() > int(secondInDay) && !noVerCheck
-	if updateChecked {
+	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > int(secondsInDay)
+	if updateCheckNeeded {
 		updateChannel = make(chan *semver.Version)
 		go version.CheckForUpdate(updateChannel)
 	}
-	// Create new timestamp file
-	_ = os.Remove(os.TempDir() + timestampFileName)
-	_, err = os.Create(os.TempDir() + timestampFileName)
-	if err != nil {
-		log.Errorf("failed to create version check timestamp file: %v", err.Error())
-	}
+}
+
+func getTimestampFilePath() string {
+	return os.TempDir() + "/" + timestampFileName
 }
 
 func getLastVersionCheckTime() int {
-	fInfo, err := os.Stat(os.TempDir() + timestampFileName)
+	fInfo, err := os.Stat(getTimestampFilePath())
 	if err != nil {
-		return 0
+		return 0 // makes it a really old file
 	}
 	return int(fInfo.ModTime().Unix())
 }
 
 func postExecHook(cmd *cobra.Command, args []string) {
 	if updateChannel != nil {
+		// wait for the latest version and print warning if not running the latest
 		var updateSemVar = <-updateChannel
 		version.CompareAndLogVersions(updateSemVar)
+
+		// Create new timestamp file (only if version was checked)
+		_ = os.Remove(getTimestampFilePath())
+		_, err := os.Create(getTimestampFilePath())
+		if err != nil {
+			log.Errorf("failed to create version check timestamp file: %v", err)
+		}
 	}
+
 }
 
 func bypassConfig(cmd *cobra.Command) bool {

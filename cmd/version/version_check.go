@@ -35,13 +35,14 @@ func GetLatestVersion() (string, error) {
 func CheckForUpdate(versionChannel chan *semver.Version) {
 	log.Infof("Checking for newer version of FSOC")
 	newestVersion, err := GetLatestVersion()
-	log.WithField("Latest FSOC version", newestVersion).Infof("Latest fsoc version available: %s", newestVersion)
-	if err != nil {
-		log.Warnf(err.Error())
+	if err == nil {
+		log.WithField("latest_github_version", newestVersion).Info("Latest fsoc version available")
+	} else {
+		log.Warnf("Failed to get latest FSOC version number from github: %v", err)
 	}
 	newestVersionSemVar, err := semver.NewVersion(newestVersion)
 	if err != nil {
-		log.WithField("unparseable version", newestVersion).Warnf("Could not parse version string: %v", err.Error())
+		log.WithField("version_tag", newestVersion).Warnf("Could not parse version tag as a semver: %v", err)
 	}
 	versionChannel <- newestVersionSemVar
 }
@@ -49,13 +50,14 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 	currentVersion := GetVersion()
 	currentVersionSemVer := ConvertVerToSemVar(currentVersion)
-	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) == -1
-	var debugFields = log.Fields{"IsLatestVersionDifferent": newerVersionAvailable, "CurrentVersion": currentVersionSemVer.String(), "LatestVersion": newestVersionSemVar.String()}
+	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) < 0
+	var debugFields = log.Fields{"current_version": currentVersionSemVer.String(), "latest_version": newestVersionSemVar.String()}
 
 	if newerVersionAvailable {
-		log.WithFields(debugFields).Warnf("There is a newer version of FSOC available, please upgrade from version")
+		log.WithFields(debugFields).Warnf("There is a newer version of fsoc available, please upgrade")
 	} else {
-		log.WithFields(debugFields)
+		debugFields["version_cmp"] = newerVersionAvailable
+		log.WithFields(debugFields).Info("fsoc version check completed; no upgrade available")
 	}
 
 }
