@@ -56,8 +56,8 @@ brews:
   description: "Cisco FSO Platform Developer's Control Tool"
   license: "Apache-2.0"
   commit_author:
-    name: goreleaserbot
-    email: bot@goreleaser.com
+    name: cisco-service
+    email: 111539563+cisco-service@users.noreply.github.com
   commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
   folder: Formula
   tap:
