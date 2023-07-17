@@ -63,23 +63,23 @@ func newCmdConfigSet() *cobra.Command {
 		Run:         configSetContext,
 	}
 	cmd.Flags().String(AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdPid, "the --"+AppdPid+" flag is deprecated, please use arguments supplied as "+AppdPid+"="+strings.ToUpper(AppdPid))
+	_ = cmd.Flags().MarkDeprecated(AppdPid, "please use arguments supplied as "+AppdPid+"="+strings.ToUpper(AppdPid))
 	cmd.Flags().String(AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdTid, "the --"+AppdTid+" flag is deprecated, please use arguments supplied as "+AppdTid+"="+strings.ToUpper(AppdTid))
+	_ = cmd.Flags().MarkDeprecated(AppdTid, "please use arguments supplied as "+AppdTid+"="+strings.ToUpper(AppdTid))
 	cmd.Flags().String(AppdPty, "", "pty to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdPty, "the --"+AppdPty+" flag is deprecated, please use arguments supplied as "+AppdPty+"="+strings.ToUpper(AppdPty))
+	_ = cmd.Flags().MarkDeprecated(AppdPty, "please use arguments supplied as "+AppdPty+"="+strings.ToUpper(AppdPty))
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
-	_ = cmd.Flags().MarkDeprecated("auth", "the --auth flag is deprecated, please use arguments supplied as auth=AUTH")
+	_ = cmd.Flags().MarkDeprecated("auth", `please use non-flag argument in the form "auth=AUTH"`)
 	cmd.Flags().String("server", "", "Set server host name")
-	_ = cmd.Flags().MarkDeprecated("server", "the --server flag is deprecated, please use arguments supplied as url=URL")
+	_ = cmd.Flags().MarkDeprecated("server", `please use the url argument instead, in the form "url=URL"`)
 	cmd.Flags().String("url", "", "Set server URL (with http or https schema)")
-	_ = cmd.Flags().MarkDeprecated("url", "the --url flag is deprecated, please use arguments supplied as url=URL")
+	_ = cmd.Flags().MarkDeprecated("url", `please use non-flag argument in the form "url=URL"`)
 	cmd.Flags().String("tenant", "", "Set tenant ID")
-	_ = cmd.Flags().MarkDeprecated("tenant", "the --tenant flag is deprecated, please use arguments supplied as tenant=TENANT")
+	_ = cmd.Flags().MarkDeprecated("tenant", `please use non-flag argument in the form "tenant=TENANT"`)
 	cmd.Flags().String("token", "", "Set token value (use --token=- to get from stdin)")
-	_ = cmd.Flags().MarkDeprecated("token", "the --token flag is deprecated, please use arguments supplied as token=TOKEN")
+	_ = cmd.Flags().MarkDeprecated("token", `please use non-flag argument in the form "token=TOKEN"`)
 	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv) or agent principal (.yaml)")
-	_ = cmd.Flags().MarkDeprecated("secret-file", "the --secret-file flag is deprecated, please use arguments supplied as secret-file=SECRET-TOKEN")
+	_ = cmd.Flags().MarkDeprecated("secret-file", `please use non-flag argument in the form "secret-file=SECRET-TOKEN"`)
 	return cmd
 }
 

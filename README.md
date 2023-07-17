@@ -101,7 +101,7 @@ For other shells, check out the completion help with `fsoc help completion`.
 Configure the default profile to your tenant of choice (replace MYTENANT with your tenant's name):
 
 ```
-fsoc config set --auth=oauth --server=MYTENANT.observe.appdynamics.com
+fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
 fsoc login  # test access
 ```
 
