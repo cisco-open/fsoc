@@ -15,6 +15,7 @@ package solution
 
 import (
 	"fmt"
+	"github.com/cisco-open/fsoc/cmd/config"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -49,7 +50,7 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		}
 		// We only want to append .dev for subscribing/unsubscribing commands
 		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
-			if solutionTag == "dev" {
+			if (solutionTag == "dev") || (config.GetCurrentContext().EnvType == "dev") {
 				name = fmt.Sprintf("%s.%s", name, solutionTag)
 			} else {
 				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
