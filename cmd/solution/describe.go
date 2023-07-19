@@ -52,5 +52,5 @@ func solutionDescribe(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionDescribeUrl(id string) string {
-	return "objstore/v1beta/objects/extensibility:solution/" + id
+	return "knowledge-store/v1/objects/extensibility:solution/" + id
 }
