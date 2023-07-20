@@ -216,7 +216,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
 		var solutionObjName = solutionName
-		if solutionTagFlag != "stable" {
+		if solutionTagFlag != "stable" && cfg.EnvType != "dev" {
 			solutionObjName += ".dev"
 		}
 		log.WithField("solution", solutionObjName).Info("Subscribing to solution")

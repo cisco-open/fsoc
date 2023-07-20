@@ -194,12 +194,10 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		ctxPtr.URL = cleanedUrl
 		// Automate setting EnvType from url
 		host := strings.Split(cleanedUrl[8:], "/")[0] // We know that the url has to have at least 8 chars from validate URL
-		if strings.HasSuffix(host, ".observe.appdynamics.com") {
+		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
 			ctxPtr.EnvType = "dev" // c0 env
-		} else {
-			ctxPtr.EnvType = "prod"
+			log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
 		}
-		log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
 	}
 	if flags.Changed("url") {
 		providedUrl, _ := flags.GetString("url")
@@ -210,13 +208,10 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		ctxPtr.URL = cleanedUrl
 		// Automate setting EnvType from url
 		host := strings.Split(cleanedUrl[8:], "/")[0] // We know that the url has to have at least 8 chars from validate URL
-		println(host)
-		if strings.HasSuffix(host, ".observe.appdynamics.com") {
+		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
 			ctxPtr.EnvType = "dev" // c0 env
-		} else {
-			ctxPtr.EnvType = "prod"
+			log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
 		}
-		log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
 	}
 	if flags.Changed("tenant") {
 		ctxPtr.Tenant, _ = flags.GetString("tenant")
