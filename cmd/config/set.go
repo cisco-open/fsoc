@@ -80,8 +80,8 @@ func newCmdConfigSet() *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("token", `please use non-flag argument in the form "token=TOKEN"`)
 	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv) or agent principal (.yaml)")
 	_ = cmd.Flags().MarkDeprecated("secret-file", `please use non-flag argument in the form "secret-file=SECRET-TOKEN"`)
-	cmd.Flags().String("envtype", "", "")
-	_ = cmd.Flags().MarkDeprecated("envtype", ``)
+	cmd.Flags().String("envtype", "", "envtype can be \"dev\", \"prod\", or \"\". When it is \"dev\", solution tags will always be set to stable")
+	_ = cmd.Flags().MarkDeprecated("envtype", `please use non-flag argument in the form "envtype=ENVTYPE"`)
 	return cmd
 }
 
