@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
@@ -51,8 +50,6 @@ const (
 	secondsInDay      = 24 * 60 * 60
 	timestampFileName = "fsoc.timestamp"
 )
-
-var updateChannel chan *semver.Version
 
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
@@ -84,7 +81,6 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
-	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -230,8 +226,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			"config_file": viper.ConfigFileUsed(),
 			"profile":     profile,
 			"existing":    exists,
-		}).
-			Info("fsoc context")
+		}).Info("fsoc context")
 	} else {
 		if bypass {
 			log.Infof("Unable to read config file (%v), proceeding without a config", err)
@@ -249,8 +244,16 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	noVerCheck = noVerCheck || envNoVerCheck
 	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > int(secondsInDay)
 	if updateCheckNeeded {
-		updateChannel = make(chan *semver.Version)
-		go version.CheckForUpdate(updateChannel)
+		var updateSemVar = version.CheckForUpdate()
+		version.CompareAndLogVersions(updateSemVar)
+
+		// Create new timestamp file (only if version was checked)
+		_ = os.Remove(getTimestampFilePath())
+		_, err := os.Create(getTimestampFilePath())
+		if err != nil {
+			log.Errorf("failed to create version check timestamp file: %v", err)
+		}
+
 	}
 }
 
@@ -264,22 +267,6 @@ func getLastVersionCheckTime() int {
 		return 0 // makes it a really old file
 	}
 	return int(fInfo.ModTime().Unix())
-}
-
-func postExecHook(cmd *cobra.Command, args []string) {
-	if updateChannel != nil {
-		// wait for the latest version and print warning if not running the latest
-		var updateSemVar = <-updateChannel
-		version.CompareAndLogVersions(updateSemVar)
-
-		// Create new timestamp file (only if version was checked)
-		_ = os.Remove(getTimestampFilePath())
-		_, err := os.Create(getTimestampFilePath())
-		if err != nil {
-			log.Errorf("failed to create version check timestamp file: %v", err)
-		}
-	}
-
 }
 
 func bypassConfig(cmd *cobra.Command) bool {
