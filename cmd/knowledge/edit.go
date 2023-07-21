@@ -77,7 +77,7 @@ func editObject(cmd *cobra.Command, args []string) {
 	httpOptions := &api.Options{Headers: headers}
 	url := getObjectUrl(fqtn, objID)
 
-	var res Object
+	var res api.KSObject
 	err = api.JSONGet(url, &res, httpOptions)
 	if err != nil {
 		log.Fatalf("Failed to fetch object: %v", err)

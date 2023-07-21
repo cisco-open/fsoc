@@ -53,24 +53,6 @@ for more information on the Knowledge Store. `,
 	return knowledgeStoreCmd
 }
 
-type Type struct {
-	Name     string `json:"name"`
-	Solution string `json:"solution"`
-}
-
-type TypeList struct {
-	Items []Type `json:"items"`
-}
-
-type Object struct {
-	ID   string                 `json:"id"`
-	Data map[string]interface{} `json:"data"`
-}
-
-type ObjectList struct {
-	Items []Object `json:"items"`
-}
-
 // completion functions
 var typeCompletionFunc = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return getTypes(toComplete), cobra.ShellCompDirectiveNoFileComp
@@ -117,14 +99,12 @@ func getObjectsForType(typeName string, lType string, layerID string, prefix str
 
 	httpOptions := &api.Options{Headers: headers}
 
-	var res ObjectList
-	url := fmt.Sprintf("%s?max=%d", getObjectListUrl(typeName), api.MAX_COMPLETION_RESULTS)
-	err := api.JSONGet(url, &res, httpOptions)
+	items, err := api.JSONGetCollection[api.KSObject](getObjectListUrl(typeName), httpOptions)
 	if err != nil {
 		return objects
 	}
 
-	for _, s := range res.Items {
+	for _, s := range items {
 		if strings.HasPrefix(s.ID, prefix) {
 			objects = append(objects, s.ID)
 		}
@@ -135,14 +115,12 @@ func getObjectsForType(typeName string, lType string, layerID string, prefix str
 
 func getTypes(prefix string) (types []string) {
 
-	var res TypeList
-	url := fmt.Sprintf("%s?max=%d", getTypeUrl(""), api.MAX_COMPLETION_RESULTS)
-	err := api.JSONGet(url, &res, nil)
+	items, err := api.JSONGetCollection[api.KSType](getTypeUrl(""), nil)
 	if err != nil {
 		return types
 	}
 
-	for _, s := range res.Items {
+	for _, s := range items {
 		t := fmt.Sprintf("%s:%s", s.Solution, s.Name)
 		if strings.HasPrefix(t, prefix) {
 			types = append(types, t)
