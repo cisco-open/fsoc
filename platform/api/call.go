@@ -283,7 +283,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 			if err != nil {
 				return fmt.Errorf("Failed to save the solution archive file as %q: %w", solutionFileName, err)
 			}
-		// if response code is 303 then it won't be valid json
+			// if response code is 303 then it won't be valid json
 		} else if len(respBytes) > 0 && resp.StatusCode != 303 {
 			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
 			if err := json.Unmarshal(respBytes, out); err != nil {
