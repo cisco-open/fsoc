@@ -48,11 +48,12 @@ const (
 )
 
 const (
-	secondsInDay      = 24 * 60 * 60
-	timestampFileName = "fsoc.timestamp"
+	secondsInDay    = 24 * 60 * 60
+	versionFileName = "fsoc.latest-version"
 )
 
 var updateChannel chan *semver.Version
+var noVerCheck bool
 
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
@@ -65,7 +66,7 @@ Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
 It allows developers to interact with the product environments--developer, test and production--in a
 uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
-You can use --config and --profile to select authentication credentials to use. You can also use 
+You can use --config and --profile to select authentication credentials to use. You can also use
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
 If a profile is not specified otherwise, the current profile from the config file is used.
 
@@ -241,7 +242,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 
 	// Do version checking
-	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
+	noVerCheck, _ = cmd.Flags().GetBool("no-version-check")
 	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
 	if err != nil {
 		envNoVerCheck = false
@@ -254,32 +255,75 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 }
 
-func getTimestampFilePath() string {
-	return os.TempDir() + "/" + timestampFileName
+func getVersionFilePath() string {
+	return os.TempDir() + "/" + versionFileName
 }
 
 func getLastVersionCheckTime() int {
-	fInfo, err := os.Stat(getTimestampFilePath())
+	fInfo, err := os.Stat(getVersionFilePath())
 	if err != nil {
 		return 0 // makes it a really old file
 	}
 	return int(fInfo.ModTime().Unix())
 }
+func checkIfLatestVersion() {
+	var updateSemVar *semver.Version
 
-func postExecHook(cmd *cobra.Command, args []string) {
+	// If we have initiated a version check, see if we have a result, but don't block on it
 	if updateChannel != nil {
-		// wait for the latest version and print warning if not running the latest
-		var updateSemVar = <-updateChannel
-		version.CompareAndLogVersions(updateSemVar)
-
-		// Create new timestamp file (only if version was checked)
-		_ = os.Remove(getTimestampFilePath())
-		_, err := os.Create(getTimestampFilePath())
-		if err != nil {
-			log.Errorf("failed to create version check timestamp file: %v", err)
+		select {
+		case updateSemVar = <-updateChannel:
+			if updateSemVar != nil {
+				// We got the latest version, store it in a file
+				f, err := os.Create(getVersionFilePath())
+				if err != nil {
+					log.Errorf("failed to create version file: %v", err)
+				} else {
+					_, err = f.WriteString(updateSemVar.String())
+					if err != nil {
+						log.Errorf("failed to write to version file: %v", err)
+					}
+					f.Close()
+				}
+			}
+		default:
+			log.Infof("Did not finish checking for latest version in time, will try next time")
 		}
 	}
 
+	// If we did not do a successful version check, try to read from file, if it exists
+	if updateSemVar == nil {
+		_, err := os.Stat(getVersionFilePath())
+		if err != nil {
+			return // no file, no version
+		}
+		f, err := os.Open(getVersionFilePath())
+		if err != nil {
+			log.Infof("failed to open version file: %v", err)
+		} else {
+			defer f.Close()
+			// Read version from file
+			var versionString string
+			_, err = fmt.Fscanf(f, "%s", &versionString)
+			if err != nil {
+				log.Infof("failed to read from version file: %v", err)
+			} else {
+				updateSemVar, err = semver.NewVersion(versionString)
+				if err != nil {
+					log.Infof("failed to parse version file: %v", err)
+				}
+			}
+		}
+	}
+	if updateSemVar != nil {
+		version.CompareAndLogVersions(updateSemVar)
+	}
+}
+
+func postExecHook(cmd *cobra.Command, args []string) {
+	if !noVerCheck {
+		checkIfLatestVersion()
+	}
 }
 
 func bypassConfig(cmd *cobra.Command) bool {

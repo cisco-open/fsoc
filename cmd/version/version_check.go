@@ -48,6 +48,10 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 }
 
 func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
+	if newestVersionSemVar == nil {
+		log.Error("failed to get latest version")
+		return
+	}
 	currentVersion := GetVersion()
 	currentVersionSemVer := ConvertVerToSemVar(currentVersion)
 	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) < 0
