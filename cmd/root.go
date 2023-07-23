@@ -244,7 +244,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	noVerCheck = noVerCheck || envNoVerCheck
 	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > secondsInDay
 	if updateCheckNeeded {
-		verCheck := func() {
+		func() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Warnf("Failed to perform version check")
@@ -258,8 +258,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			if err != nil {
 				log.Warnf("failed to create version check timestamp file: %v", err)
 			}
-		}
-		verCheck()
+		}()
 	}
 }
 
