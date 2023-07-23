@@ -33,6 +33,7 @@ var solutionUnsubscribeCmd = &cobra.Command{
 	Run:              unsubscribeFromSolution,
 	TraverseChildren: true,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		config.SetCurrentProfile(cmd, args, false)
 		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 	},
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/afero/zipfs"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
@@ -42,6 +43,7 @@ var solutionForkCmd = &cobra.Command{
 		if len(args) >= 1 {
 			return nil, cobra.ShellCompDirectiveDefault
 		} else {
+			config.SetCurrentProfile(cmd, args, false)
 			return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 		}
 	},

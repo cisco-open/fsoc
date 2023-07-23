@@ -19,6 +19,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
@@ -32,6 +33,7 @@ var solutionDownloadCmd = &cobra.Command{
 	Run:              downloadSolution,
 	TraverseChildren: true,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		config.SetCurrentProfile(cmd, args, false)
 		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 	},
 }
