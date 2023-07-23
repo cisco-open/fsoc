@@ -242,18 +242,24 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		envNoVerCheck = false
 	}
 	noVerCheck = noVerCheck || envNoVerCheck
-	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > int(secondsInDay)
+	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > secondsInDay
 	if updateCheckNeeded {
-		var updateSemVar = version.CheckForUpdate()
-		version.CompareAndLogVersions(updateSemVar)
-
-		// Create new timestamp file (only if version was checked)
-		_ = os.Remove(getTimestampFilePath())
-		_, err := os.Create(getTimestampFilePath())
-		if err != nil {
-			log.Errorf("failed to create version check timestamp file: %v", err)
+		verCheck := func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Warnf("Failed to perform version check")
+				}
+			}()
+			var updateSemVar = version.CheckForUpdate()
+			version.CompareAndLogVersions(updateSemVar)
+			// Create new timestamp file (only if version was checked)
+			_ = os.Remove(getTimestampFilePath())
+			_, err := os.Create(getTimestampFilePath())
+			if err != nil {
+				log.Warnf("failed to create version check timestamp file: %v", err)
+			}
 		}
-
+		verCheck()
 	}
 }
 
