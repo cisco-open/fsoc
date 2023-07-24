@@ -60,7 +60,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 	if flags.optimizerId != "" {
 		var response configJsonStoreItem
 
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
 			return optimizerConfig, fmt.Errorf("Unable to fetch config by optimizer ID. api.JSONGet: %w", err)
@@ -75,7 +75,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 				" and data.target.k8sDeployment.namespaceName eq %q"+
 				" and data.target.k8sDeployment.workloadName eq %q",
 			flags.cluster, flags.namespace, flags.workloadName))
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
 		if err != nil {
@@ -95,7 +95,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 
 func (flags *managementFlags) updateOptimizerConfiguration(config OptimizerConfiguration) error {
 	var res any
-	urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
+	urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
 	if err := api.JSONPut(urlStr, config, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
 		return fmt.Errorf("Failed to update knowledge object with new optimizer configuration. api.JSONPut: %w", err)
 	}

@@ -73,7 +73,7 @@ You may also specify a particular optimizer ID to fetch details for a single opt
 
 func listStatus(flags *statusFlags) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		objStoreUrl := "objstore/v1beta/objects/optimize:status"
+		objStoreUrl := "knowledge-store/v1/objects/optimize:status"
 		headers := map[string]string{
 			"layer-type": "TENANT",
 			"layer-id":   config.GetCurrentContext().Tenant,
