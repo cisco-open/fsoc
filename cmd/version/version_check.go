@@ -65,7 +65,7 @@ func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 func ConvertVerToSemVar(data VersionData) *semver.Version {
 	return semver.New(
 		uint64(data.VersionMajor),
-		uint64(data.VersionMajor),
-		uint64(data.VersionMajor),
+		uint64(data.VersionMinor),
+		uint64(data.VersionPatch),
 		data.VersionMeta, "")
 }
