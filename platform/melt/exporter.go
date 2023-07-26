@@ -432,6 +432,10 @@ func toKeyValueList(a map[string]interface{}) []*common.KeyValue {
 				StringValue: vt.String(),
 			}
 		default:
+			if v == nil {
+				log.Warnf("Value not set for attribute: %s", k)
+				continue
+			}
 			otVal.Value = &common.AnyValue_StringValue{
 				StringValue: fmt.Sprintf("%v", vt.Interface()),
 			}
