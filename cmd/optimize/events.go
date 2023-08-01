@@ -274,9 +274,10 @@ type recommendationsCmdFlags struct {
 func NewCmdRecommendations() *cobra.Command {
 	var flags recommendationsCmdFlags
 	command := &cobra.Command{
-		Use:              "recommendations",
-		Short:            "Retrieve resulting recommendations for a given optimization/workload",
-		Example:          `TODO`,
+		Use:   "recommendations",
+		Short: "Retrieve resulting recommendations for a given optimization/workload",
+		Example: `  fsoc optimize recommendations --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000
+  fsoc optimize recommendations --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000 --include-invalidated --count 5`,
 		RunE:             listRecommendations(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
