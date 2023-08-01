@@ -66,9 +66,14 @@ type eventsRow struct {
 func NewCmdEvents() *cobra.Command {
 	var flags eventsFlags
 	command := &cobra.Command{
-		Use:              "events",
-		Short:            "Retrieve event logs for a given optimization/workload. Useful for monitoring and debug",
-		Example:          `  TODO`,
+		Use:   "events",
+		Short: "Retrieve event logs for a given optimization/workload. Useful for monitoring and debug",
+		Example: `  fsoc optimize events
+  fsoc optimize events --since -7d until 2023-07-31
+  fsoc optimize events --events="experiment_deployment_started,experiment_deployment_completed"
+  fsoc optimize events --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000 --count 5
+  fsoc optimize events --namespace some-namespace --cluster-id 00000000-0000-0000-0000-000000000000
+  fsoc optimize events --workload-name some-workload`,
 		RunE:             listEvents(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
@@ -107,7 +112,7 @@ type eventsTemplateValues struct {
 	Until  string
 	Events string
 	Filter string
-	Limit  string
+	Limits string
 }
 
 var eventsTemplate = template.Must(template.New("").Parse(`
@@ -121,7 +126,7 @@ FETCH events(
 	{{ with .Filter }}[{{ . }}]
 	{{ end -}}
 	{attributes, timestamp}
-{{ with .Limit }}LIMIT events.count({{ . }})
+{{ with .Limits }}LIMITS events.count({{ . }})
 {{ end -}}
 `))
 
@@ -163,7 +168,10 @@ func listEvents(flags *eventsFlags) func(*cobra.Command, []string) error {
 		tempVals.Filter = strings.Join(filterList, " && ")
 
 		if flags.count != -1 {
-			tempVals.Limit = strconv.Itoa(flags.count)
+			if flags.count > 1000 {
+				return errors.New("Counts higher than 1000 are not supported")
+			}
+			tempVals.Limits = strconv.Itoa(flags.count)
 		}
 
 		var buff bytes.Buffer
@@ -204,6 +212,11 @@ func listEvents(flags *eventsFlags) func(*cobra.Command, []string) error {
 
 		// handle pagination
 		_, next_ok := data_set.Links["next"]
+		if flags.count != -1 {
+			// skip pagination if limits provided. Otherwise, we return the full result list (chunked into count per response)
+			// instead of constraining to count
+			next_ok = false
+		}
 		for page := 2; next_ok; page++ {
 			resp, err = uql.ContinueQuery(data_set, "next")
 			if err != nil {
@@ -226,7 +239,7 @@ func listEvents(flags *eventsFlags) func(*cobra.Command, []string) error {
 			if len(main_data_set.Data[0]) < 1 {
 				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
-			data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
+			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
 				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
