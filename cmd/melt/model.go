@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v2"
 
+	"github.com/cisco-open/fsoc/cmd/solution"
 	sol "github.com/cisco-open/fsoc/cmd/solution"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/melt"
@@ -150,10 +151,8 @@ func GetFsocEvents(fmmEvents []*sol.FmmEvent) []*melt.Log {
 	for _, fmmEvt := range fmmEvents {
 		fsocEType := fmt.Sprintf("%s:%s", fmmEvt.Namespace.Name, fmmEvt.Name)
 		fsocEvt := melt.NewEvent(fsocEType)
-		fmmAttrs := maps.Keys(fmmEvt.AttributeDefinitions.Attributes)
-
-		for _, fmmAttr := range fmmAttrs {
-			fsocEvt.SetAttribute(fmmAttr, "")
+		for attrName, attrTypeDef := range fmmEvt.AttributeDefinitions.Attributes {
+			fsocEvt.SetAttribute(attrName, getDefaultValue(attrTypeDef))
 		}
 
 		fsocEvents = append(fsocEvents, fsocEvt)
@@ -168,9 +167,8 @@ func GetFsocMetrics(fmmMetrics []*sol.FmmMetric) []*melt.Metric {
 		fsocMType := fmt.Sprintf("%s:%s", fmmMt.Namespace.Name, fmmMt.Name)
 		fsocMt := melt.NewMetric(fsocMType, fmmMt.Unit, string(fmmMt.ContentType), string(fmmMt.Type))
 		if fmmMt.AttributeDefinitions != nil {
-			fmmAttrs := maps.Keys(fmmMt.AttributeDefinitions.Attributes)
-			for _, fmmAttr := range fmmAttrs {
-				fsocMt.SetAttribute(fmmAttr, "")
+			for attrName, attrTypeDef := range fmmMt.AttributeDefinitions.Attributes {
+				fsocMt.SetAttribute(attrName, getDefaultValue(attrTypeDef))
 			}
 		}
 		fsocMetrics = append(fsocMetrics, fsocMt)
@@ -187,10 +185,11 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric, f
 		fsocE := melt.NewEntity(fsocEType)
 		fmmAttrs := maps.Keys(fmmE.AttributeDefinitions.Attributes)
 		for _, fmmAttr := range fmmAttrs {
+			origName := fmmAttr
 			if !strings.Contains(fmmAttr, fmmE.Namespace.Name) {
 				fmmAttr = fmt.Sprintf("%s.%s.%s", fmmE.Namespace.Name, fmmE.Name, fmmAttr)
 			}
-			fsocE.SetAttribute(fmmAttr, "")
+			fsocE.SetAttribute(fmmAttr, getDefaultValue(fmmE.AttributeDefinitions.Attributes[origName]))
 		}
 
 		//adding fsoc metrics to the model
@@ -239,4 +238,17 @@ func writeDataFile(fsoData *melt.FsocData, fileName string) {
 
 	_, _ = fsoDataYamlFile.WriteString(string(svcJson))
 	fsoDataYamlFile.Close()
+}
+
+func getDefaultValue(td *solution.FmmAttributeTypeDef) interface{} {
+	switch td.Type {
+	case "boolean":
+		return false
+	case "long":
+		return 1
+	case "double":
+		return 1.1
+	default:
+		return ""
+	}
 }
