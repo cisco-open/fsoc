@@ -443,6 +443,9 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 	if !ok {
 		return nil, fmt.Errorf("Unexpected type %T for event data set", mainDataSetData[0][0])
 	}
+	if eventDataSet == nil {
+		return nil, errors.New("No events found, event data set was nil")
+	}
 	if len(eventDataSet.Data) < 1 {
 		return nil, errors.New("No events found, event data set had no rows")
 	}
