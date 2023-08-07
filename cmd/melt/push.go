@@ -21,7 +21,7 @@ var meltPushCmd = &cobra.Command{
 	Long: `This command generates OTLP payload based on a fsoc telemetry data models and sends the data to the FSO Platform Ingestion services.
 	
 	To properly use the command you will need to create a fsoc profile using an agent principal yaml:
-	fsoc config set --profile <agent-principal-profile> --auth agent-principal --secret-file <agent-principal.yaml>
+	fsoc config set --profile=<agent-principal-profile> auth=agent-principal secret-file=<agent-principal.yaml>
 	
 	Then you will use the agent principal profile as part of the command:
 	fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile> `,

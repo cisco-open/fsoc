@@ -29,6 +29,15 @@ To build `fsoc` locally, after cloning this repository:
 
 For more information on setting up the development environment and building fsoc, please see [CONTRIBUTING](CONTRIBUTING.md).
 
+## Install using Homebrew
+
+1. Install homebrew if not already installed from https://brew.sh
+2. Install `fsoc` using homebrew
+    ```
+    brew tap cisco-open/tap
+    brew install fsoc
+    ```
+
 ## TL;DR Install Prebuilt Binaries
 
 Prebuilt binaries are published for each [`fsoc` release](https://github.com/cisco-open/fsoc/releases) for the following platforms:
@@ -101,7 +110,7 @@ For other shells, check out the completion help with `fsoc help completion`.
 Configure the default profile to your tenant of choice (replace MYTENANT with your tenant's name):
 
 ```
-fsoc config set --auth=oauth --server=MYTENANT.observe.appdynamics.com
+fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
 fsoc login  # test access
 ```
 

@@ -96,7 +96,7 @@ func checkSolution(cmd *cobra.Command, args []string) {
 }
 
 func getTypeUrl(fqtn string) string {
-	return fmt.Sprintf("objstore/v1beta/types/%s", fqtn)
+	return fmt.Sprintf("knowledge-store/v1/types/%s", fqtn)
 }
 
 func Fetch(path string, httpOptions *api.Options) map[string]interface{} {

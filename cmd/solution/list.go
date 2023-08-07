@@ -82,7 +82,7 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionListUrl() string {
-	return "objstore/v1beta/objects/extensibility:solution"
+	return "knowledge-store/v1/objects/extensibility:solution"
 }
 
 func getSolutionNames(prefix string) (names []string) {
