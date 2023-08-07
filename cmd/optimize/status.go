@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/config"
@@ -31,6 +32,7 @@ type statusFlags struct {
 	namespace    string
 	workloadName string
 	optimizerId  string
+	solutionName string
 }
 
 func init() {
@@ -68,12 +70,17 @@ You may also specify a particular optimizer ID to fetch details for a single opt
 	statusCmd.MarkFlagsMutuallyExclusive("optimizer-id", "namespace")
 	statusCmd.MarkFlagsMutuallyExclusive("optimizer-id", "workload-name")
 
+	statusCmd.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
+	if err := statusCmd.LocalFlags().MarkHidden("solution-name"); err != nil {
+		log.Warnf("Failed to set statusCmd solution-name flag hidden: %v", err)
+	}
+
 	return statusCmd
 }
 
 func listStatus(flags *statusFlags) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		objStoreUrl := "knowledge-store/v1/objects/optimize:status"
+		objStoreUrl := fmt.Sprintf("knowledge-store/v1/objects/%v:status", flags.solutionName)
 		headers := map[string]string{
 			"layer-type": "TENANT",
 			"layer-id":   config.GetCurrentContext().Tenant,
