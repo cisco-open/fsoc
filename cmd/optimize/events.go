@@ -133,6 +133,7 @@ FETCH events(
 	{attributes, timestamp}
 {{ with .Limits }}LIMITS events.count({{ . }})
 {{ end -}}
+ORDER events.asc()
 `))
 
 func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
@@ -335,6 +336,7 @@ FETCH events(
 	{attributes, timestamp}
 {{ with .Limits }}LIMITS events.count({{ . }})
 {{ end -}}
+ORDER events.asc()
 `))
 
 func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []string) error {
