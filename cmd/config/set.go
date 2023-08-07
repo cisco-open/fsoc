@@ -54,7 +54,7 @@ if on context name is specified, the current context is created/updated.`
 func newCmdConfigSet() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:         "set [--profile CONTEXT] --auth=AUTH [flags]",
+		Use:         "set [--profile CONTEXT] auth=AUTH [flags]",
 		Short:       "Create or modify a context entry in an fsoc config file",
 		Long:        setContextLong,
 		Args:        cobra.MaximumNArgs(9),
