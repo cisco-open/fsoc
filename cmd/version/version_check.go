@@ -32,7 +32,7 @@ func GetLatestVersion() (string, error) {
 	return split[len(split)-1], nil
 }
 
-func CheckForUpdate(versionChannel chan *semver.Version) {
+func CheckForUpdate() *semver.Version {
 	log.Infof("Checking for newer version of FSOC")
 	newestVersion, err := GetLatestVersion()
 	if err == nil {
@@ -44,7 +44,7 @@ func CheckForUpdate(versionChannel chan *semver.Version) {
 	if err != nil {
 		log.WithField("version_tag", newestVersion).Warnf("Could not parse version tag as a semver: %v", err)
 	}
-	versionChannel <- newestVersionSemVar
+	return newestVersionSemVar
 }
 
 func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
