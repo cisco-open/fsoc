@@ -110,25 +110,23 @@ func validateArgs(cmd *cobra.Command, args []string) error {
 	allowedArgs := []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
 	for i := 0; i < len(args); i++ {
 		// check arg format ∑+=∑+
-		stringSegments := strings.Split(args[i], "=")
-		if slices.Contains(allowedArgs, stringSegments[0]) {
-			name, value := stringSegments[0], stringSegments[1]
-			if len(stringSegments) != 2 {
-				return fmt.Errorf("parameter name and value cannot contain \"=\"")
-			}
-			// check arg name is valid (i.e. no disallowed flags)
-			if !slices.Contains(allowedArgs, name) {
-				return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
-			}
-			// make sure flag isn't already set
-			if flags.Changed(name) {
-				return fmt.Errorf("cannot have both flag and argument with same name")
-			}
-			// Set flag manually
-			err := flags.Set(name, value)
-			if err != nil {
-				return err
-			}
+		stringSegments := strings.SplitN(args[i], "=", 2)
+		name, value := stringSegments[0], stringSegments[1]
+		if len(stringSegments) != 2 {
+			return fmt.Errorf("parameter name and value cannot contain \"=\"")
+		}
+		// check arg name is valid (i.e. no disallowed flags)
+		if !slices.Contains(allowedArgs, name) {
+			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
+		}
+		// make sure flag isn't already set
+		if flags.Changed(name) {
+			return fmt.Errorf("cannot have both flag and argument with same name")
+		}
+		// Set flag manually
+		err := flags.Set(name, value)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -181,36 +179,40 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		cfg.Contexts = append(cfg.Contexts, ctx)
 		ctxPtr = &cfg.Contexts[len(cfg.Contexts)-1]
 	}
-
 	// update only the fields for which flags were specified explicitly
-	if flags.Changed("server") {
-		providedServer, _ := flags.GetString("server")
-		constructedUrl := "https://" + providedServer
+	if flags.Changed("envtype") {
+		val, _ := flags.GetString("envtype")
+		potentialEnvTypes := []string{"prod", "dev"}
+		if !slices.Contains(potentialEnvTypes, val) {
+			log.Fatalf("envtype can only take on one of the following values: %s", strings.Join(potentialEnvTypes, ", "))
+		}
+		ctxPtr.EnvType = val
+	}
+	if flags.Changed("server") || flags.Changed("url") {
+		providedUrl, _ := flags.GetString("url")
+		if flags.Changed("server") {
+			providedUrl, _ = flags.GetString("server")
+		}
+		constructedUrl := "https://" + providedUrl
 		cleanedUrl, err := validateUrl(constructedUrl)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
+
+		if flags.Changed("server") {
+			log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
+		}
 		ctxPtr.URL = cleanedUrl
 		// Automate setting EnvType from url
-		host := strings.Split(cleanedUrl[8:], "/")[0] // We know that the url has to have at least 8 chars from validate URL
-		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
-			ctxPtr.EnvType = "dev" // c0 env
-			log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
-		}
-	}
-	if flags.Changed("url") {
-		providedUrl, _ := flags.GetString("url")
-		cleanedUrl, err := validateUrl(providedUrl)
+		parsedUrl, err := url.Parse(cleanedUrl)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Fatalf("Failed to parse url: %v", err)
 		}
-		ctxPtr.URL = cleanedUrl
-		// Automate setting EnvType from url
-		host := strings.Split(cleanedUrl[8:], "/")[0] // We know that the url has to have at least 8 chars from validate URL
+
+		host := parsedUrl.Host // We know that the url has to have at least 8 chars from validate URL
 		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
 			ctxPtr.EnvType = "dev" // c0 env
-			log.Infof("Automatically setting env_type to %s", ctxPtr.EnvType)
+			log.Warnf("Automatically setting envtype to %s", ctxPtr.EnvType)
 		}
 	}
 	if flags.Changed("tenant") {
@@ -243,14 +245,6 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			log.Fatalf(`Invalid --auth method %q; must be one of {"%v"}`, val, strings.Join(GetAuthMethodsStringList(), `", "`))
 		}
 		ctxPtr.AuthMethod = val
-	}
-	if flags.Changed("envtype") {
-		val, _ := flags.GetString("envtype")
-		potentialEnvTypes := []string{"prod", "dev"}
-		if !slices.Contains(potentialEnvTypes, val) {
-			log.Fatalf("envtype can only take on one of the following values: %s", strings.Join(potentialEnvTypes, ", "))
-		}
-		ctxPtr.EnvType = val
 	}
 	if ctxPtr.AuthMethod == AuthMethodLocal {
 		if flags.Changed(AppdPid) {
