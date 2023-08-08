@@ -42,7 +42,6 @@ var outputFormat string
 
 const (
 	FSOC_CONFIG_ENVVAR    = "FSOC_CONFIG"
-	FSOC_PROFILE_ENVVAR   = "FSOC_PROFILE"
 	FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 )
 
@@ -62,7 +61,7 @@ Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
 It allows developers to interact with the product environments--developer, test and production--in a
 uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
-You can use --config and --profile to select authentication credentials to use. You can also use 
+You can use --config and --profile to select authentication credentials to use. You can also use
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
 If a profile is not specified otherwise, the current profile from the config file is used.
 
@@ -199,24 +198,21 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		"flags":     helperFlagFormatter(cmd.Flags())}).
 		Info("fsoc command line")
 
-	// override the config file's current profile from cmd line or env var
-	var profile string // used only in this block
-	if cmd.Flags().Changed("profile") {
-		profile, _ = cmd.Flags().GetString("profile")
-	} else {
-		profile = os.Getenv(FSOC_PROFILE_ENVVAR) // remains empty if not defined
-	}
-	if profile != "" { // allow empty string on cmd line to mean use current
-		config.SetSelectedProfile(profile)
-	}
-
 	// Determine if a configured profile is required for this command
 	// (bypassed only for commands that must work or can safely work without it)
 	bypass := bypassConfig(cmd) || cmd.Name() == "help" || isCompletionCommand(cmd)
 
 	// try to read the config file.and profile
 	err = viper.ReadInConfig()
-	if err == nil {
+	if err != nil && !bypass {
+		log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
+	}
+
+	// override the config file's current profile from cmd line or env var
+	config.SetCurrentProfile(cmd, args, bypass)
+	if err != nil { // bypass == true
+		log.Infof("Unable to read config file (%v), proceeding without a config", err)
+	} else { // err == nil
 		profile := config.GetCurrentProfileName()
 		exists := config.GetCurrentContext() != nil
 		if !exists && !bypass {
@@ -227,12 +223,6 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			"profile":     profile,
 			"existing":    exists,
 		}).Info("fsoc context")
-	} else {
-		if bypass {
-			log.Infof("Unable to read config file (%v), proceeding without a config", err)
-		} else {
-			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
-		}
 	}
 
 	// Do version checking

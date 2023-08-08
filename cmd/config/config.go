@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+
 var selectedProfile string
 
 // Package registration function for the config root command
@@ -55,8 +57,10 @@ func NewSubCmd() *cobra.Command {
 // Note that GetCurrentContext returns a pointer into the config file's overall configuration; it can be
 // modified and then updated using ReplaceCurrentContext().
 func GetCurrentContext() *Context {
-	profile := GetCurrentProfileName()
+	return getContext(GetCurrentProfileName())
+}
 
+func getContext(name string) *Context {
 	// read config file
 	cfg := getConfig()
 	if len(cfg.Contexts) == 0 {
@@ -65,7 +69,7 @@ func GetCurrentContext() *Context {
 
 	// locate & return the named context
 	for _, c := range cfg.Contexts {
-		if c.Name == profile {
+		if c.Name == name {
 			return &c
 		}
 	}
@@ -242,17 +246,27 @@ func ReplaceCurrentContext(ctx *Context) {
 	updateContext(ctx)
 }
 
-// SetSelectedProfile sets the name of the profile that should be used instead of the
-// config file's current profile value. This function should not be used outside of the
-// fsoc root pre-command.
-func SetSelectedProfile(name string) {
-	if name == "" {
-		log.Fatalf("Profile name cannot be empty, please specify a non-empty profile name")
+// SetCurrentProfile sets the name of the profile that should be used instead of the
+// config file's current profile value.
+func SetCurrentProfile(cmd *cobra.Command, args []string, emptyOK bool) {
+	var profile string // used only in this block
+
+	if cmd.Flags().Changed("profile") {
+		profile, _ = cmd.Flags().GetString("profile")
+	} else {
+		profile = os.Getenv(FSOC_PROFILE_ENVVAR) // remains empty if not defined
+	}
+	if profile == "" {
+		return // no change
+	}
+	// Check if profile exists
+	if !emptyOK && getContext(profile) == nil {
+		log.Fatalf("Could not find profile %q", profile)
 	}
 	if selectedProfile != "" {
-		log.Warnf("The selected profile is being overridden: old=%q, new=%q", selectedProfile, name)
+		log.Warnf("The selected profile is being overridden: old=%q, new=%q", selectedProfile, profile)
 	}
-	selectedProfile = name
+	selectedProfile = profile
 }
 
 // GetCurrentProfileName returns the profile name that is used to select the context.
