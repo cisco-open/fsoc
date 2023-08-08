@@ -74,6 +74,9 @@ func extendSolution(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
 		componentName = strings.ToLower(componentName)
+		if strings.Contains(componentName, ":") {
+			log.Fatalf("\":\" is a disallowed character. Note that solution name is not required for the add-knowledge flag")
+		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution directory structure... \n", componentName, manifest.Name))
 		folderName := "types"
 		fileName := fmt.Sprintf("%s.json", componentName)
