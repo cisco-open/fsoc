@@ -63,10 +63,10 @@ func newCmdConfigSet() *cobra.Command {
 		Run:         configSetContext,
 	}
 
-  // real command flag(s)
-  cmd.Flags().Bool("patch", false, "Bypass field clearing")
+	// real command flag(s)
+	cmd.Flags().Bool("patch", false, "Bypass field clearing")
 
-  // deprecated flags representing config settings
+	// deprecated flags representing config settings
 	cmd.Flags().String(AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
 	_ = cmd.Flags().MarkDeprecated(AppdPid, "please use arguments supplied as "+AppdPid+"="+strings.ToUpper(AppdPid))
 	cmd.Flags().String(AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")

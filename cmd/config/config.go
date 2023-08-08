@@ -47,6 +47,7 @@ func NewSubCmd() *cobra.Command {
 	cmd.AddCommand(newCmdConfigSet())
 	cmd.AddCommand(newCmdConfigUse())
 	cmd.AddCommand(newCmdConfigList())
+	cmd.AddCommand(newCmdConfigDelete())
 
 	return cmd
 }
