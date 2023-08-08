@@ -48,7 +48,7 @@ type FsocData struct {
 type Entity struct {
 	TypeName      string
 	ID            string `yaml:"id,omitempty"`
-	Attributes    map[string]string
+	Attributes    map[string]interface{}
 	Metrics       []*Metric
 	Logs          []*Log
 	Relationships []*Relationship
@@ -62,7 +62,7 @@ type Metric struct {
 	Unit                   string
 	Type                   string
 	Resource               Resource `yaml:"resource,omitempty"`
-	Attributes             map[string]string
+	Attributes             map[string]interface{}
 	DataPoints             []*DataPoint           `yaml:"datapoints,omitempty"`
 	Min                    string                 `yaml:"min,omitempty"`
 	Max                    string                 `yaml:"max,omitempty"`
@@ -76,7 +76,7 @@ type Log struct {
 	Body       string
 	Severity   string // use for log
 	Timestamp  int64  `yaml:"timestamp,omitempty"`
-	Attributes map[string]string
+	Attributes map[string]interface{}
 	IsEvent    bool   `yaml:"isevent,omitempty"`
 	TypeName   string `yaml:"typename,omitempty"`
 }
@@ -84,7 +84,7 @@ type Log struct {
 // Resource - structs for data point
 type Resource struct {
 	TypeName   string
-	Attributes map[string]string
+	Attributes map[string]interface{}
 }
 
 // Span - structs for a span
@@ -97,7 +97,7 @@ type Span struct {
 	Kind         SpanKind
 	StartTime    int64
 	EndTime      int64
-	Attributes   map[string]string
+	Attributes   map[string]interface{}
 	Events       []*SpanEvent
 	Links        []*SpanLink
 	Status       *SpanStatus
@@ -107,7 +107,7 @@ type Span struct {
 type SpanEvent struct {
 	Name       string
 	Timestamp  int64
-	Attributes map[string]string
+	Attributes map[string]interface{}
 }
 
 // SpanLink - link for span
@@ -115,7 +115,7 @@ type SpanLink struct {
 	TraceID    string
 	SpanID     string
 	TraceState string
-	Attributes map[string]string
+	Attributes map[string]interface{}
 }
 
 // SpanStatus - status for span
@@ -133,7 +133,7 @@ type DataPoint struct {
 
 // Relationship - structs for holding relationship info
 type Relationship struct {
-	Attributes map[string]string
+	Attributes map[string]interface{}
 }
 
 // NewEntity - Returns a new entity
@@ -141,7 +141,7 @@ func NewEntity(typeName string) *Entity {
 	return &Entity{
 		TypeName:      typeName,
 		Metrics:       []*Metric{},
-		Attributes:    map[string]string{},
+		Attributes:    map[string]interface{}{},
 		Relationships: []*Relationship{},
 		Spans:         []*Span{},
 	}
@@ -190,7 +190,7 @@ func NewMetric(typeName string, unit string, contentType string, metricType stri
 		Unit:                   unit,
 		ContentType:            contentType,
 		Type:                   metricType,
-		Attributes:             map[string]string{},
+		Attributes:             map[string]interface{}{},
 		DataPoints:             []*DataPoint{},
 		AggregationTemporality: AggregationTemporalityUnspecified,
 	}
@@ -199,7 +199,7 @@ func NewMetric(typeName string, unit string, contentType string, metricType stri
 // NewLog - Returns a new log
 func NewLog() *Log {
 	return &Log{
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 		IsEvent:    false,
 	}
 }
@@ -207,7 +207,7 @@ func NewLog() *Log {
 // NewEvent - Returns a new event
 func NewEvent(typeName string) *Log {
 	return &Log{
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 		TypeName:   typeName,
 		IsEvent:    true,
 	}
@@ -216,7 +216,7 @@ func NewEvent(typeName string) *Log {
 // NewRelationship - Returns a new Relationship
 func NewRelationship() *Relationship {
 	return &Relationship{
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 	}
 }
 
@@ -225,37 +225,37 @@ func NewSpan(traceID, spanID, name string) *Span {
 	return &Span{
 		SpanID:     spanID,
 		TraceID:    traceID,
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 		Name:       name,
 	}
 }
 
 // SetAttribute - Set an attribute
-func (e *Entity) SetAttribute(key, value string) *Entity {
+func (e *Entity) SetAttribute(key string, value interface{}) *Entity {
 	e.Attributes[key] = value
 	return e
 }
 
 // SetAttribute - Set an attribute on metric
-func (m *Metric) SetAttribute(key, value string) *Metric {
+func (m *Metric) SetAttribute(key string, value interface{}) *Metric {
 	m.Attributes[key] = value
 	return m
 }
 
 // SetAttribute - Set an attribute on log
-func (l *Log) SetAttribute(key, value string) *Log {
+func (l *Log) SetAttribute(key string, value interface{}) *Log {
 	l.Attributes[key] = value
 	return l
 }
 
 // SetAttribute - Set an attribute on log
-func (r *Relationship) SetAttribute(key, value string) *Relationship {
+func (r *Relationship) SetAttribute(key string, value interface{}) *Relationship {
 	r.Attributes[key] = value
 	return r
 }
 
 // SetAttribute - Set an attribute on log
-func (s *Span) SetAttribute(key, value string) *Span {
+func (s *Span) SetAttribute(key string, value interface{}) *Span {
 	s.Attributes[key] = value
 	return s
 }
@@ -265,14 +265,14 @@ func (s *Span) NewEvent(name string, timeStamp int64) *SpanEvent {
 	e := &SpanEvent{
 		Name:       name,
 		Timestamp:  timeStamp,
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 	}
 	s.Events = append(s.Events, e)
 	return e
 }
 
 // SetAttribute - Set an attribute on span event
-func (s *SpanEvent) SetAttribute(key, value string) *SpanEvent {
+func (s *SpanEvent) SetAttribute(key string, value interface{}) *SpanEvent {
 	s.Attributes[key] = value
 	return s
 }
@@ -283,14 +283,14 @@ func (s *Span) NewLink(traceID, spanID, traceState string) *SpanLink {
 		TraceID:    traceID,
 		SpanID:     spanID,
 		TraceState: traceState,
-		Attributes: map[string]string{},
+		Attributes: map[string]interface{}{},
 	}
 	s.Links = append(s.Links, l)
 	return l
 }
 
 // SetAttribute - Set an attribute on span link
-func (s *SpanLink) SetAttribute(key, value string) *SpanLink {
+func (s *SpanLink) SetAttribute(key string, value interface{}) *SpanLink {
 	s.Attributes[key] = value
 	return s
 }

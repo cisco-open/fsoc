@@ -110,7 +110,7 @@ func insertObject(cmd *cobra.Command, args []string) {
 }
 
 func getObjStoreObjectUrl() string {
-	return "objstore/v1beta/objects"
+	return "knowledge-store/v1/objects"
 }
 
 var objStoreInsertPatchedObjectCmd = &cobra.Command{

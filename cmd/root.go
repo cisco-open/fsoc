@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
@@ -39,8 +41,14 @@ var cfgProfile string
 var outputFormat string
 
 const (
-	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
-	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+	FSOC_CONFIG_ENVVAR    = "FSOC_CONFIG"
+	FSOC_PROFILE_ENVVAR   = "FSOC_PROFILE"
+	FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
+)
+
+const (
+	secondsInDay      = 24 * 60 * 60
+	timestampFileName = "fsoc.timestamp"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -58,7 +66,11 @@ You can use --config and --profile to select authentication credentials to use. 
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
 If a profile is not specified otherwise, the current profile from the config file is used.
 
+fsoc checks once a day if a newer version is available on github and warns if not running the latest stable version.
+You can use --no-version-check or the FSOC_NO_VERSION_CHECK=1 environment variable to suppress the check.
+
 Examples:
+  fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
   fsoc login
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
   fsoc solution list
@@ -93,6 +105,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
 	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
+	rootCmd.PersistentFlags().Bool("no-version-check", false, "Skip the daily check for new versions of fsoc")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
@@ -213,8 +226,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			"config_file": viper.ConfigFileUsed(),
 			"profile":     profile,
 			"existing":    exists,
-		}).
-			Info("fsoc context")
+		}).Info("fsoc context")
 	} else {
 		if bypass {
 			log.Infof("Unable to read config file (%v), proceeding without a config", err)
@@ -222,6 +234,44 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
 		}
 	}
+
+	// Do version checking
+	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
+	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
+	if err != nil {
+		envNoVerCheck = false
+	}
+	noVerCheck = noVerCheck || envNoVerCheck
+	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > secondsInDay
+	if updateCheckNeeded {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Warnf("Failed to perform version check")
+				}
+			}()
+			var updateSemVar = version.CheckForUpdate()
+			version.CompareAndLogVersions(updateSemVar)
+			// Create new timestamp file (only if version was checked)
+			_ = os.Remove(getTimestampFilePath())
+			_, err := os.Create(getTimestampFilePath())
+			if err != nil {
+				log.Warnf("failed to create version check timestamp file: %v", err)
+			}
+		}()
+	}
+}
+
+func getTimestampFilePath() string {
+	return os.TempDir() + "/" + timestampFileName
+}
+
+func getLastVersionCheckTime() int {
+	fInfo, err := os.Stat(getTimestampFilePath())
+	if err != nil {
+		return 0 // makes it a really old file
+	}
+	return int(fInfo.ModTime().Unix())
 }
 
 func bypassConfig(cmd *cobra.Command) bool {

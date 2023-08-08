@@ -86,12 +86,12 @@ func TestBuildLogsPayload(t *testing.T) {
 		body       string
 		severity   string
 		timestamp  int64
-		attributes map[string]string
+		attributes map[string]interface{}
 	}{
-		{"debug log", "debug", time.Now().UnixNano(), map[string]string{"key1": "value1"}},
-		{"info log", "debug", time.Now().UnixNano(), map[string]string{"key2": "value2"}},
-		{"warn log", "warn", time.Now().UnixNano(), map[string]string{"key3": "value3"}},
-		{"error log", "error", time.Now().UnixNano(), map[string]string{"key4": "value4"}},
+		{"debug log", "debug", time.Now().UnixNano(), map[string]interface{}{"key1": "value1"}},
+		{"info log", "debug", time.Now().UnixNano(), map[string]interface{}{"key2": "value2"}},
+		{"warn log", "warn", time.Now().UnixNano(), map[string]interface{}{"key3": "value3"}},
+		{"error log", "error", time.Now().UnixNano(), map[string]interface{}{"key4": "value4"}},
 	}
 
 	exp := &Exporter{}
@@ -132,9 +132,9 @@ func TestBuildEventsPayload(t *testing.T) {
 	tests := []struct {
 		typeName   string
 		timestamp  int64
-		attributes map[string]string
+		attributes map[string]interface{}
 	}{
-		{"mynamespace:event1", time.Now().UnixNano(), map[string]string{"key1": "value1", "key2": "value2"}},
+		{"mynamespace:event1", time.Now().UnixNano(), map[string]interface{}{"key1": "value1", "key2": "value2"}},
 	}
 
 	exp := &Exporter{}
@@ -164,7 +164,8 @@ func TestBuildEventsPayload(t *testing.T) {
 	}
 }
 
-func assertAttributes(t *testing.T, expected map[string]string, actual []*common.KeyValue) {
+func assertAttributes(t *testing.T, expected map[string]interface{}, actual []*common.KeyValue) {
+	// fmt.Printf("Expected: %+v, Actual: %+v\n", expected, actual)
 	for k, v := range expected {
 		require.Equal(t, v, lookupByKey(k, actual))
 	}
@@ -174,14 +175,30 @@ func newTestEntity() *Entity {
 	e := NewEntity("geometry:shape")
 	e.SetAttribute("geometry.shape.type", "square")
 	e.SetAttribute("geometry.shape.name", "My Square")
-	e.SetAttribute("geometry.square.side", " 10")
+	e.SetAttribute("geometry.shape.int_attribute", int64(1))
+	e.SetAttribute("geometry.shape.float_attribute", float64(1.1))
+	e.SetAttribute("geometry.shape.bool_attribute", true)
+	e.SetAttribute("geometry.square.side", "10")
 	return e
 }
 
-func lookupByKey(key string, kvl []*common.KeyValue) string {
+func lookupByKey(key string, kvl []*common.KeyValue) interface{} {
 	for _, kv := range kvl {
 		if kv.Key == key {
-			return kv.GetValue().GetStringValue()
+			val := kv.GetValue().Value
+			if tValue, ok := val.(*common.AnyValue_BoolValue); ok {
+				return tValue.BoolValue
+			}
+			if tValue, ok := val.(*common.AnyValue_IntValue); ok {
+				return tValue.IntValue
+			}
+			if tValue, ok := val.(*common.AnyValue_DoubleValue); ok {
+				return tValue.DoubleValue
+			}
+			if tValue, ok := val.(*common.AnyValue_StringValue); ok {
+				return tValue.StringValue
+			}
+			return kv.GetValue().String()
 		}
 	}
 	return ""

@@ -93,7 +93,7 @@ func computeResolverEndpoint(ctx *config.Context) (string, error) {
 
 	elements := strings.Split(uri.Host, ".") // last element may have ":<port>"
 	if len(elements) != 4 {
-		return "", fmt.Errorf("Cannot determine tenant resolver URI for %q, please specify --tenant on `fsoc config set`", ctx.URL)
+		return "", fmt.Errorf("Cannot determine tenant resolver URI for %q, please specify tenant argument with `fsoc config set`", ctx.URL)
 	}
 
 	elements[0] = RESOLVER_HOST

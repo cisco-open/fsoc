@@ -205,7 +205,7 @@ func exportSpans() error {
 				TraceID:    traceID1.String(),
 				SpanID:     spanID1.String(),
 				TraceState: "state",
-				Attributes: map[string]string{
+				Attributes: map[string]interface{}{
 					"span-link-attrbute1": "value",
 				},
 			},
