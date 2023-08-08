@@ -67,7 +67,7 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionDownloadUrl(solutionName string) string {
-	return fmt.Sprintf("solnmgmt/v1beta/solutions/%s", solutionName)
+	return fmt.Sprintf("solution-manager/v1/solutions/%s", solutionName)
 }
 
 func getSolutionNameWithZip(solutionName string) string {

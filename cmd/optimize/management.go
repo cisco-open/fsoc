@@ -60,7 +60,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 	if flags.optimizerId != "" {
 		var response configJsonStoreItem
 
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
 			return optimizerConfig, fmt.Errorf("Unable to fetch config by optimizer ID. api.JSONGet: %w", err)
@@ -75,7 +75,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 				" and data.target.k8sDeployment.namespaceName eq %q"+
 				" and data.target.k8sDeployment.workloadName eq %q",
 			flags.cluster, flags.namespace, flags.workloadName))
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
 		if err != nil {
@@ -95,7 +95,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 
 func (flags *managementFlags) updateOptimizerConfiguration(config OptimizerConfiguration) error {
 	var res any
-	urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
+	urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
 	if err := api.JSONPut(urlStr, config, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
 		return fmt.Errorf("Failed to update knowledge object with new optimizer configuration. api.JSONPut: %w", err)
 	}
@@ -113,6 +113,7 @@ func init() {
 	optimizeCmd.AddCommand(NewCmdStop())
 	optimizeCmd.AddCommand(NewCmdSuspend())
 	optimizeCmd.AddCommand(NewCmdUnsuspend())
+	optimizeCmd.AddCommand(NewCmdDelete())
 }
 
 func NewCmdStart() *cobra.Command {
@@ -289,6 +290,43 @@ func unsuspendOptimizer(flags *suspendFlags) func(*cobra.Command, []string) erro
 			return fmt.Errorf("flags.updateOptimizerConfiguration: %w", err)
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Suspension removed for optimizer %q\n", config.OptimizerID))
+		return nil
+	}
+}
+
+func NewCmdDelete() *cobra.Command {
+	var (
+		optimizerId  string
+		solutionName string
+	)
+	command := &cobra.Command{
+		Use:              "delete",
+		Short:            "Offboard the given optimizer from optimizing its target workload. Removes config and frees up resources",
+		Example:          `  fsoc optimize delete --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000`,
+		Args:             cobra.NoArgs,
+		RunE:             deleteOptimizer(&optimizerId, &solutionName),
+		TraverseChildren: true,
+	}
+	command.Flags().StringVarP(&optimizerId, "optimizer-id", "i", "", "ID of the optimizer to be offboarded")
+	if err := command.MarkFlagRequired("optimizer-id"); err != nil {
+		log.Warnf("Failed to set delete flag optimizer-id required: %v", err)
+	}
+
+	command.Flags().StringVarP(&solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
+	if err := command.LocalFlags().MarkHidden("solution-name"); err != nil {
+		log.Warnf("Failed to set NewCmdDelete solution-name flag hidden: %v", err)
+	}
+	return command
+}
+
+func deleteOptimizer(optimizerId *string, solutionName *string) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		var res any
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", *solutionName, *optimizerId)
+		if err := api.JSONDelete(urlStr, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
+			return fmt.Errorf("JSONDelete: %w", err)
+		}
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer %q offboarded\n", *optimizerId))
 		return nil
 	}
 }

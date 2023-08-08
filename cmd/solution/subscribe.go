@@ -95,5 +95,5 @@ func subscribeToSolution(cmd *cobra.Command, args []string) {
 }
 
 func getSolutionSubscribeUrl() string {
-	return "objstore/v1beta/objects/extensibility:solution"
+	return "knowledge-store/v1/objects/extensibility:solution"
 }

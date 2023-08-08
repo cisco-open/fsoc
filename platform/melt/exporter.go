@@ -3,7 +3,7 @@ package melt
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"reflect"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -405,58 +405,48 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 	return nil
 }
 
-func toKeyValueList(a map[string]string) []*common.KeyValue {
+func toKeyValueList(a map[string]interface{}) []*common.KeyValue {
 	attribs := []*common.KeyValue{}
-
 	for k, v := range a {
-		key := k
-		var value *common.KeyValue
-
-		if intValue, err := strconv.Atoi(v); err == nil {
-			value = &common.KeyValue{
-				Key: key,
-				Value: &common.AnyValue{
-					Value: &common.AnyValue_IntValue{
-						IntValue: int64(intValue),
-					},
-				},
+		otVal := &common.AnyValue{}
+		vt := reflect.ValueOf(v)
+		switch vt.Kind() {
+		case reflect.Bool:
+			otVal.Value = &common.AnyValue_BoolValue{
+				BoolValue: vt.Bool(),
 			}
-		} else if doubleValue, err := strconv.ParseFloat(v, 64); err == nil {
-			value = &common.KeyValue{
-				Key: key,
-				Value: &common.AnyValue{
-					Value: &common.AnyValue_DoubleValue{
-						DoubleValue: doubleValue,
-					},
-				},
+		case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
+			otVal.Value = &common.AnyValue_IntValue{
+				IntValue: vt.Int(),
 			}
-		} else if boolValue, err := strconv.ParseBool(v); err == nil {
-			value = &common.KeyValue{
-				Key: key,
-				Value: &common.AnyValue{
-					Value: &common.AnyValue_BoolValue{
-						BoolValue: boolValue,
-					},
-				},
+		case reflect.Uint, reflect.Uint8, reflect.Uint32, reflect.Uint64:
+			otVal.Value = &common.AnyValue_IntValue{
+				IntValue: int64(vt.Uint()),
 			}
-
-		} else {
-			value = &common.KeyValue{
-				Key: key,
-				Value: &common.AnyValue{
-					Value: &common.AnyValue_StringValue{
-						StringValue: v,
-					},
-				},
+		case reflect.Float32, reflect.Float64:
+			otVal.Value = &common.AnyValue_DoubleValue{
+				DoubleValue: float64(vt.Float()),
 			}
+		case reflect.String:
+			otVal.Value = &common.AnyValue_StringValue{
+				StringValue: vt.String(),
+			}
+		default:
+			if v == nil {
+				log.Warnf("Value not set for attribute: %s", k)
+				continue
+			}
+			otVal.Value = &common.AnyValue_StringValue{
+				StringValue: fmt.Sprintf("%v", vt.Interface()),
+			}
+		}
+		value := &common.KeyValue{
+			Key:   k,
+			Value: otVal,
 		}
 
 		attribs = append(attribs, value)
 
-		// attribs = append(attribs, &common.KeyValue{
-		// 	Key:   key,
-		// 	Value: atrValue,
-		// })
 	}
 	return attribs
 }

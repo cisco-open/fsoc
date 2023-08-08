@@ -319,12 +319,12 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		var res any
 
 		if flags.create {
-			urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer", flags.solutionName)
+			urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer", flags.solutionName)
 			if err = api.JSONPost(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers}); err != nil {
 				return fmt.Errorf("Failed to create knowledge object for optimizer configuration: %w", err)
 			}
 		} else {
-			urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", flags.solutionName, newOptimizerConfig.OptimizerID)
+			urlStr := fmt.Sprintf("knowledge-store/v1a/objects/%v:optimizer/%v", flags.solutionName, newOptimizerConfig.OptimizerID)
 			if err = api.JSONPut(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers}); err != nil {
 				return fmt.Errorf("Failed to update knowledge object with new optimizer configuration: %w", err)
 			}
@@ -362,7 +362,7 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 	if optimizerId != "" {
 		var response configJsonStoreItem
 
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer/%v", solutionName, optimizerId)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", solutionName, optimizerId)
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
 			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
@@ -381,7 +381,7 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		} else {
 			return optimizerConfig, fmt.Errorf("Optimizer object does not support workloads type for given ID %q", workloadId)
 		}
-		urlStr := fmt.Sprintf("objstore/v1beta/objects/%v:optimizer?filter=%v", solutionName, queryStr)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
 		if err != nil {
@@ -442,6 +442,9 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 	eventDataSet, ok := mainDataSetData[0][0].(*uql.DataSet)
 	if !ok {
 		return nil, fmt.Errorf("Unexpected type %T for event data set", mainDataSetData[0][0])
+	}
+	if eventDataSet == nil {
+		return nil, errors.New("No events found, event data set was nil")
 	}
 	if len(eventDataSet.Data) < 1 {
 		return nil, errors.New("No events found, event data set had no rows")

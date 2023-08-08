@@ -198,7 +198,11 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	}
 
 	// create http client for the request
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 
 	// build HTTP request
 	req, err := prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
@@ -254,7 +258,8 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	}
 
 	// return if API call response indicates error
-	if resp.StatusCode/100 != 2 {
+	// handle 303 in case of updating object that changes the ID
+	if resp.StatusCode/100 != 2 && resp.StatusCode != 303 {
 		callCtx.stopSpinner(false) // if still running
 		log.WithFields(log.Fields{"status": resp.StatusCode}).Error("Platform API call failed")
 		return parseIntoError(resp, respBytes)
@@ -278,7 +283,8 @@ func httpRequest(method string, path string, body any, out any, options *Options
 			if err != nil {
 				return fmt.Errorf("Failed to save the solution archive file as %q: %w", solutionFileName, err)
 			}
-		} else if len(respBytes) > 0 {
+			// if response code is 303 then it won't be valid json
+		} else if len(respBytes) > 0 && resp.StatusCode != 303 {
 			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
 			if err := json.Unmarshal(respBytes, out); err != nil {
 				return fmt.Errorf("Failed to JSON-parse the response: %w (%q)", err, respBytes)
