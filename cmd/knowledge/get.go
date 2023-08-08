@@ -144,7 +144,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 		objStoreUrl = getObjectListUrl(fqtn)
 	}
 
-	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers})
+	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
 	return nil
 }
 
