@@ -120,17 +120,32 @@ func getExtensibilitySolutionObject(url string, headers map[string]string) Exten
 }
 
 func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, subscriptionStatusQuery string, solutionName string, requestHeaders map[string]string, cmd *cobra.Command) {
+	// finalize solution name (incl. the solution object name which includes the tag value)
 	var solutionNameWithTag string
 	solutionTag, _ := cmd.Flags().GetString("tag")
-
 	if solutionTag != "stable" {
 		solutionNameWithTag = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
 	} else {
 		solutionNameWithTag = solutionName
 	}
-	uploadStatusItem := getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
-	installStatusItem := getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
-	solutionStatusItem := getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionNameWithTag), requestHeaders)
+
+  	uploadStatusChan := make(chan StatusItem)
+	installStatusChan := make(chan StatusItem)
+	solutionStatusChan := make(chan ExtensibilitySolutionObjectData)
+
+	go func() {
+		uploadStatusChan <- getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
+	}()
+	go func() {
+		installStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
+	}()
+	go func() {
+		solutionStatusChan <- getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionNameWithTag), requestHeaders)
+	}()
+
+	uploadStatusItem := <-uploadStatusChan
+	installStatusItem := <-installStatusChan
+	solutionStatusItem := <-solutionStatusChan
 
 	installStatusData := installStatusItem.StatusData
 	uploadStatusData := uploadStatusItem.StatusData
