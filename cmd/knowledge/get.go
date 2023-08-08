@@ -144,20 +144,20 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 		objStoreUrl = getObjectListUrl(fqtn)
 	}
 
-	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers})
+	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
 	return nil
 }
 
 func getTypeUrl(fqtn string) string {
-	return fmt.Sprintf("objstore/v1beta/types/%s", fqtn)
+	return fmt.Sprintf("knowledge-store/v1/types/%s", fqtn)
 }
 
 func getObjectUrl(fqtn, objId string) string {
-	return fmt.Sprintf("objstore/v1beta/objects/%s/%s", fqtn, objId)
+	return fmt.Sprintf("knowledge-store/v1/objects/%s/%s", fqtn, objId)
 }
 
 func getObjectListUrl(fqtn string) string {
-	return fmt.Sprintf("objstore/v1beta/objects/%s", fqtn)
+	return fmt.Sprintf("knowledge-store/v1/objects/%s", fqtn)
 }
 
 type layerType string

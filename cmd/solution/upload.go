@@ -287,5 +287,5 @@ func getSolutionValidationErrorsString(total int, errors Errors) string {
 }
 
 func getSolutionPushUrl() string {
-	return "solnmgmt/v1beta/solutions"
+	return "solution-manager/v1/solutions"
 }

@@ -64,7 +64,7 @@ func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOption
 	// fetch data
 	var err error
 
-	if options.Filters != nil {
+	if options != nil && options.Filters != nil {
 		// If there are filters, apply them to query path
 		numberOfFilters := len(strings.Split(path, "?"))
 		if numberOfFilters != 1 && numberOfFilters != 0 {

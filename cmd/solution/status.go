@@ -83,6 +83,9 @@ func getSolutionStatusCmd() *cobra.Command {
 	solutionStatusCmd.Flags().
 		String("status-type", "", "The status type that you want to see.  This can be one of [upload, install, all] and will default to all if not specified")
 
+	solutionStatusCmd.Flags().
+		String("tag", "stable", "The tag associated with the solution for which you would like to view the status for.  Defaults to 'stable' unless otherwise specified")
+
 	return solutionStatusCmd
 }
 
@@ -117,9 +120,32 @@ func getExtensibilitySolutionObject(url string, headers map[string]string) Exten
 }
 
 func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, subscriptionStatusQuery string, solutionName string, requestHeaders map[string]string, cmd *cobra.Command) {
-	uploadStatusItem := getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
-	installStatusItem := getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
-	solutionStatusItem := getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionName), requestHeaders)
+	// finalize solution name (incl. the solution object name which includes the tag value)
+	var solutionNameWithTag string
+	solutionTag, _ := cmd.Flags().GetString("tag")
+	if solutionTag != "stable" {
+		solutionNameWithTag = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
+	} else {
+		solutionNameWithTag = solutionName
+	}
+
+  	uploadStatusChan := make(chan StatusItem)
+	installStatusChan := make(chan StatusItem)
+	solutionStatusChan := make(chan ExtensibilitySolutionObjectData)
+
+	go func() {
+		uploadStatusChan <- getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionNameAndVersionQuery), requestHeaders)
+	}()
+	go func() {
+		installStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionNameAndVersionQuery), requestHeaders)
+	}()
+	go func() {
+		solutionStatusChan <- getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionNameWithTag), requestHeaders)
+	}()
+
+	uploadStatusItem := <-uploadStatusChan
+	installStatusItem := <-installStatusChan
+	solutionStatusItem := <-solutionStatusChan
 
 	installStatusData := installStatusItem.StatusData
 	uploadStatusData := uploadStatusItem.StatusData
@@ -175,6 +201,7 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	var solutionVersionFilter string
 	var solutionNameFilter string
+	var solutionTagFilter string
 	var solutionNameAndVersionFilter string
 	var solutionNameAndTenantIdFilter string
 	cfg := config.GetCurrentContext()
@@ -188,18 +215,24 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	}
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
 	statusTypeToFetch, _ := cmd.Flags().GetString("status-type")
+	solutionTag, _ := cmd.Flags().GetString("tag")
 	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
 	solutionNameFilter = fmt.Sprintf(`data.solutionName eq "%s"`, solutionName)
+	solutionTagFilter = fmt.Sprintf(`data.tag eq "%s"`, solutionTag)
+	log.Infof(`value of solution tag filter: %s`, solutionTagFilter)
 
 	if solutionVersion != "" {
-		solutionNameAndVersionFilter = fmt.Sprintf(`%s and %s`, solutionNameFilter, solutionVersionFilter)
+		solutionNameAndVersionFilter = fmt.Sprintf(`%s and %s and %s`, solutionNameFilter, solutionVersionFilter, solutionTagFilter)
 	} else {
-		solutionNameAndVersionFilter = solutionNameFilter
+		solutionNameAndVersionFilter = fmt.Sprintf(`%s and %s`, solutionNameFilter, solutionTagFilter)
 	}
-	solutionNameAndTenantIdFilter = fmt.Sprintf(`%s and data.tenantId eq "%s"`, solutionNameFilter, cfg.Tenant)
+	solutionNameAndTenantIdFilter = fmt.Sprintf(`%s and data.tenantId eq "%s" and %s`, solutionNameFilter, cfg.Tenant, solutionTagFilter)
 
 	solutionNameAndVersionQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionNameAndVersionFilter))
 	solutionNameAndTenantIdQuery := fmt.Sprintf("?order=%s&filter=%s", url.QueryEscape("desc"), url.QueryEscape(solutionNameAndTenantIdFilter))
+
+	log.Infof(`solution name and version query: %s`, solutionNameAndVersionQuery)
+	log.Infof(`solution name and tenant id query: %s`, solutionNameAndTenantIdQuery)
 
 	fetchValuesAndPrint(statusTypeToFetch, solutionNameAndVersionQuery, solutionNameAndTenantIdQuery, solutionName, headers, cmd)
 
