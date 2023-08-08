@@ -178,9 +178,6 @@ func validateArgs(cmd *cobra.Command, args []string) error {
 		// check arg format ∑+=∑+
 		stringSegments := strings.SplitN(args[i], "=", 2)
 		name, value := stringSegments[0], stringSegments[1]
-		if len(stringSegments) != 2 {
-			return fmt.Errorf("parameter name and value cannot contain \"=\"")
-		}
 		// check arg name is valid (i.e. no disallowed flags)
 		if !slices.Contains(allowedArgs, name) {
 			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
