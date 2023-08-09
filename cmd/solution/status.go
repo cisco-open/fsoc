@@ -130,7 +130,7 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 		solutionNameWithTag = solutionName
 	}
 
-  	uploadStatusChan := make(chan StatusItem)
+	uploadStatusChan := make(chan StatusItem)
 	installStatusChan := make(chan StatusItem)
 	solutionStatusChan := make(chan ExtensibilitySolutionObjectData)
 
