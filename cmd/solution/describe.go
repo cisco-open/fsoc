@@ -19,7 +19,7 @@ var solutionDescribeCmd = &cobra.Command{
 	Example: `  fsoc solution describe spacefleet`,
 	Run:     solutionDescribe,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		config.SetCurrentProfile(cmd, args, false)
+		config.SetActiveProfile(cmd, args, false)
 		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 	},
 }

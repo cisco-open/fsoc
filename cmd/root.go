@@ -40,10 +40,7 @@ var cfgFile string
 var cfgProfile string
 var outputFormat string
 
-const (
-	FSOC_CONFIG_ENVVAR    = "FSOC_CONFIG"
-	FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
-)
+const FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 
 const (
 	secondsInDay      = 24 * 60 * 60
@@ -122,7 +119,7 @@ func init() {
 func initConfig() {
 	// use config file from env var
 	if cfgFile == "" { // only if not set from command line (command line has priority)
-		cfgFile = os.Getenv(FSOC_CONFIG_ENVVAR) // remains empty if not found
+		cfgFile = os.Getenv(config.FSOC_CONFIG_ENVVAR) // remains empty if not found
 	}
 
 	// finalize config file
@@ -209,7 +206,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 
 	// override the config file's current profile from cmd line or env var
-	config.SetCurrentProfile(cmd, args, bypass)
+	config.SetActiveProfile(cmd, args, bypass)
 	if err != nil { // bypass == true
 		log.Infof("Unable to read config file (%v), proceeding without a config", err)
 	} else { // err == nil
