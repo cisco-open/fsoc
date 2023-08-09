@@ -53,7 +53,9 @@ func CompareAndLogVersions(newestVersionSemVar *semver.Version) {
 	newerVersionAvailable := currentVersionSemVer.Compare(newestVersionSemVar) < 0
 	var debugFields = log.Fields{"current_version": currentVersionSemVer.String(), "latest_version": newestVersionSemVar.String()}
 
-	if newerVersionAvailable {
+	if IsDev() {
+		log.WithFields(debugFields).Warnf("Running a local build of fsoc that may not have the latest improvements")
+	} else if newerVersionAvailable {
 		log.WithFields(debugFields).Warnf("There is a newer version of fsoc available, please upgrade")
 	} else {
 		debugFields["version_cmp"] = newerVersionAvailable
