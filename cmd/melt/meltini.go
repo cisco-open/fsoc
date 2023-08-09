@@ -3,10 +3,11 @@ package melt
 import (
 	"bytes"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var meltMelitiniCmd = &cobra.Command{
