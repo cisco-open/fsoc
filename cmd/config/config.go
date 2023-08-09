@@ -30,9 +30,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-const FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+const (
+	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
+	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
+)
 
-var selectedProfile string
+var activeProfile string
 
 // Package registration function for the config root command
 func NewSubCmd() *cobra.Command {
@@ -247,9 +250,9 @@ func ReplaceCurrentContext(ctx *Context) {
 	updateContext(ctx)
 }
 
-// SetCurrentProfile sets the name of the profile that should be used instead of the
+// SetActiveProfile sets the name of the profile that should be used instead of the
 // config file's current profile value.
-func SetCurrentProfile(cmd *cobra.Command, args []string, emptyOK bool) {
+func SetActiveProfile(cmd *cobra.Command, args []string, emptyOK bool) {
 	var profile string // used only in this block
 
 	if cmd.Flags().Changed("profile") {
@@ -264,10 +267,10 @@ func SetCurrentProfile(cmd *cobra.Command, args []string, emptyOK bool) {
 	if !emptyOK && getContext(profile) == nil {
 		log.Fatalf("Could not find profile %q", profile)
 	}
-	if selectedProfile != "" {
-		log.Warnf("The selected profile is being overridden: old=%q, new=%q", selectedProfile, profile)
+	if activeProfile != "" {
+		log.Warnf("The selected profile is being overridden: old=%q, new=%q", activeProfile, profile)
 	}
-	selectedProfile = profile
+	activeProfile = profile
 }
 
 // GetCurrentProfileName returns the profile name that is used to select the context.
@@ -278,8 +281,8 @@ func GetCurrentProfileName() string {
 	profile := DefaultContext
 
 	// use the profile from command line or the config file's current
-	if selectedProfile != "" {
-		profile = selectedProfile
+	if activeProfile != "" {
+		profile = activeProfile
 	} else {
 		// get profile that is current for the config file
 		cfg := getConfig()

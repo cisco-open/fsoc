@@ -43,7 +43,7 @@ var solutionForkCmd = &cobra.Command{
 		if len(args) >= 1 {
 			return nil, cobra.ShellCompDirectiveDefault
 		} else {
-			config.SetCurrentProfile(cmd, args, false)
+			config.SetActiveProfile(cmd, args, false)
 			return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 		}
 	},

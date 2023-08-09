@@ -12,7 +12,6 @@ import (
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v2"
 
-	"github.com/cisco-open/fsoc/cmd/solution"
 	sol "github.com/cisco-open/fsoc/cmd/solution"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/melt"
@@ -240,7 +239,7 @@ func writeDataFile(fsoData *melt.FsocData, fileName string) {
 	fsoDataYamlFile.Close()
 }
 
-func getDefaultValue(td *solution.FmmAttributeTypeDef) interface{} {
+func getDefaultValue(td *sol.FmmAttributeTypeDef) interface{} {
 	switch td.Type {
 	case "boolean":
 		return false

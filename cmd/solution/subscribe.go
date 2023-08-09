@@ -38,7 +38,7 @@ var solutionSubscribeCmd = &cobra.Command{
 	Run:              subscribeToSolution,
 	TraverseChildren: true,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		config.SetCurrentProfile(cmd, args, false)
+		config.SetActiveProfile(cmd, args, false)
 		return getSolutionNames(toComplete), cobra.ShellCompDirectiveDefault
 	},
 }
