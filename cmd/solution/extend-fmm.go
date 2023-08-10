@@ -43,14 +43,26 @@ func getResourceMap(cmd *cobra.Command, entityName string, manifest *Manifest) *
 		Name:        name,
 		DisplayName: displayName,
 	}
+	var scopeForField string
+	semanticConvention := fmt.Sprintf("%s.%s", namespaceName, entityName)
 
 	for _, requiredField := range entity.AttributeDefinitions.Required {
-		scopeForField := fmt.Sprintf("%s.%s.%s", namespaceName, entityName, requiredField)
+
+		if strings.Contains(requiredField, semanticConvention) {
+			scopeForField = requiredField
+		} else {
+			scopeForField = fmt.Sprintf("%s.%s", semanticConvention, requiredField)
+		}
+
 		scopeFilterFields = append(scopeFilterFields, scopeForField)
 	}
 
 	for k := range entity.AttributeDefinitions.Attributes {
-		scopeForField := fmt.Sprintf("%s.%s.%s", namespaceName, entityName, k)
+		if strings.Contains(k, semanticConvention) {
+			scopeForField = k
+		} else {
+			scopeForField = fmt.Sprintf("%s.%s", semanticConvention, k)
+		}
 		attributeMaps[k] = scopeForField
 	}
 
