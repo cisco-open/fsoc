@@ -21,7 +21,7 @@ var meltMelitiniCmd = &cobra.Command{
 func init() {
 	meltMelitiniCmd.Flags().String("template-file", "", "path to the stated template file")
 	meltMelitiniCmd.Flags().String("meltini-url", "http://localhost:3000/", "meltini REST APIs URL")
-	meltMelitiniCmd.MarkFlagRequired("template-file")
+	_ = meltMelitiniCmd.MarkFlagRequired("template-file")
 	meltCmd.AddCommand(meltMelitiniCmd) // Assuming meltCmd is defined elsewhere
 }
 
