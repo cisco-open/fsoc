@@ -21,18 +21,13 @@ var meltMelitiniCmd = &cobra.Command{
 func init() {
 	meltMelitiniCmd.Flags().String("template-file", "", "path to the stated template file")
 	meltMelitiniCmd.Flags().String("meltini-url", "http://localhost:3000/", "meltini REST APIs URL")
+	meltMelitiniCmd.MarkFlagRequired("template-file")
 	meltCmd.AddCommand(meltMelitiniCmd) // Assuming meltCmd is defined elsewhere
 }
 
 func meltMeltini(cmd *cobra.Command, args []string) {
 	templateFile, _ := cmd.Flags().GetString("template-file")
 	meltiniURL, _ := cmd.Flags().GetString("meltini-url")
-
-	// Check if template file is provided
-	if templateFile == "" {
-		fmt.Println("Please provide a path to the stated template file")
-		return
-	}
 
 	// Read the JSON file
 	jsonData, err := os.ReadFile(templateFile)
