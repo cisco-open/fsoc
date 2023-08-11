@@ -50,14 +50,12 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
 		}
 		// We only want to append .dev for subscribing/unsubscribing commands
-		isDev := func() bool {
-			defer func() {
-				if r := recover(); r != nil {
-					return
-				}
-			}()
-			return config.GetCurrentContext().EnvType == "dev"
-		}()
+		isDev := false
+		context := config.GetCurrentContext()
+		if context != nil {
+			isDev = context.EnvType == "dev"
+		}
+		println(isDev)
 		if !isDev && solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
 			if solutionTag == "dev" {
 				name = fmt.Sprintf("%s.%s", name, solutionTag)
