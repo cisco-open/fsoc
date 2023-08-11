@@ -18,6 +18,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/cmd/config"
 )
 
 // getSolutionNameFromArgs gets the solution name from the command line, either from
@@ -48,7 +50,12 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
 		}
 		// We only want to append .dev for subscribing/unsubscribing commands
-		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
+		isDev := false
+		context := config.GetCurrentContext()
+		if context != nil {
+			isDev = context.EnvType == "dev"
+		}
+		if !isDev && solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
 			if solutionTag == "dev" {
 				name = fmt.Sprintf("%s.%s", name, solutionTag)
 			} else {

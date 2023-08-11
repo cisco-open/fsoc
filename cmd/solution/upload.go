@@ -52,6 +52,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	var solutionAlreadyZipped bool
 	var solutionDisplayText string
 	var logFields map[string]interface{}
+	cfg := config.GetCurrentContext()
 
 	waitFlag, err := cmd.Flags().GetInt("wait")
 	if err != nil { // if the "wait" flag is not defined for this command, set to no-wait
@@ -125,7 +126,11 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 
 			// update tag to use supported values
 			if solutionTagFlag != "stable" {
-				solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
+				if cfg.EnvType != "dev" {
+					solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
+				} else {
+					solutionTagFlag = "stable" // TODO: use tag value as-is once free-form values are supported by API
+				}
 			}
 		}
 		// create archive
@@ -211,11 +216,10 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
 		var solutionObjName = solutionName
-		if solutionTagFlag != "stable" {
+		if solutionTagFlag != "stable" && cfg.EnvType != "dev" {
 			solutionObjName += ".dev"
 		}
 		log.WithField("solution", solutionObjName).Info("Subscribing to solution")
-		cfg := config.GetCurrentContext()
 		layerID := cfg.Tenant
 		headers = map[string]string{
 			"layer-type": "TENANT",

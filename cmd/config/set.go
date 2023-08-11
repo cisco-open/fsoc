@@ -85,8 +85,70 @@ func newCmdConfigSet() *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("token", `please use non-flag argument in the form "token=TOKEN"`)
 	cmd.Flags().String("secret-file", "", "Set a credentials file to use for service principal (.json or .csv) or agent principal (.yaml)")
 	_ = cmd.Flags().MarkDeprecated("secret-file", `please use non-flag argument in the form "secret-file=SECRET-TOKEN"`)
+	cmd.Flags().String("envtype", "", "envtype can be \"dev\", \"prod\", or \"\". When it is \"dev\", solution tags will always be set to stable")
+	_ = cmd.Flags().MarkDeprecated("envtype", `please use non-flag argument in the form "envtype=ENVTYPE"`)
 
 	return cmd
+}
+
+// expandHomePath replaces ~ in the path with the absolute home directory
+func expandHomePath(file string) string {
+	if strings.HasPrefix(file, "~/") {
+		dirname, _ := os.UserHomeDir()
+		file = filepath.Join(dirname, file[2:])
+	}
+	return file
+}
+
+func getAuthFieldConfigRow(authService string) AuthFieldConfigRow {
+	return getAuthFieldWritePermissions()[authService]
+}
+
+func validateWriteReq(cmd *cobra.Command, authService string, field string) error {
+	flags := cmd.Flags()
+	authProvider := authService
+	if flags.Changed("auth") {
+		authProvider, _ = flags.GetString("auth")
+	}
+	if authProvider == "" {
+		return fmt.Errorf("must provide an authentication type before or while writing to other context fields")
+	}
+	if getAuthFieldConfigRow(authProvider)[field] == 0 {
+		return fmt.Errorf("cannot write to field %s because it is not allowed for authentication method %s", field, authProvider)
+	}
+	return nil
+}
+
+func clearFields(fields []string, ctxPtr *Context) {
+	if slices.Contains(fields, "auth") {
+		ctxPtr.AuthMethod = ""
+	}
+	if slices.Contains(fields, "url") {
+		ctxPtr.URL = ""
+	}
+	if slices.Contains(fields, "server") {
+		ctxPtr.Server = ""
+	}
+	if slices.Contains(fields, "tenant") {
+		ctxPtr.Tenant = ""
+	}
+	if slices.Contains(fields, "user") {
+		ctxPtr.User = ""
+	}
+	if slices.Contains(fields, "token") {
+		ctxPtr.Token = ""
+	}
+	if slices.Contains(fields, "refresh_token") {
+		ctxPtr.RefreshToken = ""
+	}
+	if slices.Contains(fields, "secret-file") {
+		ctxPtr.SecretFile = ""
+	}
+}
+
+func automatedFieldClearing(ctxPtr *Context, field string) {
+	table := getAuthFieldClearConfig()
+	clearFields(table[ctxPtr.AuthMethod][field], ctxPtr)
 }
 
 func validateUrl(providedUrl string) (string, error) {
@@ -111,14 +173,11 @@ func validateUrl(providedUrl string) (string, error) {
 
 func validateArgs(cmd *cobra.Command, args []string) error {
 	flags := cmd.Flags()
-	allowedArgs := []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file"}
+	allowedArgs := []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
 	for i := 0; i < len(args); i++ {
 		// check arg format ∑+=∑+
-		stringSegments := strings.Split(args[i], "=")
+		stringSegments := strings.SplitN(args[i], "=", 2)
 		name, value := stringSegments[0], stringSegments[1]
-		if len(stringSegments) != 2 {
-			return fmt.Errorf("parameter name and value cannot contain \"=\"")
-		}
 		// check arg name is valid (i.e. no disallowed flags)
 		if !slices.Contains(allowedArgs, name) {
 			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
@@ -195,195 +254,140 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		// Clear All fields before setting other fields
 		clearFields([]string{"url", "server", "tenant", "user", "token", "refresh_token", "secret-file"}, ctxPtr)
 	}
-	if flags.Changed("server") {
-		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "url")
-		if err != nil {
-			log.Fatal(err.Error())
+	if flags.Changed("envtype") {
+		val, _ := flags.GetString("envtype")
+		potentialEnvTypes := []string{"prod", "dev"}
+		if !slices.Contains(potentialEnvTypes, val) {
+			log.Fatalf("envtype can only take on one of the following values: %s", strings.Join(potentialEnvTypes, ", "))
 		}
-		providedServer, _ := flags.GetString("server")
-		constructedUrl := "https://" + providedServer
+		ctxPtr.EnvType = val
+	}
+	if flags.Changed("server") || flags.Changed("url") {
+		providedUrl, _ := flags.GetString("url")
+		if flags.Changed("server") {
+			providedUrl, _ = flags.GetString("server")
+		}
+		constructedUrl := "https://" + providedUrl
 		cleanedUrl, err := validateUrl(constructedUrl)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
-		ctxPtr.URL = cleanedUrl
-		if !patch {
-			automatedFieldClearing(ctxPtr, "url")
-		}
-	}
-	if flags.Changed("url") {
-		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "url")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		providedUrl, _ := flags.GetString("url")
-		cleanedUrl, err := validateUrl(providedUrl)
-		if err != nil {
-			log.Fatal(err.Error())
+
+		if flags.Changed("server") {
+			log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
 		}
 		ctxPtr.URL = cleanedUrl
-		if !patch {
-			automatedFieldClearing(ctxPtr, "url")
-		}
-	}
-	if flags.Changed("tenant") {
-		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "tenant")
+		// Automate setting EnvType from url
+		parsedUrl, err := url.Parse(cleanedUrl)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Fatalf("Failed to parse url: %v", err)
 		}
-		ctxPtr.Tenant, _ = flags.GetString("tenant")
-		if !patch {
-			automatedFieldClearing(ctxPtr, "tenant")
+
+		host := parsedUrl.Host // We know that the url has to have at least 8 chars from validate URL
+		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
+			ctxPtr.EnvType = "dev" // c0 env
+			log.Warnf("Automatically setting envtype to %s", ctxPtr.EnvType)
+			if !patch {
+				automatedFieldClearing(ctxPtr, "url")
+			}
 		}
-	}
-	if flags.Changed("token") {
-		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "token")
-		if err != nil {
-			log.Fatal(err.Error())
+		if flags.Changed("tenant") {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "tenant")
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			ctxPtr.Tenant, _ = flags.GetString("tenant")
+			if !patch {
+				automatedFieldClearing(ctxPtr, "tenant")
+			}
 		}
-		value, _ := flags.GetString("token")
-		if value == "-" { // token to come from stdin
-			scanner := bufio.NewScanner(os.Stdin)
-			scanner.Scan()
-			ctxPtr.Token = scanner.Text()
+		if flags.Changed("token") {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "token")
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			value, _ := flags.GetString("token")
+			if value == "-" { // token to come from stdin
+				scanner := bufio.NewScanner(os.Stdin)
+				scanner.Scan()
+				ctxPtr.Token = scanner.Text()
+			} else {
+				ctxPtr.Token = value
+			}
+			if !patch {
+				automatedFieldClearing(ctxPtr, "token")
+			}
+		}
+		if flags.Changed("secret-file") {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "secret-file")
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			path, _ := flags.GetString("secret-file")
+			path = expandHomePath(path)
+			ctxPtr.SecretFile, err = filepath.Abs(path)
+			if err != nil {
+				ctxPtr.SecretFile = path
+			}
+			ctxPtr.CsvFile = "" // CSV file is a backward-compatibility value only
+			if !patch {
+				automatedFieldClearing(ctxPtr, "secret-file")
+			}
+		}
+		if ctxPtr.AuthMethod == AuthMethodLocal {
+			if flags.Changed(AppdPid) {
+				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
+				if err != nil {
+					log.Fatal(err.Error())
+				}
+				pid, _ := flags.GetString(AppdPid)
+				ctxPtr.LocalAuthOptions.AppdPid = pid
+				if !patch {
+					automatedFieldClearing(ctxPtr, AppdPid)
+				}
+			}
+			if flags.Changed(AppdPty) {
+				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPty)
+				if err != nil {
+					log.Fatal(err.Error())
+				}
+				pty, _ := flags.GetString(AppdPty)
+				ctxPtr.LocalAuthOptions.AppdPty = pty
+				if !patch {
+					automatedFieldClearing(ctxPtr, AppdPty)
+				}
+			}
+			if flags.Changed(AppdTid) {
+				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdTid)
+				if err != nil {
+					log.Fatal(err.Error())
+				}
+				tid, _ := flags.GetString(AppdTid)
+				ctxPtr.LocalAuthOptions.AppdTid = tid
+				if !patch {
+					automatedFieldClearing(ctxPtr, AppdTid)
+				}
+			}
+		}
+
+		// upgrade config format from CsvFile to SecretFile, opportunistically using the update
+		if ctxPtr.SecretFile == "" && ctxPtr.CsvFile != "" {
+			ctxPtr.SecretFile = ctxPtr.CsvFile
+			ctxPtr.CsvFile = ""
+		}
+
+		// update config file
+		update := map[string]interface{}{"contexts": cfg.Contexts}
+		if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
+			update["current_context"] = contextName
+			log.WithField("profile", contextName).Info("Setting context as current")
+		}
+		updateConfigFile(update)
+
+		if contextExists {
+			log.WithField("profile", contextName).Info("Updated context")
 		} else {
-			ctxPtr.Token = value
-		}
-		if !patch {
-			automatedFieldClearing(ctxPtr, "token")
+			log.WithField("profile", contextName).Info("Created context")
 		}
 	}
-	if flags.Changed("secret-file") {
-		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "secret-file")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		path, _ := flags.GetString("secret-file")
-		path = expandHomePath(path)
-		ctxPtr.SecretFile, err = filepath.Abs(path)
-		if err != nil {
-			ctxPtr.SecretFile = path
-		}
-		ctxPtr.CsvFile = "" // CSV file is a backward-compatibility value only
-		if !patch {
-			automatedFieldClearing(ctxPtr, "secret-file")
-		}
-	}
-
-	if ctxPtr.AuthMethod == AuthMethodLocal {
-		if flags.Changed(AppdPid) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			pid, _ := flags.GetString(AppdPid)
-			ctxPtr.LocalAuthOptions.AppdPid = pid
-			if !patch {
-				automatedFieldClearing(ctxPtr, AppdPid)
-			}
-		}
-		if flags.Changed(AppdPty) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPty)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			pty, _ := flags.GetString(AppdPty)
-			ctxPtr.LocalAuthOptions.AppdPty = pty
-			if !patch {
-				automatedFieldClearing(ctxPtr, AppdPty)
-			}
-		}
-		if flags.Changed(AppdTid) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdTid)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			tid, _ := flags.GetString(AppdTid)
-			ctxPtr.LocalAuthOptions.AppdTid = tid
-			if !patch {
-				automatedFieldClearing(ctxPtr, AppdTid)
-			}
-		}
-	}
-
-	// upgrade config format from CsvFile to SecretFile, opportunistically using the update
-	if ctxPtr.SecretFile == "" && ctxPtr.CsvFile != "" {
-		ctxPtr.SecretFile = ctxPtr.CsvFile
-		ctxPtr.CsvFile = ""
-	}
-
-	// update config file
-	update := map[string]interface{}{"contexts": cfg.Contexts}
-	if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
-		update["current_context"] = contextName
-		log.WithField("profile", contextName).Info("Setting context as current")
-	}
-	updateConfigFile(update)
-
-	if contextExists {
-		log.WithField("profile", contextName).Info("Updated context")
-	} else {
-		log.WithField("profile", contextName).Info("Created context")
-	}
-}
-
-// expandHomePath replaces ~ in the path with the absolute home directory
-func expandHomePath(file string) string {
-	if strings.HasPrefix(file, "~/") {
-		dirname, _ := os.UserHomeDir()
-		file = filepath.Join(dirname, file[2:])
-	}
-	return file
-}
-
-func getAuthFieldConfigRow(authService string) AuthFieldConfigRow {
-	return getAuthFieldWritePermissions()[authService]
-}
-
-func validateWriteReq(cmd *cobra.Command, authService string, field string) error {
-	flags := cmd.Flags()
-	authProvider := authService
-	if flags.Changed("auth") {
-		authProvider, _ = flags.GetString("auth")
-	}
-	if authProvider == "" {
-		return fmt.Errorf("must provide an authentication type before or while writing to other context fields")
-	}
-	if getAuthFieldConfigRow(authProvider)[field] == 0 {
-		return fmt.Errorf("cannot write to field %s because it is not allowed for authentication method %s", field, authProvider)
-	}
-	return nil
-}
-
-func clearFields(fields []string, ctxPtr *Context) {
-	if slices.Contains(fields, "auth") {
-		ctxPtr.AuthMethod = ""
-	}
-	if slices.Contains(fields, "url") {
-		ctxPtr.URL = ""
-	}
-	if slices.Contains(fields, "server") {
-		ctxPtr.Server = ""
-	}
-	if slices.Contains(fields, "tenant") {
-		ctxPtr.Tenant = ""
-	}
-	if slices.Contains(fields, "user") {
-		ctxPtr.User = ""
-	}
-	if slices.Contains(fields, "token") {
-		ctxPtr.Token = ""
-	}
-	if slices.Contains(fields, "refresh_token") {
-		ctxPtr.RefreshToken = ""
-	}
-	if slices.Contains(fields, "secret-file") {
-		ctxPtr.SecretFile = ""
-	}
-}
-
-func automatedFieldClearing(ctxPtr *Context, field string) {
-	table := getAuthFieldClearConfig()
-	clearFields(table[ctxPtr.AuthMethod][field], ctxPtr)
 }

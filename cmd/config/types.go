@@ -63,6 +63,7 @@ type Context struct {
 	RefreshToken     string           `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty" mapstructure:"refresh_token"`
 	CsvFile          string           `json:"csv_file,omitempty" yaml:"csv_file,omitempty"`
 	SecretFile       string           `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file"`
+	EnvType          string           `json:"env_type,omitempty" yaml:"env_type,omitempty" mapstructure:"env_type"`
 	LocalAuthOptions LocalAuthOptions `json:"auth-options,omitempty" yaml:"auth-options,omitempty" mapstructure:"auth-options"`
 }
 
