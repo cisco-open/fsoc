@@ -55,7 +55,6 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		if context != nil {
 			isDev = context.EnvType == "dev"
 		}
-		println(isDev)
 		if !isDev && solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
 			if solutionTag == "dev" {
 				name = fmt.Sprintf("%s.%s", name, solutionTag)
