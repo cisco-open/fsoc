@@ -15,6 +15,7 @@ var meltMelitiniCmd = &cobra.Command{
 	Short:            "uses meltini APIs to generate metrics from a template",
 	Long:             `Uses meltini APIs to generate OT data from provided stated template file.`,
 	TraverseChildren: true,
+	Hidden:           true,
 	Run:              meltMeltini,
 }
 
