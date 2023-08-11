@@ -53,7 +53,7 @@ The directory should either be empty or not exist.`,
 
 func NewSubCmd() *cobra.Command {
 	gendocsCmd.Flags().
-		Bool("h1", false, "This flag will change all generated headers to start at an h1 level heading")
+		Bool("h1", true, "adjust generated headings to start from h1 rather than h2")
 	return gendocsCmd
 }
 
@@ -228,11 +228,11 @@ func processFile(file *os.File) error {
 				fileLines[i] = line[1:]
 			}
 		}
-		if fileLines[i] == "# SEE ALSO" {
-			fileLines[i] = "# See Also"
+		if fileLines[i] == "## SEE ALSO" {
+			fileLines[i] = "## See Also"
 		}
-		if fileLines[i] == "# Options inherited from parent commands" {
-			fileLines[i] = "# Options Inherited From Parent Commands"
+		if fileLines[i] == "## Options inherited from parent commands" {
+			fileLines[i] = "## Options Inherited From Parent Commands"
 		}
 	}
 
