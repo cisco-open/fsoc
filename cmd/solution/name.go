@@ -14,12 +14,9 @@
 package solution
 
 import (
-	"fmt"
-
 	"github.com/apex/log"
-	"github.com/spf13/cobra"
-
 	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/spf13/cobra"
 )
 
 // getSolutionNameFromArgs gets the solution name from the command line, either from
@@ -51,15 +48,13 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 		}
 
 		// We want to append .dev for subscribing/unsubscribing commands for non-dev environments
-		isDev := false
-		if context := config.GetCurrentContext(); context != nil {
-			isDev = context.EnvType == "dev"
-		}
-		if !isDev && solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
-			if solutionTag == "dev" {
-				name = fmt.Sprintf("%s.%s", name, solutionTag)
+		if solutionTag != "" && solutionTag != "stable" && (commandName == "subscribe" || commandName == "unsubscribe") {
+			if config.GetCurrentContext().EnvType == "dev" {
+				name = name + solutionTag // no ".dev" is needed for dev environments
+			} else if solutionTag == "dev" {
+				name = name + ".dev" // no pseudo-isolation, just set the ".dev" suffix
 			} else {
-				name = fmt.Sprintf("%s%s.dev", name, solutionTag)
+				name = name + solutionTag + ".dev" // pseudo-isolation and ".dev" suffix
 			}
 		}
 		return name
