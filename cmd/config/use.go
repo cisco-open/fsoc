@@ -43,7 +43,7 @@ func configUseContext(cmd *cobra.Command, args []string) {
 	if cmd.Flags().Changed("profile") {
 		newContext, _ = cmd.Flags().GetString("profile")
 		if len(args) > 0 {
-			cmd.Usage()
+			_ = cmd.Usage()
 			log.Fatalf("The context can be specified either as an argument or as a flag but not as both")
 		} else {
 			log.Warn("using the --profile flag for this command is deprecated; please, use just the profile name as an argument")
@@ -53,7 +53,7 @@ func configUseContext(cmd *cobra.Command, args []string) {
 		newContext = args[0]
 	}
 	if newContext == "" { // also handles empty string argument
-		cmd.Usage()
+		_ = cmd.Usage()
 		log.Fatalf("Missing the context name argument")
 	}
 
