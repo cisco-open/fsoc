@@ -26,10 +26,10 @@ import (
 func newCmdConfigUse() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:   "use --profile CONTEXT_NAME",
+		Use:   "use CONTEXT_NAME",
 		Short: "Set the current context in an fsoc config file",
 		Long:  `Set the current context in an fsoc config file`,
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		Run:   configUseContext,
 	}
 
@@ -37,9 +37,28 @@ func newCmdConfigUse() *cobra.Command {
 }
 
 func configUseContext(cmd *cobra.Command, args []string) {
-	newContext := GetCurrentProfileName()
-	contextExists := false
+	var newContext string
 
+	// determine which profile to use (supporting --profile for backward compatibility)
+	if cmd.Flags().Changed("profile") {
+		newContext, _ = cmd.Flags().GetString("profile")
+		if len(args) > 0 {
+			_ = cmd.Usage()
+			log.Fatalf("The context can be specified either as an argument or as a flag but not as both")
+		} else {
+			log.Warn("using the --profile flag for this command is deprecated; please, use just the profile name as an argument")
+		}
+	}
+	if len(args) > 0 {
+		newContext = args[0]
+	}
+	if newContext == "" { // also handles empty string argument
+		_ = cmd.Usage()
+		log.Fatalf("Missing the context name argument")
+	}
+
+	// look up selected context
+	contextExists := false
 	cfg := getConfig()
 	for _, c := range cfg.Contexts {
 		if c.Name == newContext {
@@ -47,11 +66,11 @@ func configUseContext(cmd *cobra.Command, args []string) {
 			break
 		}
 	}
-
 	if !contextExists {
-		log.Fatalf("no context exists with the name: \"%s\"", newContext)
+		log.Fatalf("no context exists with the name: %q", newContext)
 	}
 
+	// update config file
 	updateConfigFile(map[string]interface{}{"current_context": newContext})
-	output.PrintCmdStatus(cmd, fmt.Sprintf("Switched to context \"%s\"\n", newContext))
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Switched to context %q\n", newContext))
 }

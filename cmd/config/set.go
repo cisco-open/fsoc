@@ -152,9 +152,9 @@ func automatedFieldClearing(ctxPtr *Context, field string) {
 }
 
 func validateUrl(providedUrl string) (string, error) {
-	parsedUrl, err := url.ParseRequestURI(providedUrl)
-	if err != nil {
-		parsedUrl, err = url.ParseRequestURI("https://" + providedUrl)
+	parsedUrl, err := url.Parse(providedUrl)
+	if err == nil && parsedUrl.Scheme == "" {
+		parsedUrl, err = url.Parse("https://" + providedUrl)
 	}
 	if err != nil {
 		return "", fmt.Errorf("the provided url, %q, is not valid: %w", providedUrl, err)
@@ -165,10 +165,12 @@ func validateUrl(providedUrl string) (string, error) {
 	if parsedUrl.Scheme != "https" && parsedUrl.Scheme != "http" {
 		return "", fmt.Errorf("the provided scheme, %q, is not recognized; use %q or %q", parsedUrl.Scheme, "http", "https")
 	}
-	if parsedUrl.String() != providedUrl {
-		log.Warnf("The provided url, %q, is cleaned and stored as %q.", providedUrl, parsedUrl.String())
+
+	retUrl := parsedUrl.String()
+	if retUrl != providedUrl {
+		log.Warnf("The provided url, %q, was adjusted and stored as %q.", providedUrl, parsedUrl.String())
 	}
-	return parsedUrl.String(), nil
+	return retUrl, nil
 }
 
 func validateArgs(cmd *cobra.Command, args []string) error {
@@ -244,7 +246,10 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	}
 
 	patch, _ := cmd.Flags().GetBool("patch")
+
 	// update only the fields for which flags were specified explicitly
+	// (and, force-clear dependent/auto-derived fields unless --patch)
+
 	if flags.Changed("auth") {
 		val, _ := flags.GetString("auth")
 		if val != "" && !slices.Contains(GetAuthMethodsStringList(), val) {
@@ -254,6 +259,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		// Clear All fields before setting other fields
 		clearFields([]string{"url", "server", "tenant", "user", "token", "refresh_token", "secret-file"}, ctxPtr)
 	}
+
 	if flags.Changed("envtype") {
 		val, _ := flags.GetString("envtype")
 		potentialEnvTypes := []string{"prod", "dev"}
@@ -262,13 +268,14 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		}
 		ctxPtr.EnvType = val
 	}
+
+	// handle url (and, server, for backward compatibility)
 	if flags.Changed("server") || flags.Changed("url") {
 		providedUrl, _ := flags.GetString("url")
 		if flags.Changed("server") {
 			providedUrl, _ = flags.GetString("server")
 		}
-		constructedUrl := "https://" + providedUrl
-		cleanedUrl, err := validateUrl(constructedUrl)
+		cleanedUrl, err := validateUrl(providedUrl)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
@@ -277,20 +284,22 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
 		}
 		ctxPtr.URL = cleanedUrl
+
 		// Automate setting EnvType from url
+		// (note that ctxPtr.EnvType is already set if specified on the command line)
 		parsedUrl, err := url.Parse(cleanedUrl)
 		if err != nil {
 			log.Fatalf("Failed to parse url: %v", err)
 		}
-
-		host := parsedUrl.Host // We know that the url has to have at least 8 chars from validate URL
-		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "prod") {
-			ctxPtr.EnvType = "dev" // c0 env
-			log.Warnf("Automatically setting envtype to %s", ctxPtr.EnvType)
+		host := parsedUrl.Host
+		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "") {
+			ctxPtr.EnvType = "dev"
+			log.Warnf("Automatically setting envtype to %q", ctxPtr.EnvType)
 			if !patch {
 				automatedFieldClearing(ctxPtr, "url")
 			}
 		}
+
 		if flags.Changed("tenant") {
 			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "tenant")
 			if err != nil {
@@ -301,6 +310,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 				automatedFieldClearing(ctxPtr, "tenant")
 			}
 		}
+
 		if flags.Changed("token") {
 			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "token")
 			if err != nil {
@@ -318,6 +328,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 				automatedFieldClearing(ctxPtr, "token")
 			}
 		}
+
 		if flags.Changed("secret-file") {
 			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "secret-file")
 			if err != nil {
@@ -334,6 +345,8 @@ func configSetContext(cmd *cobra.Command, args []string) {
 				automatedFieldClearing(ctxPtr, "secret-file")
 			}
 		}
+
+		// populate fields for local auth
 		if ctxPtr.AuthMethod == AuthMethodLocal {
 			if flags.Changed(AppdPid) {
 				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
