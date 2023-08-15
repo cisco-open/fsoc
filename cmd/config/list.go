@@ -41,7 +41,7 @@ var headers = []string{
 func configListContexts(cmd *cobra.Command, args []string) error {
 	// fail and display help if any arguments were supplied
 	if len(args) > 0 {
-		return fmt.Errorf("Unexpected argument(s): %v", args)
+		return fmt.Errorf("unexpected argument(s): %v", args)
 	}
 
 	activeProfile := GetCurrentProfileName() // whether it is current or not
