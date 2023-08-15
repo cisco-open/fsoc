@@ -41,7 +41,7 @@ func newCmdConfigGet() *cobra.Command {
 func configGetContext(cmd *cobra.Command, args []string) error {
 	// fail and display help if any arguments were supplied
 	if len(args) > 0 {
-		return fmt.Errorf("Unexpected argument(s): %v", args)
+		return fmt.Errorf("unexpected argument(s): %v", args)
 	}
 
 	// get current context and mask secret values

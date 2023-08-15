@@ -51,10 +51,14 @@ if on context name is specified, the current context is created/updated.`
   fsoc config set profile prod token=top-secret`
 )
 
+// configArgs are the positional arguments of form <name>=<value> that can be set.
+// They also correspond to the --flags for the same, for backward compatibility (deprecated)
+var configArgs = []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
+
 func newCmdConfigSet() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:         "set [--profile CONTEXT] auth=AUTH [flags]",
+		Use:         "set [--config CONFIG_FILE] [--profile CONTEXT] [KEY=VALUE]+",
 		Short:       "Create or modify a context entry in an fsoc config file",
 		Long:        setContextLong,
 		Args:        cobra.MaximumNArgs(9),
@@ -175,14 +179,16 @@ func validateUrl(providedUrl string) (string, error) {
 
 func validateArgs(cmd *cobra.Command, args []string) error {
 	flags := cmd.Flags()
-	allowedArgs := []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
 	for i := 0; i < len(args); i++ {
 		// check arg format ∑+=∑+
 		stringSegments := strings.SplitN(args[i], "=", 2)
+		if len(stringSegments) < 2 {
+			return fmt.Errorf("argument %q at position %d must be in the form KEY=VALUE", args[i], i+1)
+		}
 		name, value := stringSegments[0], stringSegments[1]
 		// check arg name is valid (i.e. no disallowed flags)
-		if !slices.Contains(allowedArgs, name) {
-			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(allowedArgs, ", "))
+		if !slices.Contains(configArgs, name) {
+			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(configArgs, ", "))
 		}
 		// make sure flag isn't already set
 		if flags.Changed(name) {
@@ -205,18 +211,16 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		log.Fatalf("%v", err)
 	}
 
-	// Check that at least one value is specified (including empty)
+	// Check that at least one config value is specified (including empty)
 	flags := cmd.Flags()
 	valid := false
 	flags.VisitAll(func(flag *pflag.Flag) {
-		valid = valid || flag.Changed
+		if slices.Contains(configArgs, flag.Name) {
+			valid = valid || flag.Changed
+		}
 	})
 	if !valid {
-		optionNames := make([]string, 0)
-		flags.VisitAll(func(flag *pflag.Flag) {
-			optionNames = append(optionNames, "--"+flag.Name)
-		})
-		log.Fatalf("at least one of %v must be specified", strings.Join(optionNames, ", "))
+		log.Fatalf("at least one of %v must be specified", strings.Join(configArgs, ", "))
 	}
 
 	// Get context name (whether it exists or not)
@@ -256,8 +260,11 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			log.Fatalf(`Invalid --auth method %q; must be one of {"%v"}`, val, strings.Join(GetAuthMethodsStringList(), `", "`))
 		}
 		ctxPtr.AuthMethod = val
+
 		// Clear All fields before setting other fields
-		clearFields([]string{"url", "server", "tenant", "user", "token", "refresh_token", "secret-file"}, ctxPtr)
+		if !patch {
+			clearFields([]string{"url", "server", "tenant", "user", "token", "refresh_token", "secret-file"}, ctxPtr)
+		}
 	}
 
 	if flags.Changed("envtype") {
@@ -279,7 +286,6 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-
 		if flags.Changed("server") {
 			log.Warnf("The --server option is now deprecated. In the future, please use --url instead. We will set the url to %q for you now", cleanedUrl)
 		}
@@ -295,112 +301,114 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		if !strings.HasSuffix(host, ".observe.appdynamics.com") && (ctxPtr.EnvType != "") {
 			ctxPtr.EnvType = "dev"
 			log.Warnf("Automatically setting envtype to %q", ctxPtr.EnvType)
-			if !patch {
-				automatedFieldClearing(ctxPtr, "url")
-			}
 		}
 
-		if flags.Changed("tenant") {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "tenant")
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			ctxPtr.Tenant, _ = flags.GetString("tenant")
-			if !patch {
-				automatedFieldClearing(ctxPtr, "tenant")
-			}
+		if !patch {
+			automatedFieldClearing(ctxPtr, "url")
 		}
+	}
 
-		if flags.Changed("token") {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "token")
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			value, _ := flags.GetString("token")
-			if value == "-" { // token to come from stdin
-				scanner := bufio.NewScanner(os.Stdin)
-				scanner.Scan()
-				ctxPtr.Token = scanner.Text()
-			} else {
-				ctxPtr.Token = value
-			}
-			if !patch {
-				automatedFieldClearing(ctxPtr, "token")
-			}
+	if flags.Changed("tenant") {
+		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "tenant")
+		if err != nil {
+			log.Fatal(err.Error())
 		}
-
-		if flags.Changed("secret-file") {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, "secret-file")
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			path, _ := flags.GetString("secret-file")
-			path = expandHomePath(path)
-			ctxPtr.SecretFile, err = filepath.Abs(path)
-			if err != nil {
-				ctxPtr.SecretFile = path
-			}
-			ctxPtr.CsvFile = "" // CSV file is a backward-compatibility value only
-			if !patch {
-				automatedFieldClearing(ctxPtr, "secret-file")
-			}
+		ctxPtr.Tenant, _ = flags.GetString("tenant")
+		if !patch {
+			automatedFieldClearing(ctxPtr, "tenant")
 		}
+	}
 
-		// populate fields for local auth
-		if ctxPtr.AuthMethod == AuthMethodLocal {
-			if flags.Changed(AppdPid) {
-				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
-				if err != nil {
-					log.Fatal(err.Error())
-				}
-				pid, _ := flags.GetString(AppdPid)
-				ctxPtr.LocalAuthOptions.AppdPid = pid
-				if !patch {
-					automatedFieldClearing(ctxPtr, AppdPid)
-				}
-			}
-			if flags.Changed(AppdPty) {
-				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPty)
-				if err != nil {
-					log.Fatal(err.Error())
-				}
-				pty, _ := flags.GetString(AppdPty)
-				ctxPtr.LocalAuthOptions.AppdPty = pty
-				if !patch {
-					automatedFieldClearing(ctxPtr, AppdPty)
-				}
-			}
-			if flags.Changed(AppdTid) {
-				err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdTid)
-				if err != nil {
-					log.Fatal(err.Error())
-				}
-				tid, _ := flags.GetString(AppdTid)
-				ctxPtr.LocalAuthOptions.AppdTid = tid
-				if !patch {
-					automatedFieldClearing(ctxPtr, AppdTid)
-				}
-			}
+	if flags.Changed("token") {
+		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "token")
+		if err != nil {
+			log.Fatal(err.Error())
 		}
-
-		// upgrade config format from CsvFile to SecretFile, opportunistically using the update
-		if ctxPtr.SecretFile == "" && ctxPtr.CsvFile != "" {
-			ctxPtr.SecretFile = ctxPtr.CsvFile
-			ctxPtr.CsvFile = ""
-		}
-
-		// update config file
-		update := map[string]interface{}{"contexts": cfg.Contexts}
-		if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
-			update["current_context"] = contextName
-			log.WithField("profile", contextName).Info("Setting context as current")
-		}
-		updateConfigFile(update)
-
-		if contextExists {
-			log.WithField("profile", contextName).Info("Updated context")
+		value, _ := flags.GetString("token")
+		if value == "-" { // token to come from stdin
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			ctxPtr.Token = scanner.Text()
 		} else {
-			log.WithField("profile", contextName).Info("Created context")
+			ctxPtr.Token = value
 		}
+		if !patch {
+			automatedFieldClearing(ctxPtr, "token")
+		}
+	}
+
+	if flags.Changed("secret-file") {
+		err := validateWriteReq(cmd, ctxPtr.AuthMethod, "secret-file")
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		path, _ := flags.GetString("secret-file")
+		path = expandHomePath(path)
+		ctxPtr.SecretFile, err = filepath.Abs(path)
+		if err != nil {
+			log.WithFields(log.Fields{"path": path, "error": err}).Warn("Failed to convert secret file's path to absolute path; using it as is")
+			ctxPtr.SecretFile = path
+		}
+		ctxPtr.CsvFile = "" // CSV file is a backward-compatibility value only
+		if !patch {
+			automatedFieldClearing(ctxPtr, "secret-file")
+		}
+	}
+
+	// populate fields for local auth
+	if ctxPtr.AuthMethod == AuthMethodLocal {
+		if flags.Changed(AppdPid) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			pid, _ := flags.GetString(AppdPid)
+			ctxPtr.LocalAuthOptions.AppdPid = pid
+			if !patch {
+				automatedFieldClearing(ctxPtr, AppdPid)
+			}
+		}
+		if flags.Changed(AppdPty) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPty)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			pty, _ := flags.GetString(AppdPty)
+			ctxPtr.LocalAuthOptions.AppdPty = pty
+			if !patch {
+				automatedFieldClearing(ctxPtr, AppdPty)
+			}
+		}
+		if flags.Changed(AppdTid) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdTid)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			tid, _ := flags.GetString(AppdTid)
+			ctxPtr.LocalAuthOptions.AppdTid = tid
+			if !patch {
+				automatedFieldClearing(ctxPtr, AppdTid)
+			}
+		}
+	}
+
+	// upgrade config format from CsvFile to SecretFile, opportunistically using the update
+	if ctxPtr.SecretFile == "" && ctxPtr.CsvFile != "" {
+		ctxPtr.SecretFile = ctxPtr.CsvFile
+		ctxPtr.CsvFile = ""
+	}
+
+	// update config file
+	update := map[string]interface{}{"contexts": cfg.Contexts}
+	if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
+		update["current_context"] = contextName
+		log.WithField("profile", contextName).Info("Setting context as current")
+	}
+	updateConfigFile(update)
+
+	if contextExists {
+		log.WithField("profile", contextName).Info("Updated context")
+	} else {
+		log.WithField("profile", contextName).Info("Created context")
 	}
 }
