@@ -416,7 +416,7 @@ func NewDashuiLogsWidget() *DashuiLogsWidget {
 		InstanceOf: map[string]interface{}{
 			"name": "logsWidget",
 		},
-		Source: "derived_metrics",
+		Source: "derived_metric",
 	}
 }
 

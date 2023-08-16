@@ -217,9 +217,7 @@ func getEventComponent(eventName string, namespaceName string) *FmmEvent {
 		DisplayName: eventName,
 	}
 
-	requiredArray := append(emptyStringArray, "name")
 	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
-		Required:   requiredArray,
 		Optimized:  emptyStringArray,
 		Attributes: emptyAttributeArray,
 	}
