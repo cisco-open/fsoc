@@ -217,7 +217,10 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 
 		// handle pagination
-		_, next_ok := data_set.Links["next"]
+		next_ok := false
+		if data_set != nil {
+			_, next_ok = data_set.Links["next"]
+		}
 		if flags.count != -1 {
 			// skip pagination if limits provided. Otherwise, we return the full result list (chunked into count per response)
 			// instead of constraining to count
@@ -413,7 +416,10 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 		}
 
 		// handle pagination
-		_, next_ok := data_set.Links["next"]
+		next_ok := false
+		if data_set != nil {
+			_, next_ok = data_set.Links["next"]
+		}
 		if flags.count != -1 {
 			// skip pagination if limits provided. Otherwise, we return the full result list (chunked into count per response)
 			// instead of constraining to count
