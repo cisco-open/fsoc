@@ -130,8 +130,10 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 
 	// execute command and print output
 	var objStoreUrl string
+	var isCollection bool = true
 	if objID != "" {
 		objStoreUrl = getObjectUrl(fqtn, objID)
+		isCollection = false
 	} else {
 		if cmd.Flags().Changed("filter") {
 			filterCriteria, err := cmd.Flags().GetString("filter")
@@ -144,7 +146,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 		objStoreUrl = getObjectListUrl(fqtn)
 	}
 
-	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
+	cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: isCollection})
 	return nil
 }
 
