@@ -30,7 +30,7 @@ import (
 
 var solutionExtendCmd = &cobra.Command{
 	Use:              "extend",
-	Args:             cobra.ExactArgs(0),
+	Args:             cobra.ExactArgs(1),
 	Short:            "Extends your solution by adding new components",
 	Long:             `This command allows you to easily add new components to your solution.`,
 	Example:          `  fsoc solution extend --add-knowledge=<knowldgetypename>`,
