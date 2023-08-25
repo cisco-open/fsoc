@@ -40,6 +40,7 @@ var FlagCurlifyRequests bool
 type Options struct {
 	Headers         map[string]string
 	ResponseHeaders map[string][]string // headers as returned by the call
+	Quiet           bool                // set to true to disable spinner and Platform API call logging
 }
 
 // JSONGet performs a GET request and parses the response as JSON
@@ -179,14 +180,14 @@ func getCurlCommandOfRequest(req *http.Request) (string, error) {
 func httpRequest(method string, path string, body any, out any, options *Options) error {
 	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling FSO platform API")
 
-	callCtx := newCallContext()
-	cfg := callCtx.cfg               // quick access
-	defer callCtx.stopSpinner(false) // ensure the spinner is not running when returning (belt & suspenders)
-
 	// create a default options to avoid nil-checking
 	if options == nil {
 		options = &Options{}
 	}
+
+	callCtx := newCallContext(options.Quiet)
+	cfg := callCtx.cfg               // quick access
+	defer callCtx.stopSpinner(false) // ensure the spinner is not running when returning (belt & suspenders)
 
 	// force login if no token
 	if cfg.Token == "" {

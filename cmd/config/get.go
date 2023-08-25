@@ -82,10 +82,10 @@ func configGetContext(cmd *cobra.Command, args []string) error {
 	appendIfPresent("Refresh Token", ctx.RefreshToken)
 	appendIfPresent("Secret File", ctx.SecretFile)
 
-	output.PrintCmdOutputCustom(cmd, ctx, &output.Table{
+	output.PrintCmdOutputCustom(cmd, ctx, &output.PrintRequest{Table: &output.Table{
 		Headers: headers,
 		Lines:   [][]string{values},
 		Detail:  true,
-	})
+	}})
 	return nil
 }

@@ -192,11 +192,11 @@ func fetchValuesAndPrint(operation string, solutionNameAndVersionQuery string, s
 		appendValue("Solution Install Message", installStatusData.InstallMessage)
 	}
 
-	output.PrintCmdOutputCustom(cmd, installStatusData, &output.Table{
+	output.PrintCmdOutputCustom(cmd, installStatusData, &output.PrintRequest{Table: &output.Table{
 		Headers: headers,
 		Lines:   [][]string{values},
 		Detail:  true,
-	})
+	}})
 }
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {

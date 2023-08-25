@@ -64,10 +64,10 @@ func configListContexts(cmd *cobra.Command, args []string) error {
 		contexts = append(contexts, []string{current, c.Name, c.AuthMethod, c.URL, c.User})
 	}
 
-	output.PrintCmdOutputCustom(cmd, cfg, &output.Table{
+	output.PrintCmdOutputCustom(cmd, cfg, &output.PrintRequest{Table: &output.Table{
 		Headers: headers,
 		Lines:   contexts,
-		Detail:  false})
+		Detail:  false}})
 
 	return nil
 }

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 
 	"github.com/cisco-open/fsoc/cmd/uql"
 	"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var defaultEvents = []string{
@@ -47,14 +51,16 @@ func init() {
 }
 
 type eventsFlags struct {
-	clusterId    string
-	namespace    string
-	workloadName string
-	optimizerId  string
-	since        string
-	until        string
-	count        int
-	solutionName string
+	clusterId      string
+	namespace      string
+	workloadName   string
+	optimizerId    string
+	since          string
+	until          string
+	count          int
+	follow         bool
+	followInterval time.Duration
+	solutionName   string
 }
 
 type eventsCmdFlags struct {
@@ -101,8 +107,11 @@ func NewCmdEvents() *cobra.Command {
 
 	command.Flags().StringVarP(&flags.since, "since", "s", "", "Retrieve events contained in the time interval starting at a relative or exact time. (default: -1h)")
 	command.Flags().StringVarP(&flags.until, "until", "u", "", "Retrieve events contained in the time interval ending at a relative or exact time. (default: now)")
-
 	command.Flags().IntVarP(&flags.count, "count", "", -1, "Limit the number of events retrieved to the specified count")
+
+	command.Flags().BoolVarP(&flags.follow, "follow", "f", false, "Follow the events as they are produced")
+	command.Flags().DurationVarP(&flags.followInterval, "follow-interval", "t", time.Second*60, "Duration between requests to UQL when following events")
+	command.MarkFlagsMutuallyExclusive("follow", "count")
 
 	command.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the FMM types for reading")
 	if err := command.LocalFlags().MarkHidden("solution-name"); err != nil {
@@ -266,8 +275,85 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			Total int         `json:"total"`
 		}{Items: eventRows, Total: len(eventRows)})
 
+		// handle follow
+		// restore first page dataset
+		data_set = main_data_set.Data[0][0].(*uql.DataSet)
+		if flags.follow && data_set != nil {
+			// setup async channels
+			interrupt := make(chan os.Signal, 1)
+			signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+			followChan := make(chan followEventResult, 1)
+			followChan <- followEventResult{data_set: data_set}
+
+			for {
+				select {
+				case <-interrupt:
+					// exit requested
+					return nil
+				case followResult := <-followChan:
+					if followResult.err != nil {
+						return followResult.err
+					}
+					// queue up next follow interval sleep and print
+					// run in background to allow interrupts
+					go func() {
+						time.Sleep(flags.followInterval)
+						next_data_set, err := followDatasetAndPrint(cmd, followResult.data_set)
+						followChan <- followEventResult{err: err, data_set: next_data_set}
+					}()
+				}
+			}
+		}
+
 		return nil
 	}
+}
+
+type followEventResult struct {
+	data_set *uql.DataSet
+	err      error
+}
+
+func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.DataSet, error) {
+	resp, err := uql.ContinueQueryCustom(data_set, "follow", &api.Options{Quiet: true})
+	if err != nil {
+		return nil, fmt.Errorf("follow uql.ContinueQuery: %w", err)
+	}
+	if resp.HasErrors() {
+		log.Error("Following of events query encountered errors. Returned data may not be complete!")
+		for _, e := range resp.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
+		}
+	}
+	main_data_set := resp.Main()
+	if main_data_set == nil {
+		log.Error("Following of events query has nil main data. Returned data may not be complete!")
+		return data_set, nil
+	}
+	if len(main_data_set.Data) < 1 {
+		return nil, fmt.Errorf("follow main dataset %v has no rows", main_data_set.Name)
+	}
+	if len(main_data_set.Data[0]) < 1 {
+		return nil, fmt.Errorf("follow main dataset %v first row has no columns", main_data_set.Name)
+	}
+	var ok bool
+	data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
+	if !ok {
+		return nil, fmt.Errorf("follow main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+	}
+
+	newRows, err := extractEventsData(data_set)
+	if err != nil {
+		return nil, fmt.Errorf("follow extractEventsData: %w", err)
+	}
+	if newRowsCount := len(newRows); newRowsCount > 0 {
+		// TODO print table without headers
+		output.PrintCmdOutputCustom(cmd, struct {
+			Items []eventsRow `json:"items"`
+			Total int         `json:"total"`
+		}{Items: newRows, Total: newRowsCount}, &output.PrintRequest{HideTableHeaders: true})
+	}
+	return data_set, nil
 }
 
 type recommendationsCmdFlags struct {

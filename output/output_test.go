@@ -47,21 +47,21 @@ func TestPrintJSONAndYaml(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		pr := printRequest{format: tt.format}
+		pr := &PrintRequest{Format: tt.format}
 		outExpected, err := test.ReadFileToString(tt.fixture)
 		require.Nil(t, err)
-		outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, obj, nil) }, t)
+		outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, obj) }, t)
 		require.Equal(t, outExpected, outActual)
 	}
 }
 
 func TestPrintSimple(t *testing.T) {
-	pr := printRequest{format: ""}
+	pr := &PrintRequest{Format: ""}
 
 	// simple
 	outExpected, err := test.ReadFileToString("./fixtures/output_text.txt")
 	require.Nil(t, err)
-	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, "test string", nil) }, t)
+	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, "test string") }, t)
 	require.Equal(t, outExpected, outActual)
 }
 
@@ -73,8 +73,6 @@ func TestPrintCmdStatus(t *testing.T) {
 }
 
 func TestPrintTable(t *testing.T) {
-	pr := printRequest{format: ""}
-
 	table := &Table{
 		Headers: []string{"Field1", "Field2", "Field3"},
 	}
@@ -82,8 +80,10 @@ func TestPrintTable(t *testing.T) {
 		rowString := []string{fmt.Sprintf("Row%d-Field1", i), fmt.Sprintf("%d", i), strconv.FormatBool(true)}
 		table.Lines = append(table.Lines, rowString)
 	}
+
+	pr := &PrintRequest{Format: "", Table: table}
 	outExpected, err := test.ReadFileToString("./fixtures/output_table.txt")
 	require.Nil(t, err)
-	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, nil, table) }, t)
+	outActual := test.CaptureConsoleOutput(func() { printCmdOutputCustom(pr, nil) }, t)
 	require.Equal(t, outExpected, outActual)
 }

@@ -38,7 +38,7 @@ var statusChar = map[bool]string{
 	true:  color.GreenString("\u2713"), // checkmark
 }
 
-func newCallContext() *callContext {
+func newCallContext(quiet bool) *callContext {
 	// get current config context
 	cfg := config.GetCurrentContext()
 	if cfg == nil {
@@ -47,11 +47,15 @@ func newCallContext() *callContext {
 	}
 	log.WithFields(log.Fields{"context": cfg.Name, "server": cfg.Server, "tenant": cfg.Tenant}).Info("Using context")
 
+	var ctxSpinner *spinner.Spinner
+	if !quiet {
+		ctxSpinner = spinner.New(spinner.CharSets[21], 50*time.Millisecond, spinner.WithWriterFile(os.Stderr))
+	}
 	// prepare call context
 	callCtx := callContext{
 		context.Background(),
 		cfg,
-		spinner.New(spinner.CharSets[21], 50*time.Millisecond, spinner.WithWriterFile(os.Stderr)),
+		ctxSpinner,
 	}
 
 	return &callCtx

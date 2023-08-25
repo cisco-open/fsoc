@@ -96,7 +96,7 @@ type position struct {
 
 type uqlService interface {
 	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
-	Continue(link *Link) (parsedResponse, error)
+	Continue(link *Link, options *api.Options) (parsedResponse, error)
 }
 
 type defaultBackend struct {
@@ -124,11 +124,11 @@ func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResp
 	}, nil
 }
 
-func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
+func (b defaultBackend) Continue(link *Link, options *api.Options) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONGet(link.Href, &rawJson, nil)
+	err := api.JSONGet(link.Href, &rawJson, options)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
 	}
@@ -169,17 +169,22 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 
 // ContinueQuery sends a continue request to the UQL service
 func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
-	return continueUqlQuery(dataSet, rel, backend)
+	return continueUqlQuery(dataSet, rel, backend, nil)
 }
 
-func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {
+// ContinueQueryCustom is the same as ContinueQuery but allows customizing the underlying http request headers and verbosity
+func ContinueQueryCustom(dataSet *DataSet, rel string, options *api.Options) (*Response, error) {
+	return continueUqlQuery(dataSet, rel, backend, options)
+}
+
+func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService, options *api.Options) (*Response, error) {
 	link := extractLink(dataSet, rel)
 
 	if link == nil {
 		return nil, fmt.Errorf("link with rel '%s' not found in dataset", rel)
 	}
 
-	response, err := backend.Continue(link)
+	response, err := backend.Continue(link, options)
 	if err != nil {
 		return nil, err
 	}

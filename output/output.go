@@ -41,11 +41,23 @@ const (
 	JsonIndent = "    "
 )
 
-type printRequest struct {
-	cmd         *cobra.Command
-	format      string
-	fields      string
-	annotations map[string]string
+type Table struct {
+	// table output
+	Headers []string
+	Lines   [][]string
+	Detail  bool // true to print a single line as a name: value multi-line instead of table
+
+	// extract field columns in the same order as headers
+	LineBuilder func(v any) []string // use together with Headers and no Lines
+}
+
+type PrintRequest struct {
+	Cmd              *cobra.Command
+	Format           string
+	Fields           string
+	Annotations      map[string]string
+	Table            *Table
+	HideTableHeaders bool
 }
 
 func print(cmd *cobra.Command, a ...any) {
@@ -113,16 +125,6 @@ func PrintCmdStatus(cmd *cobra.Command, s string) {
 	print(cmd, s)
 }
 
-type Table struct {
-	// table output
-	Headers []string
-	Lines   [][]string
-	Detail  bool // true to print a single line as a name: value multi-line instead of table
-
-	// extract field columns in the same order as headers
-	LineBuilder func(v any) []string // use together with Headers and no Lines
-}
-
 // PrintCmdOutput displays the output of a command in the user-selected output format. If
 // a human display format is selected, PrintCmdOutput automatically converts the value
 // to one of the supported formats (within limits); if it cannot be converted, YAML is displayed instead.
@@ -138,29 +140,43 @@ func PrintCmdOutput(cmd *cobra.Command, v any) {
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
-func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table) {
-	// extract format, assume default if no command or no -o flag
-	format := ""
-	if cmd != nil {
-		format, _ = cmd.Flags().GetString("output") // if err, leaves format blank
+func PrintCmdOutputCustom(cmd *cobra.Command, v any, pr *PrintRequest) {
+
+	if pr == nil {
+		pr = &PrintRequest{}
 	}
 
-	// select which fields filter specification to use
-	// Logic: if the --fields flag is specified, always use it (for all formats)
-	//        otherwise
-	//        - for human outputs only, get the fields spec from the command annotations (if set)
-	//        - for machine formats, don't filter by fields
-	fields, _ := cmd.Flags().GetString("fields") // since --fields doesn't have default, non-empty means explicitly set
-	pr := printRequest{cmd: cmd, format: format, fields: fields, annotations: cmd.Annotations}
-	printCmdOutputCustom(pr, v, table)
+	if pr.Cmd == nil {
+		pr.Cmd = cmd
+	}
+	if pr.Cmd != nil {
+		if pr.Format == "" {
+			// extract format, assume default if no command or no -o flag
+			pr.Format, _ = pr.Cmd.Flags().GetString("output") // if err, leaves format blank
+		}
+		if pr.Fields == "" {
+
+			// select which fields filter specification to use
+			// Logic: if the --fields flag is specified, always use it (for all formats)
+			//        otherwise
+			//        - for human outputs only, get the fields spec from the command annotations (if set)
+			//        - for machine formats, don't filter by fields
+			pr.Fields, _ = pr.Cmd.Flags().GetString("fields") // since --fields doesn't have default, non-empty means explicitly set
+		}
+		if pr.Annotations == nil {
+			pr.Annotations = pr.Cmd.Annotations
+		}
+	}
+
+	printCmdOutputCustom(pr, v)
 }
 
-func printCmdOutputCustom(pr printRequest, v any, table *Table) {
+func printCmdOutputCustom(pr *PrintRequest, v any) {
 	// if no field spec is given on the command line and built-in specs are available, use them
-	if pr.fields == "" && pr.annotations != nil {
+	if pr.Fields == "" && pr.Annotations != nil {
 		// choose which annotations to use and in what priority order
 		annotations := []string{} // names of annotations to use for fields, in priority order
-		switch pr.format {
+		switch pr.Format {
 		case "", "auto", "table":
 			annotations = []string{TableFieldsAnnotation, DetailFieldsAnnotation}
 		case "detail":
@@ -170,8 +186,8 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 
 		// get the first available fields specification
 		for _, name := range annotations {
-			if spec := pr.annotations[name]; spec != "" {
-				pr.fields = spec
+			if spec := pr.Annotations[name]; spec != "" {
+				pr.Fields = spec
 				break
 			}
 		}
@@ -179,27 +195,27 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 
 	// adjust format to yaml if not enough info to produce human output (nb: the criteria may change
 	// in the future as the auto format capabilities improve)
-	if (pr.format == "" || pr.format == "auto") && // format is not explicitly specified
-		pr.fields == "" && // no field specification is provided (on the command line or from the command descriptor)
-		(table == nil || table.Headers == nil || len(table.Headers) == 0) { // no explicit table form is provided
+	if (pr.Format == "" || pr.Format == "auto") && // format is not explicitly specified
+		pr.Fields == "" && // no field specification is provided (on the command line or from the command descriptor)
+		(pr.Table == nil || pr.Table.Headers == nil || len(pr.Table.Headers) == 0) { // no explicit table form is provided
 		// go for YAML output, which is mostly human readable (or, at least, more human-readable than json or go %+v)
-		pr.format = "yaml"
+		pr.Format = "yaml"
 	}
 
 	// transform data according to the fields query (if provided and should be used)
-	if pr.fields != "" {
-		v = transformFields(v, pr.fields)
+	if pr.Fields != "" {
+		v = transformFields(v, pr.Fields)
 	}
 
 	// print according to format and presence of table
-	switch pr.format {
+	switch pr.Format {
 	case "json":
-		if err := PrintJson(pr.cmd, v); err != nil {
+		if err := PrintJson(pr.Cmd, v); err != nil {
 			log.Fatalf("Failed to convert output to JSON: %v (%+v)", err, v)
 		}
 		return
 	case "yaml":
-		if err := PrintYaml(pr.cmd, v); err != nil {
+		if err := PrintYaml(pr.Cmd, v); err != nil {
 			log.Fatalf("Failed to convert output to YAML: %v (%+v)", err, v)
 		}
 		return
@@ -207,25 +223,25 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 
 	// display simple values
 	if strVal, ok := v.(string); ok {
-		printSimple(pr.cmd, strVal)
+		printSimple(pr.Cmd, strVal)
 		return
 	}
 
 	// prepare lines if builder provided
-	if table != nil && table.LineBuilder != nil {
-		lines, ok := buildLines(v, table.LineBuilder)
+	if pr.Table != nil && pr.Table.LineBuilder != nil {
+		lines, ok := buildLines(v, pr.Table.LineBuilder)
 		if ok {
-			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail}
+			pr.Table = &Table{Headers: pr.Table.Headers, Lines: lines, Detail: pr.Table.Detail}
 		}
 	}
 
 	// format table if a transform is provided or there is no custom table
-	if pr.fields != "" || table == nil || len(table.Headers) == 0 {
+	if pr.Fields != "" || pr.Table == nil || len(pr.Table.Headers) == 0 {
 		var err error
-		table, err = createTable(v, pr.fields) // replaces the table
+		pr.Table, err = createTable(v, pr.Fields) // replaces the table
 		if err != nil {
 			log.Warnf("Failed to convert output data to a table: %v; reverting to YAML output", err)
-			if err := PrintYaml(pr.cmd, v); err != nil {
+			if err := PrintYaml(pr.Cmd, v); err != nil {
 				log.Fatalf("Failed to convert output to YAML: %v (%+v)", err, v)
 			}
 			return
@@ -233,10 +249,10 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	}
 
 	// display table
-	if table.Detail || pr.format == "detail" {
-		printDetail(pr.cmd, table)
+	if pr.Table.Detail || pr.Format == "detail" {
+		printDetail(pr)
 	} else {
-		printTable(pr.cmd, table)
+		printTable(pr)
 	}
 }
 
@@ -268,18 +284,20 @@ func printSimple(cmd *cobra.Command, v any) {
 }
 
 // printTable prints a table, with header and one or more rows
-func printTable(cmd *cobra.Command, t *Table) {
-	if t == nil {
-		printSimple(cmd, "Nothing to display")
+func printTable(pr *PrintRequest) {
+	if pr.Table == nil {
+		printSimple(pr.Cmd, "Nothing to display")
 		return
 	}
-	tw := tablewriter.NewWriter(GetOutWriter(cmd))
+	tw := tablewriter.NewWriter(GetOutWriter(pr.Cmd))
 	tw.SetBorder(false)
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
 	tw.SetRowSeparator("")
-	tw.SetHeader(t.Headers)
-	tw.AppendBulk(t.Lines)
+	if !pr.HideTableHeaders {
+		tw.SetHeader(pr.Table.Headers)
+	}
+	tw.AppendBulk(pr.Table.Lines)
 	tw.Render()
 }
 
@@ -287,27 +305,27 @@ func printTable(cmd *cobra.Command, t *Table) {
 // While printDetail is mostly intended for a single-entry output (one map or struct, not a list)
 // if there are multiple entries in t.Lines, it prints each entry as a separate form,
 // separating each entry with a blank line
-func printDetail(cmd *cobra.Command, t *Table) {
-	if t == nil {
-		printSimple(cmd, "Nothing to display")
+func printDetail(pr *PrintRequest) {
+	if pr.Table == nil {
+		printSimple(pr.Cmd, "Nothing to display")
 		return
 	}
 
 	// determine header max. width
 	labelWidth := 0
-	for _, v := range t.Headers {
+	for _, v := range pr.Table.Headers {
 		if l := len(v); l > labelWidth {
 			labelWidth = l
 		}
 	}
 
 	// display first row as entries
-	for _, entry := range t.Lines {
-		for i := range t.Headers {
-			printf(cmd, "%[1]*[2]s: %[3]v\n", labelWidth, t.Headers[i], entry[i])
+	for _, entry := range pr.Table.Lines {
+		for i := range pr.Table.Headers {
+			printf(pr.Cmd, "%[1]*[2]s: %[3]v\n", labelWidth, pr.Table.Headers[i], entry[i])
 			//TODO: add support for multi-line values, see Jira ticket FSOC-23
 		}
-		println(cmd)
+		println(pr.Cmd)
 	}
 }
 

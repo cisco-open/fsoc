@@ -11,6 +11,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
+
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var localUqlUrl string
@@ -44,7 +46,7 @@ func (b *localBackend) Execute(query *Query, apiVersion ApiVersion) (parsedRespo
 	return b.sendRequest(request)
 }
 
-func (b *localBackend) Continue(link *Link) (parsedResponse, error) {
+func (b *localBackend) Continue(link *Link, _ api.Options) (parsedResponse, error) {
 	request, err := http.NewRequest("GET", b.baseUrl+link.Href, nil)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, "failed to create http request")

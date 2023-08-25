@@ -406,7 +406,7 @@ func TestContinueQuery_HappyDay(t *testing.T) {
 			)
 			return parsedResponse{}, nil
 		},
-	})
+	}, nil)
 
 	// then
 	assert.Nil(t, err)
@@ -514,7 +514,7 @@ func (s *mockUqlService) Execute(query *Query, apiVersion ApiVersion) (parsedRes
 	return s.executeBehavior(query, apiVersion)
 }
 
-func (s *mockUqlService) Continue(link *Link) (parsedResponse, error) {
+func (s *mockUqlService) Continue(link *Link, options *api.Options) (parsedResponse, error) {
 	return s.continueBehavior(link)
 }
 
