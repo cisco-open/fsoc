@@ -80,6 +80,22 @@ type configJsonStorePage struct {
 	Total int                   `json:"total"`
 }
 
+type OptimizerStatus struct {
+	AgentState        string                 `json:"agentState"`
+	OptimizationState string                 `json:"optimizationState"`
+	Optimizer         OptimizerConfiguration `json:"optimizer"`
+	OptimizerID       string                 `json:"optimizerId"`
+	OptimizerState    string                 `json:"optimizerState"`
+	ServoUID          string                 `json:"servoUid"`
+	Suspended         bool                   `json:"suspended"`
+	TuningState       string                 `json:"tuningState"`
+}
+
+type statusJsonStoreItem struct {
+	Data OptimizerStatus `json:"data"`
+	JsonStoreItem
+}
+
 // TODO move to Orion package?
 type JsonStoreItem struct {
 	CreatedAt time.Time `json:"createdAt"`
