@@ -34,26 +34,26 @@ const (
 // handling pagination per https://www.rfc-editor.org/rfc/rfc5988,
 // https://developer.cisco.com/api-guidelines/#rest-style/API.REST.STYLE.25 and
 // https://developer.cisco.com/api-guidelines/#rest-style/API.REST.STYLE.24
-func JSONGetCollection[T KSItem](path string, options *Options) (items []T, err error) {
+func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Options) (err error) {
 
 	subOptions := Options{}
 	if options != nil {
 		subOptions = *options // shallow copy
 	}
 
-	var page KSCollectionResponse[T]
+	var page CollectionResult[T]
 	var pageNo int
 	for pageNo = 0; true; pageNo += 1 {
 		// request collection
 		err := httpRequest("GET", path, nil, &page, &subOptions)
 		if err != nil {
 			if pageNo > 0 {
-				return nil, fmt.Errorf("Error retrieving non-first page #%v in collection at %q: %v. All data discarded", pageNo+1, path, err)
+				return fmt.Errorf("Error retrieving non-first page #%v in collection at %q: %v. All data discarded", pageNo+1, path, err)
 			}
-			return nil, err
+			return err
 		}
 
-		items = append(items, page.Items...)
+		out.Items = append(out.Items, page.Items...)
 
 		// break if no more pages (no response headers, no links or no next link)
 		if subOptions.ResponseHeaders == nil {
@@ -73,21 +73,22 @@ func JSONGetCollection[T KSItem](path string, options *Options) (items []T, err 
 		log.Infof("Collection page #%v at %q returned %v items and indicated that more are available at %q for a total of %v", pageNo+1, path, len(page.Items), next, page.Total)
 		nextUrl, err := url.Parse(next.String())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse collection iterator link(s) %v: %v ", links, err)
+			return fmt.Errorf("failed to parse collection iterator link(s) %v: %v ", links, err)
 		}
 		nextQuery := nextUrl.RawQuery
 		nextUrl, err = url.Parse(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse path %q: %v", path, err)
+			return fmt.Errorf("failed to parse path %q: %v", path, err)
 		}
 		nextUrl.RawQuery = nextQuery
 		path = nextUrl.String()
 	}
 	log.Infof("Collection page #%v at %q returned %v items (last page)", pageNo+1, path, len(page.Items))
 
-	if len(items) != page.Total {
-		log.Warnf("Collection at %q returned %v items vs. expected %v items", path, len(items), page.Total)
+	out.Total = len(out.Items)
+	if out.Total != page.Total {
+		log.Warnf("Collection at %q returned %v items vs. expected %v items", path, out.Total, page.Total)
 	}
 
-	return items, nil
+	return nil
 }

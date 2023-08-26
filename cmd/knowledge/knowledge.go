@@ -99,12 +99,13 @@ func getObjectsForType(typeName string, lType string, layerID string, prefix str
 
 	httpOptions := &api.Options{Headers: headers}
 
-	items, err := api.JSONGetCollection[api.KSObject](getObjectListUrl(typeName), httpOptions)
+	var result api.CollectionResult[KSObject]
+	err := api.JSONGetCollection[KSObject](getObjectListUrl(typeName), &result, httpOptions)
 	if err != nil {
 		return objects
 	}
 
-	for _, s := range items {
+	for _, s := range result.Items {
 		if strings.HasPrefix(s.ID, prefix) {
 			objects = append(objects, s.ID)
 		}
@@ -115,12 +116,13 @@ func getObjectsForType(typeName string, lType string, layerID string, prefix str
 
 func getTypes(prefix string) (types []string) {
 
-	items, err := api.JSONGetCollection[api.KSType](getTypeUrl(""), nil)
+	var result api.CollectionResult[KSType]
+	err := api.JSONGetCollection[KSType](getTypeUrl(""), &result, nil)
 	if err != nil {
 		return types
 	}
 
-	for _, s := range items {
+	for _, s := range result.Items {
 		t := fmt.Sprintf("%s:%s", s.Solution, s.Name)
 		if strings.HasPrefix(t, prefix) {
 			types = append(types, t)

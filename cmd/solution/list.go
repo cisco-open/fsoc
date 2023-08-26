@@ -91,12 +91,13 @@ func getSolutionNames(prefix string) (names []string) {
 	}
 	httpOptions := &api.Options{Headers: headers}
 
-	items, err := api.JSONGetCollection[api.KSObject](getSolutionListUrl(), httpOptions)
+	var result api.CollectionResult[Solution]
+	err := api.JSONGetCollection[Solution](getSolutionListUrl(), &result, httpOptions)
 	if err != nil {
 		return names
 	}
 
-	for _, s := range items {
+	for _, s := range result.Items {
 		if strings.HasPrefix(s.ID, prefix) {
 			names = append(names, s.ID)
 		}

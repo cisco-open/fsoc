@@ -71,6 +71,17 @@ type SolutionDef struct {
 	Name         string   `json:"name,omitempty"`
 }
 
+type Solution struct {
+	ID             string `json:"id"`
+	LayerID        string `json:"layerId"`
+	LayerType      string `json:"layerType"`
+	ObjectMimeType string `json:"objectMimeType"`
+	TargetObjectId string `json:"targetObjectId"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
+	DisplayName    string `json:"displayName"`
+}
+
 func (manifest *Manifest) GetNamespaceName() string {
 	namespaceName := manifest.Name
 	if manifest.HasIsolation() {

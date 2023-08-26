@@ -80,15 +80,12 @@ func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOption
 		if method != "GET" {
 			log.Fatalf("bug: cannot request %q for a collection at %q, only GET is supported for collections", method, path)
 		}
-		items, err := api.JSONGetCollection[any](path, httpOptions)
+		var result api.CollectionResult[any]
+		err := api.JSONGetCollection[any](path, &result, httpOptions)
 		if err != nil {
 			log.Fatalf("Platform API call failed: %v", err)
 		}
-		res = struct {
-			Items []any `json:"items"`
-		}{
-			Items: items,
-		}
+		res = result
 
 	} else {
 		err = api.JSONRequest(method, path, body, &res, httpOptions)
