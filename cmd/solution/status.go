@@ -224,7 +224,7 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	statusTypeToFetch, _ := cmd.Flags().GetString("status-type")
 	solutionTag, _ := cmd.Flags().GetString("tag")
 	fetchLastSuccessfulInstallation, _ := cmd.Flags().GetBool("last-successful-install")
-	solutionInstallSuccessfulFilter = fmt.Sprintf(`data.isSuccessful eq "true"`)
+	solutionInstallSuccessfulFilter = `data.isSuccessful eq "true"`
 	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
 	solutionNameFilter = fmt.Sprintf(`data.solutionName eq "%s"`, solutionName)
 	solutionTagFilter = fmt.Sprintf(`data.tag eq "%s"`, solutionTag)
