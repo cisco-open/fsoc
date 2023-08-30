@@ -58,9 +58,9 @@ func displayVersion(cmd *cobra.Command) {
 		titles = append(titles, fieldTuple[0])
 		values = append(values, fieldTuple[1])
 	}
-	output.PrintCmdOutputCustom(cmd, version, &output.PrintRequest{Table: &output.Table{
+	output.PrintCmdOutputCustom(cmd, version, &output.Table{
 		Headers: titles,
 		Lines:   [][]string{values},
 		Detail:  true,
-	}})
+	})
 }

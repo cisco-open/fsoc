@@ -132,7 +132,11 @@ func PrintCmdStatus(cmd *cobra.Command, s string) {
 // If human format is requested/assumed but no table is provided, displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
 func PrintCmdOutput(cmd *cobra.Command, v any) {
-	PrintCmdOutputCustom(cmd, v, nil)
+	PrintCmdOutputAdvanced(cmd, v, nil)
+}
+
+func PrintCmdOutputCustom(cmd *cobra.Command, v any, table *Table) {
+	PrintCmdOutputAdvanced(cmd, v, &PrintRequest{Table: table})
 }
 
 // PrintCmdOutputCustom displays the output of a command in the user-selected output format
@@ -140,7 +144,7 @@ func PrintCmdOutput(cmd *cobra.Command, v any) {
 // If cmd is not provided or it has no `output` flag, human is assumed
 // If human format is requested/assumed but no table is provided, displays YAML
 // If the object cannot be converted to the desired format, shows the object in Go's %+v format
-func PrintCmdOutputCustom(cmd *cobra.Command, v any, pr *PrintRequest) {
+func PrintCmdOutputAdvanced(cmd *cobra.Command, v any, pr *PrintRequest) {
 
 	if pr == nil {
 		pr = &PrintRequest{}

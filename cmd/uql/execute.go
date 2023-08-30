@@ -96,17 +96,18 @@ type position struct {
 
 type uqlService interface {
 	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
-	Continue(link *Link, options *api.Options) (parsedResponse, error)
+	Continue(link *Link) (parsedResponse, error)
 }
 
-type defaultBackend struct {
+type DefaultBackend struct {
+	ApiOptions *api.Options
 }
 
-func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
+func (b DefaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, nil)
+	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, b.ApiOptions)
 	if err != nil {
 		if problem, ok := err.(api.Problem); ok {
 			return parsedResponse{}, makeUqlProblem(problem)
@@ -124,11 +125,11 @@ func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResp
 	}, nil
 }
 
-func (b defaultBackend) Continue(link *Link, options *api.Options) (parsedResponse, error) {
+func (b DefaultBackend) Continue(link *Link) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONGet(link.Href, &rawJson, options)
+	err := api.JSONGet(link.Href, &rawJson, b.ApiOptions)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
 	}
@@ -143,11 +144,34 @@ func (b defaultBackend) Continue(link *Link, options *api.Options) (parsedRespon
 	}, nil
 }
 
-var backend uqlService = &defaultBackend{}
+type UqlClient interface {
+	ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error)
+	ContinueQuery(dataSet *DataSet, rel string) (*Response, error)
+}
+
+type DefaultClient struct {
+	Backend uqlService
+}
+
+func (c DefaultClient) ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
+	if c.Backend == nil {
+		return nil, fmt.Errorf("uql Backend missing")
+	}
+	return executeUqlQuery(query, apiVersion, c.Backend)
+}
+
+func (c DefaultClient) ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
+	if c.Backend == nil {
+		return nil, fmt.Errorf("uql Backend missing")
+	}
+	return continueUqlQuery(dataSet, rel, c.Backend)
+}
+
+var client UqlClient = &DefaultClient{Backend: &DefaultBackend{}}
 
 // ExecuteQuery sends an execute request to the UQL service
 func ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	return executeUqlQuery(query, apiVersion, backend)
+	return client.ExecuteQuery(query, apiVersion)
 }
 
 func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*Response, error) {
@@ -169,22 +193,17 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 
 // ContinueQuery sends a continue request to the UQL service
 func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
-	return continueUqlQuery(dataSet, rel, backend, nil)
+	return client.ContinueQuery(dataSet, rel)
 }
 
-// ContinueQueryCustom is the same as ContinueQuery but allows customizing the underlying http request headers and verbosity
-func ContinueQueryCustom(dataSet *DataSet, rel string, options *api.Options) (*Response, error) {
-	return continueUqlQuery(dataSet, rel, backend, options)
-}
-
-func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService, options *api.Options) (*Response, error) {
+func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {
 	link := extractLink(dataSet, rel)
 
 	if link == nil {
 		return nil, fmt.Errorf("link with rel '%s' not found in dataset", rel)
 	}
 
-	response, err := backend.Continue(link, options)
+	response, err := backend.Continue(link)
 	if err != nil {
 		return nil, err
 	}

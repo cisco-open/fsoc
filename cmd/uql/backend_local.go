@@ -11,8 +11,6 @@ import (
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
-
-	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var localUqlUrl string
@@ -26,7 +24,7 @@ var localUqlTenantId string
 //
 //	go build -tags uql_direct -ldflags="-X 'github.com/cisco-open/fsoc/cmd/uql.localUqlUrl=http://localhost:8042' -X 'github.com/cisco-open/fsoc/cmd/uql.localUqlTenantId=00000000-0000-0000-0000-00000000'"
 func init() {
-	backend = &localBackend{baseUrl: localUqlUrl, tenantId: localUqlTenantId, client: &http.Client{}}
+	client.Backend = &localBackend{baseUrl: localUqlUrl, tenantId: localUqlTenantId, client: &http.Client{}}
 }
 
 type localBackend struct {
@@ -46,7 +44,7 @@ func (b *localBackend) Execute(query *Query, apiVersion ApiVersion) (parsedRespo
 	return b.sendRequest(request)
 }
 
-func (b *localBackend) Continue(link *Link, _ api.Options) (parsedResponse, error) {
+func (b *localBackend) Continue(link *Link) (parsedResponse, error) {
 	request, err := http.NewRequest("GET", b.baseUrl+link.Href, nil)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, "failed to create http request")

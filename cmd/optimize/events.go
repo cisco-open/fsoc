@@ -314,8 +314,13 @@ type followEventResult struct {
 	err      error
 }
 
+var followClient uql.UqlClient = &uql.DefaultClient{
+	Backend: &uql.DefaultBackend{
+		ApiOptions: &api.Options{
+			Quiet: true}}}
+
 func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.DataSet, error) {
-	resp, err := uql.ContinueQueryCustom(data_set, "follow", &api.Options{Quiet: true})
+	resp, err := followClient.ContinueQuery(data_set, "follow")
 	if err != nil {
 		return nil, fmt.Errorf("follow uql.ContinueQuery: %w", err)
 	}
@@ -348,7 +353,7 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.Data
 	}
 	if newRowsCount := len(newRows); newRowsCount > 0 {
 		// TODO print table without headers
-		output.PrintCmdOutputCustom(cmd, struct {
+		output.PrintCmdOutputAdvanced(cmd, struct {
 			Items []eventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: newRows, Total: newRowsCount}, &output.PrintRequest{HideTableHeaders: true})
