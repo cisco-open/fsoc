@@ -13,7 +13,6 @@ import (
 	logs "go.opentelemetry.io/proto/otlp/logs/v1"
 	metrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resource "go.opentelemetry.io/proto/otlp/resource/v1"
-	v1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	spans "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -123,7 +122,7 @@ func (exp *Exporter) buildMetricsPayload(entities []*Entity) *collmetrics.Export
 	return emsr
 }
 
-func (exp *Exporter) addRelationships(rels []*Relationship, r *v1.Resource) {
+func (exp *Exporter) addRelationships(rels []*Relationship, r *resource.Resource) {
 	// add relationships
 	if len(rels) > 0 {
 		attrib := &common.KeyValue{
@@ -394,7 +393,7 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 
 	data, err := proto.Marshal(m)
 	if err != nil {
-		return fmt.Errorf("Failed to marshal MELT data: %w", err)
+		return fmt.Errorf("failed to marshal MELT data: %w", err)
 	}
 
 	err = api.HTTPPost("data/v1/"+path, data, nil, &options)

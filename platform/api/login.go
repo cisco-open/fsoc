@@ -142,7 +142,7 @@ func checkConfigForAuth(cfg *config.Context) error {
 		for k := range requiredSettings { // look at keys only to determine which methods are supported
 			methods = append(methods, k)
 		}
-		return fmt.Errorf(`Authentication method %q is not supported yet, please use one of {"%v"} 
+		return fmt.Errorf(`authentication method %q is not supported yet, please use one of {"%v"} 
 		Example:
 		fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com`, cfg.AuthMethod, strings.Join(methods, `", "`))
 	}
@@ -167,7 +167,7 @@ func checkConfigForAuth(cfg *config.Context) error {
 			missList = append(missList, fieldToFlag[field])
 		}
 		usage := `Use "fsoc config set [--config CONFIG_FILE] [--profile=PROFILE] auth=AUTH_METHOD ..."`
-		return fmt.Errorf("The current context is missing required configuration to perform a login: %v\n%v", strings.Join(missList, ","), usage)
+		return fmt.Errorf("the current context is missing required configuration to perform a login: %v\n%v", strings.Join(missList, ","), usage)
 	}
 
 	return nil

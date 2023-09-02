@@ -86,7 +86,7 @@ func oauthLogin(ctx *callContext) error {
 	if ctx.cfg.Tenant == "" {
 		tenantId, err := resolveTenant(ctx)
 		if err != nil {
-			return fmt.Errorf("Could not resolve tenant ID for %q: %v", ctx.cfg.URL, err.Error())
+			return fmt.Errorf("could not resolve tenant ID for %q: %v", ctx.cfg.URL, err.Error())
 		}
 		ctx.cfg.Tenant = tenantId
 		log.Infof("Successfully resolved tenant ID to %v", ctx.cfg.Tenant)
@@ -141,12 +141,12 @@ func oauthLogin(ctx *callContext) error {
 	// open browser to perform login, collect auth with a localhost http server
 	authCode, err := getAuthorizationCodes(ctx, url)
 	if err != nil {
-		return fmt.Errorf("Login failed to obtain the authorization code: %v", err)
+		return fmt.Errorf("login failed to obtain the authorization code: %v", err)
 	}
 
 	// verify nonce, must match
 	if state != authCode.State {
-		return fmt.Errorf("Login failed: received auth state doesn't match. A session replay or similar attack is likely in progress. Please log out of all sessions.")
+		return fmt.Errorf("login failed: received auth state doesn't match (a session replay or similar attack is likely in progress; please log out of all sessions!)")
 	}
 
 	// TODO: make the exchange work with the auth2 package (fails, likely due to us needing urlencoded data)
@@ -154,13 +154,13 @@ func oauthLogin(ctx *callContext) error {
 	// 	code.Verifier(),
 	// )
 	// if err != nil {
-	// 	return nil, fmt.Errorf("Login failed: failed to obtain token: %v", err.Error())
+	// 	return nil, fmt.Errorf("login failed: failed to obtain token: %v", err.Error())
 	// }
 
 	// exchange auth code for token (using a hand-crafted exchange request)
 	token, err := exchangeCodeForToken(ctx, conf, code, authCode)
 	if err != nil {
-		return fmt.Errorf("Failed to exchange auth code for a token: %v", err.Error())
+		return fmt.Errorf("failed to exchange auth code for a token: %v", err.Error())
 	}
 
 	userID, err := extractUser(token.AccessToken)
@@ -186,7 +186,7 @@ func getAuthorizationCodes(ctx *callContext, url string) (*authCodes, error) {
 	// start http server to receive the auth callback
 	callbackServer, respChan, err := startCallbackServer()
 	if err != nil {
-		return nil, fmt.Errorf("Could not start a local http server for auth: %v", err.Error())
+		return nil, fmt.Errorf("could not start a local http server for auth: %v", err.Error())
 	}
 	defer func() {
 		_ = stopCallbackServer(callbackServer) // no check needed, error should be logged
@@ -228,7 +228,7 @@ func exchangeCodeForToken(ctx *callContext, conf *oauth2.Config, pkce pkce.Code,
 	// create a POST HTTP request
 	req, err := http.NewRequest("POST", conf.Endpoint.TokenURL, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a request %q: %v", conf.Endpoint.TokenURL, err.Error())
+		return nil, fmt.Errorf("failed to create a request %q: %v", conf.Endpoint.TokenURL, err.Error())
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
@@ -252,7 +252,7 @@ func exchangeCodeForToken(ctx *callContext, conf *oauth2.Config, pkce pkce.Code,
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed reading response to POST to %q: %v", req.RequestURI, err.Error())
+		return nil, fmt.Errorf("failed reading response to POST to %q: %v", req.RequestURI, err.Error())
 	}
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
@@ -263,15 +263,15 @@ func exchangeCodeForToken(ctx *callContext, conf *oauth2.Config, pkce pkce.Code,
 		err := json.Unmarshal(respBytes, &errobj)
 		if err != nil {
 			// process as a string instead, ignore parsing error
-			return nil, fmt.Errorf("Error response: `%v`", bytes.NewBuffer(respBytes).String())
+			return nil, fmt.Errorf("error response: `%v`", bytes.NewBuffer(respBytes).String())
 		}
-		return nil, fmt.Errorf("Error response: %+v", errobj)
+		return nil, fmt.Errorf("error response: %+v", errobj)
 	}
 
 	// parse tokens
 	var tokenObject appTokens
 	if err := json.Unmarshal(respBytes, &tokenObject); err != nil {
-		return nil, fmt.Errorf("Failed to JSON parse the response as a token object: %v", err.Error())
+		return nil, fmt.Errorf("failed to JSON parse the response as a token object: %v", err.Error())
 	}
 
 	return &tokenObject, nil
@@ -299,7 +299,7 @@ func oauthRefreshToken(ctx *callContext) error {
 	tokenUri := oauthUriWithSuffix(ctx.cfg, oauth2TokenUriSuffix)
 	req, err := http.NewRequest("POST", tokenUri, bodyReader)
 	if err != nil {
-		return fmt.Errorf("Failed to create a token refresh request %q: %v", tokenUri, err)
+		return fmt.Errorf("failed to create a token refresh request %q: %v", tokenUri, err)
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
 
@@ -323,7 +323,7 @@ func oauthRefreshToken(ctx *callContext) error {
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed reading response to POST to %q: %v", req.RequestURI, err.Error())
+		return fmt.Errorf("failed reading response to POST to %q: %v", req.RequestURI, err.Error())
 	}
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
@@ -334,7 +334,7 @@ func oauthRefreshToken(ctx *callContext) error {
 	// parse tokens
 	var tokenObject appTokens
 	if err := json.Unmarshal(respBytes, &tokenObject); err != nil {
-		return fmt.Errorf("Failed to JSON parse the response as a token object: %w", err)
+		return fmt.Errorf("failed to JSON parse the response as a token object: %w", err)
 	}
 
 	// update tokens in context
@@ -347,7 +347,7 @@ func oauthRefreshToken(ctx *callContext) error {
 func oauthUriWithSuffix(ctx *config.Context, suffix string) string {
 	uri, err := url.JoinPath(ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix)
 	if err != nil {
-		panic(fmt.Sprintf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err))
+		log.Fatalf("unexpected failure constructing oauth2 endpoint URI: %v; terminating (likely a bug)", err)
 	}
 	return uri
 	// return strings.Join([]string{ctx.URL, "auth", ctx.Tenant, oauth2ClientId, suffix}, "/")
@@ -360,7 +360,7 @@ func startCallbackServer() (*http.Server, chan authCodes, error) {
 	// start server at oauthRedirectUri
 	urlStruct, err := url.Parse(oauthRedirectUri)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to parse callback URL %q: %v", oauthRedirectUri, err)
+		return nil, nil, fmt.Errorf("failed to parse callback URL %q: %v", oauthRedirectUri, err)
 	}
 	server := &http.Server{
 		Addr: urlStruct.Host, // host:port
@@ -381,7 +381,7 @@ func startCallbackServer() (*http.Server, chan authCodes, error) {
 
 func stopCallbackServer(server *http.Server) error {
 	if err := server.Close(); err != nil {
-		err = fmt.Errorf("Error stopping the auth http server on %v: %v", server.Addr, err)
+		err = fmt.Errorf("error stopping the auth http server on %v: %v", server.Addr, err)
 		log.Errorf("%v", err)
 		return err
 	}

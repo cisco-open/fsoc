@@ -79,7 +79,7 @@ func servicePrincipalLogin(ctx *callContext) error {
 	}
 	credentials, err := readServiceCredentials(file)
 	if err != nil {
-		return fmt.Errorf("Failed to read credentials file %q: %v", file, err)
+		return fmt.Errorf("failed to read credentials file %q: %v", file, err)
 	}
 
 	return agentOrServicePrincipalLogin(ctx, "service principal", credentials)
@@ -91,7 +91,7 @@ func agentPrincipalLogin(ctx *callContext) error {
 	file := ctx.cfg.SecretFile
 	credentials, err := readAgentCredentials(file)
 	if err != nil {
-		return fmt.Errorf("Failed to read credentials file %q: %v", file, err)
+		return fmt.Errorf("failed to read credentials file %q: %v", file, err)
 	}
 
 	return agentOrServicePrincipalLogin(ctx, "agent principal", credentials)
@@ -105,7 +105,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	if ctx.cfg.Tenant == "" {
 		// some credentials formats include the tenant, use it if it's provided
 		if credentials.TenantID == "" {
-			return fmt.Errorf(`Missing tenant ID, please specify using "fsoc config set tenant=TENANTID"`)
+			return fmt.Errorf(`missing tenant ID, please specify using "fsoc config set tenant=TENANTID"`)
 		}
 		ctx.cfg.Tenant = credentials.TenantID
 		log.WithField("tenantID", ctx.cfg.Tenant).Info("Extracted tenant ID from the credentials file")
@@ -113,11 +113,11 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	if ctx.cfg.URL == "" {
 		// some credentials formats provide the tokenURL from which we can get the server URL
 		if credentials.TokenURL == "" {
-			return fmt.Errorf(`Missing server URL, please specify using "fsoc config set url=https://MYTENANT.observe.appdynamics.com"`)
+			return fmt.Errorf(`missing server URL, please specify using "fsoc config set url=https://MYTENANT.observe.appdynamics.com"`)
 		}
 		urlStruct, err := url.Parse(credentials.TokenURL)
 		if err != nil {
-			return fmt.Errorf("Failed to parse server URL from the credentials token URL, %q: %v", credentials.TokenURL, err)
+			return fmt.Errorf("failed to parse server URL from the credentials token URL, %q: %v", credentials.TokenURL, err)
 		}
 		ctx.cfg.URL = urlStruct.Scheme + "://" + urlStruct.Host
 		log.WithField("url", ctx.cfg.URL).Info("Extracted server URL from the credentials file")
@@ -133,7 +133,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url.String(), strings.NewReader("grant_type=client_credentials")) //TODO: urlencode data!
 	if err != nil {
-		return fmt.Errorf("Failed to create a request for %q: %v", url.String(), err)
+		return fmt.Errorf("failed to create a request for %q: %v", url.String(), err)
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
@@ -144,7 +144,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	resp, err := client.Do(req)
 	ctx.stopSpinner(err == nil && resp.StatusCode == 200)
 	if err != nil {
-		return fmt.Errorf("Failed to request auth (%q): %w", url.String(), err)
+		return fmt.Errorf("failed to request auth (%q): %w", url.String(), err)
 	}
 	if resp.StatusCode != 200 {
 		// log error here before trying to parse body, more processing later
@@ -156,7 +156,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	defer resp.Body.Close()
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed reading login response from %q: %w", url.String(), err)
+		return fmt.Errorf("failed reading login response from %q: %w", url.String(), err)
 	}
 
 	// report error if failed & return
@@ -168,7 +168,7 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	var token tokenStruct
 	err = json.Unmarshal(respBytes, &token)
 	if err != nil {
-		log.Errorf("Failed to parse token: %v", err.Error())
+		log.Errorf("failed to parse token: %v", err.Error())
 		return err
 	}
 	log.Info("Login returned a valid token")
@@ -201,18 +201,18 @@ func readAgentCredentials(file string) (*credentialsStruct, error) {
 func readJsonCredentials(file string) (*credentialsStruct, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to open the credentials file %q: %w", file, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to read the credentials file %q: %w", file, err)
 	}
 
 	var credentials credentialsStruct
 	if err = json.Unmarshal(data, &credentials); err != nil {
-		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to parse credentials file %q: %w", file, err)
 	}
 
 	return &credentials, nil
@@ -264,20 +264,20 @@ func readCsvCredentials(file string) (*credentialsStruct, error) {
 func readAgentHelmCredentials(file string) (*credentialsStruct, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to open the credentials file %q: %w", file, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to read the credentials file %q: %w", file, err)
 	}
 
 	// read YAML file with helm credentials for an agent
 	var helmVars helmSettingsStruct
 	err = yaml.Unmarshal(data, &helmVars)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to parse credentials file %q: %w", file, err)
 	}
 
 	// extract tenant ID from tokenURL (best effort)
@@ -301,18 +301,18 @@ func readAgentHelmCredentials(file string) (*credentialsStruct, error) {
 func readAgentJsonCredentials(file string) (*credentialsStruct, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to open the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to open the credentials file %q: %w", file, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read the credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to read the credentials file %q: %w", file, err)
 	}
 
 	var agentCredentials agentCredentialsStruct
 	if err = json.Unmarshal(data, &agentCredentials); err != nil {
-		return nil, fmt.Errorf("Failed to parse credentials file %q: %w", file, err)
+		return nil, fmt.Errorf("failed to parse credentials file %q: %w", file, err)
 	}
 
 	return &credentialsStruct{
