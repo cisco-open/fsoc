@@ -29,17 +29,17 @@ func extractUser(accessToken string) (string, error) {
 	var userData user
 	metaDataStringArray := strings.Split(accessToken, ".")
 	if len(metaDataStringArray) < 3 {
-		return "", fmt.Errorf("Invalid bearer token detected")
+		return "", fmt.Errorf("invalid bearer token detected")
 	}
 
 	// try to decode metadata token
 	metaDataString := metaDataStringArray[1]
 	decodedMetaDataBytes, err := base64.RawStdEncoding.DecodeString(metaDataString)
 	if err != nil {
-		return "", fmt.Errorf("Failed to decode base64 string: %v", err.Error())
+		return "", fmt.Errorf("failed to decode base64 string: %v", err.Error())
 	}
 	if err := json.Unmarshal(decodedMetaDataBytes, &userData); err != nil {
-		return "", fmt.Errorf("Failed to JSON parse the `sub` from the decoded bearer token with error %v", err.Error())
+		return "", fmt.Errorf("failed to JSON parse the `sub` from the decoded bearer token with error %v", err.Error())
 	}
 
 	return userData.ID, nil

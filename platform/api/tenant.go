@@ -43,7 +43,7 @@ func resolveTenant(ctx *callContext) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", resolverUri, nil)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create a request %q: %v", resolverUri, err.Error())
+		return "", fmt.Errorf("failed to create a request %q: %v", resolverUri, err.Error())
 	}
 
 	// execute request
@@ -66,7 +66,7 @@ func resolveTenant(ctx *callContext) (string, error) {
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("Failed reading response to GET to %q: %v", req.RequestURI, err.Error())
+		return "", fmt.Errorf("failed reading response to GET to %q: %v", req.RequestURI, err.Error())
 	}
 
 	// parse response body in case of error (special parsing logic, tolerate non-JSON responses)
@@ -77,7 +77,7 @@ func resolveTenant(ctx *callContext) (string, error) {
 	// parse and update tenant ID
 	var respObj tenantPayload
 	if err := json.Unmarshal(respBytes, &respObj); err != nil {
-		return "", fmt.Errorf("Failed to JSON parse the response as a tenant ID object: %v", err.Error())
+		return "", fmt.Errorf("failed to JSON parse the response as a tenant ID object: %v", err.Error())
 	}
 
 	return respObj.TenantId, nil
@@ -93,7 +93,7 @@ func computeResolverEndpoint(ctx *config.Context) (string, error) {
 
 	elements := strings.Split(uri.Host, ".") // last element may have ":<port>"
 	if len(elements) != 4 {
-		return "", fmt.Errorf("Cannot determine tenant resolver URI for %q, please specify tenant argument with `fsoc config set`", ctx.URL)
+		return "", fmt.Errorf("cannot determine tenant resolver URI for %q, please specify tenant argument with `fsoc config set`", ctx.URL)
 	}
 
 	elements[0] = RESOLVER_HOST
