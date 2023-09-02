@@ -321,7 +321,7 @@ func reportNewVersionAvailable(latestVersion *semver.Version) {
 			var versionString string
 			_, err = fmt.Fscanf(f, "%s", &versionString)
 			if err != nil {
-				log.Infof("failed to read from version file: %v", err)
+				log.Warnf("failed to read from fsoc version file: %v", err)
 			} else {
 				latestVersion, err = semver.NewVersion(versionString)
 				if err != nil {
