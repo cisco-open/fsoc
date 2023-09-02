@@ -325,7 +325,7 @@ func reportNewVersionAvailable(latestVersion *semver.Version) {
 			} else {
 				latestVersion, err = semver.NewVersion(versionString)
 				if err != nil {
-					log.Infof("failed to parse version file: %v", err)
+					log.Warnf("failed to parse fsoc version file: %v", err)
 				}
 			}
 		}
