@@ -279,7 +279,7 @@ func versionCheckEnabled(cmd *cobra.Command) bool {
 // Complete the version check if it was started, in a non-blocking way. Returns the latest version if we could get it
 func completeVersionCheck() (latestVersion *semver.Version) {
 	if updateChannel == nil {
-		return nil // notging to do
+		return nil // nothing to do
 	}
 
 	// See if we have a result, but don't block on it
