@@ -15,7 +15,6 @@
 package solution
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -92,14 +91,13 @@ func getSolutionNames(prefix string) (names []string) {
 	}
 	httpOptions := &api.Options{Headers: headers}
 
-	var res SolutionList
-	url := fmt.Sprintf("%s?max=%d", getSolutionListUrl(), api.MAX_COMPLETION_RESULTS)
-	err := api.JSONGet(url, &res, httpOptions)
+	var result api.CollectionResult[Solution]
+	err := api.JSONGetCollection[Solution](getSolutionListUrl(), &result, httpOptions)
 	if err != nil {
 		return names
 	}
 
-	for _, s := range res.Items {
+	for _, s := range result.Items {
 		if strings.HasPrefix(s.ID, prefix) {
 			names = append(names, s.ID)
 		}
