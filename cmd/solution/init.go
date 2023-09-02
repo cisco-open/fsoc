@@ -125,13 +125,13 @@ func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	filepath := fmt.Sprintf("%s/manifest.json", folderName)
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
 	if err != nil {
-		return fmt.Errorf("Failed to create manifest file %q: %w", filepath, err)
+		return fmt.Errorf("failed to create manifest file %q: %w", filepath, err)
 	}
 	defer manifestFile.Close()
 
 	err = output.WriteJson(manifest, manifestFile)
 	if err != nil {
-		return fmt.Errorf("Failed to write the manifest into file %q: %w", filepath, err)
+		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
 	}
 
 	// the file is closed before returning (see defer above)

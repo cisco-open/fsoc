@@ -79,7 +79,7 @@ func isSystemSolution(solutionName string) (bool, error) {
 	getSolutionUrl := fmt.Sprintf(getSolutionListUrl()+"/%s", solutionName)
 	err := api.JSONGet(getSolutionUrl, &solData, &api.Options{Headers: headers})
 	if err != nil {
-		return false, fmt.Errorf("Failed to get solution info: %v", err)
+		return false, fmt.Errorf("failed to get solution info: %v", err)
 	}
 
 	return solData.Data.IsSystem, nil

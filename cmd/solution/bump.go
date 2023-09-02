@@ -67,13 +67,13 @@ func bumpSolutionVersion(cmd *cobra.Command, args []string) {
 func bumpManifestPatchVersion(m *Manifest) error {
 	ver, err := semver.StrictNewVersion(m.SolutionVersion)
 	if err != nil {
-		return fmt.Errorf("Failed to semver parse solution version %q: %w", m.SolutionVersion, err)
+		return fmt.Errorf("failed to semver parse solution version %q: %w", m.SolutionVersion, err)
 	}
 
 	// refuse to bump if the version has prelease or metadata, as "bump"
 	// is not clearly defined in this case (see semver.Version.IncPatch() for details)
 	if ver.Prerelease() != "" || ver.Metadata() != "" {
-		return fmt.Errorf("Cannot bump current version %q because it has prelease and/or metadata info; please set the desired new version manually in the manifest", m.SolutionVersion)
+		return fmt.Errorf("cannot bump current version %q because it has prelease and/or metadata info; please set the desired new version manually in the manifest", m.SolutionVersion)
 	}
 
 	// bump patch version and update into the manifest
