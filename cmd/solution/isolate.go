@@ -124,7 +124,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 	}
 	srcPath, err := filepath.Abs(srcFolder)
 	if err != nil {
-		return "", "", fmt.Errorf("Error getting source directory %q: %w", srcFolder, err)
+		return "", "", fmt.Errorf("error getting source directory %q: %w", srcFolder, err)
 	}
 
 	// parse env vars
@@ -141,20 +141,20 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 		// e.g., for /home/joe/spacefleet4.zip create /tmp/fsocXXXXX/spacefleet4/
 		tempDirRoot, err := os.MkdirTemp("", "fsoc")
 		if err != nil {
-			return "", "", fmt.Errorf("Failed to create a temporary directory: %v", err)
+			return "", "", fmt.Errorf("failed to create a temporary directory: %v", err)
 		}
 		defer os.RemoveAll(tempDirRoot)
 		zipFileName := filepath.Base(targetFile)
 		dirName := zipFileName[:len(zipFileName)-len(filepath.Ext(zipFileName))]
 		tempDir := filepath.Join(tempDirRoot, dirName)
 		if targetPath, err = filepath.Abs(tempDir); err != nil {
-			return "", "", fmt.Errorf("Error getting absolute directory path %v", err)
+			return "", "", fmt.Errorf("error getting absolute directory path %v", err)
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Assembling solution in temp target directory %q\n", targetPath))
 	} else {
 		targetPath, err = filepath.Abs(targetFolder)
 		if err != nil {
-			return "", "", fmt.Errorf("Error getting target directory %v", err)
+			return "", "", fmt.Errorf("error getting target directory %v", err)
 		}
 	}
 
@@ -180,7 +180,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 		zipFile := generateZip(cmd, targetPath, "")
 		err = os.Rename(zipFile.Name(), targetFile)
 		if err != nil {
-			return "", "", fmt.Errorf("Failed to rename temp file %q to final file %q: %w", zipFile.Name(), targetFile, err)
+			return "", "", fmt.Errorf("failed to rename temp file %q to final file %q: %w", zipFile.Name(), targetFile, err)
 		}
 	}
 
@@ -192,12 +192,12 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interface{}) error {
 	srcFs := afero.NewBasePathFs(afero.NewOsFs(), srcPath)
 	if exists, _ := afero.DirExists(srcFs, "."); !exists {
-		return fmt.Errorf("Source directory %q does not exist", srcPath)
+		return fmt.Errorf("source directory %q does not exist", srcPath)
 	}
 	targetFs := afero.NewBasePathFs(afero.NewOsFs(), targetPath)
 	if exists, _ := afero.DirExists(targetFs, "."); exists {
 		if empty, _ := afero.IsEmpty(targetFs, "."); !empty {
-			return fmt.Errorf("Target directory %q is not empty", targetPath)
+			return fmt.Errorf("target directory %q is not empty", targetPath)
 		}
 	}
 
@@ -205,16 +205,16 @@ func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interfa
 		targetFileDir := filepath.Dir(targetFile)
 		targetFileFs := afero.NewBasePathFs(afero.NewOsFs(), targetFileDir)
 		if exists, _ := afero.DirExists(targetFileFs, "."); !exists {
-			return fmt.Errorf("Target file path %q does not exist", targetFileDir)
+			return fmt.Errorf("target file path %q does not exist", targetFileDir)
 		}
 		if !strings.HasSuffix(targetFile, ".zip") {
-			return fmt.Errorf(`Target file %q must have a ".zip" extension`, targetFile)
+			return fmt.Errorf(`target file %q must have a ".zip" extension`, targetFile)
 		}
 	}
 
 	err := targetFs.MkdirAll("", 0777)
 	if err != nil {
-		return fmt.Errorf("Failed to create target directory %q: %v", targetPath, err)
+		return fmt.Errorf("failed to create target directory %q: %v", targetPath, err)
 	}
 
 	return nil
@@ -236,13 +236,13 @@ func isolateManifest(cmd *cobra.Command, srcPath, targetPath string, envVars int
 	var manifest Manifest
 	err = json.Unmarshal(manifestFile, &manifest)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse solution manifest: %v", err)
+		return nil, fmt.Errorf("failed to parse solution manifest: %v", err)
 	}
 
 	targetFs := afero.NewBasePathFs(afero.NewOsFs(), targetPath)
 	f, err := targetFs.OpenFile("./manifest.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("Can't open manifest file: %v", err)
+		return nil, fmt.Errorf("can't open manifest file: %v", err)
 	}
 	defer f.Close()
 	err = output.WriteJson(manifest, f)
@@ -302,17 +302,17 @@ func LoadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Reading env vars from %q\n", envVarsFile))
 	absPath, err := filepath.Abs(envVarsFile)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get the absolute path for the env vars file %q: %w", envVarsFile, err)
+		return nil, fmt.Errorf("failed to get the absolute path for the env vars file %q: %w", envVarsFile, err)
 	}
 	fs := afero.NewBasePathFs(afero.NewOsFs(), absPath)
 	envVarsContent, err := afero.ReadFile(fs, ".")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read the env vars file: %w", err)
+		return nil, fmt.Errorf("failed to read the env vars file: %w", err)
 	}
 	var envVars interface{}
 	err = json.Unmarshal(envVarsContent, &envVars)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse env vars file: %w", err)
+		return nil, fmt.Errorf("failed to parse env vars file: %w", err)
 	}
 	return envVars, nil
 }
@@ -362,12 +362,12 @@ func evaluateJSONata(in []byte, envVars interface{}, fileName string) ([]byte, e
 		// compile jsonata expr
 		jexpr, err := jsonata.Compile(expr)
 		if err != nil {
-			return nil, fmt.Errorf("Error compiling expression %s in %s , error: %s", e, fileName, err)
+			return nil, fmt.Errorf("error compiling expression %s in %s , error: %s", e, fileName, err)
 		}
 		// evalute expr
 		res, err := jexpr.Eval(envVars)
 		if err != nil {
-			return nil, fmt.Errorf("Error evaluating expr %s in %s, error: %v", m[0], fileName, err)
+			return nil, fmt.Errorf("error evaluating expression %s in %s, error: %v", m[0], fileName, err)
 		}
 		out = bytes.ReplaceAll(out, []byte(m[0]), []byte(fmt.Sprintf("%s", res)))
 	}
