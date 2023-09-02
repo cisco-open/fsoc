@@ -314,7 +314,7 @@ func reportNewVersionAvailable(latestVersion *semver.Version) {
 		}
 		f, err := os.Open(getVersionFilePath())
 		if err != nil {
-			log.Infof("failed to open version file: %v", err)
+			log.Warnf("failed to open fsoc version file: %v", err)
 		} else {
 			defer f.Close()
 			// Read version from file
