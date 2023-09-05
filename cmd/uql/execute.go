@@ -99,15 +99,15 @@ type uqlService interface {
 	Continue(link *Link) (parsedResponse, error)
 }
 
-type DefaultBackend struct {
-	ApiOptions *api.Options
+type defaultBackend struct {
+	apiOptions *api.Options
 }
 
-func (b DefaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
+func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, b.ApiOptions)
+	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, b.apiOptions)
 	if err != nil {
 		if problem, ok := err.(api.Problem); ok {
 			return parsedResponse{}, makeUqlProblem(problem)
@@ -125,11 +125,11 @@ func (b DefaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResp
 	}, nil
 }
 
-func (b DefaultBackend) Continue(link *Link) (parsedResponse, error) {
+func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONGet(link.Href, &rawJson, b.ApiOptions)
+	err := api.JSONGet(link.Href, &rawJson, b.apiOptions)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
 	}
@@ -145,34 +145,34 @@ func (b DefaultBackend) Continue(link *Link) (parsedResponse, error) {
 }
 
 type UqlClient interface {
+	// ExecuteQuery sends an execute request to the UQL service
 	ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error)
+
+	// ContinueQuery sends a continue request to the UQL service
 	ContinueQuery(dataSet *DataSet, rel string) (*Response, error)
 }
 
-type DefaultClient struct {
-	Backend uqlService
+type defaultClient struct {
+	backend uqlService
 }
 
-func (c DefaultClient) ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	if c.Backend == nil {
-		return nil, fmt.Errorf("uql Backend missing")
+func (c defaultClient) ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
+	return executeUqlQuery(query, apiVersion, c.backend)
+}
+
+func (c defaultClient) ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
+	return continueUqlQuery(dataSet, rel, c.backend)
+}
+
+func MakeBackendClient(options *api.Options) UqlClient {
+	return &defaultClient{
+		backend: &defaultBackend{
+			apiOptions: options,
+		},
 	}
-	return executeUqlQuery(query, apiVersion, c.Backend)
 }
 
-func (c DefaultClient) ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
-	if c.Backend == nil {
-		return nil, fmt.Errorf("uql Backend missing")
-	}
-	return continueUqlQuery(dataSet, rel, c.Backend)
-}
-
-var client UqlClient = &DefaultClient{Backend: &DefaultBackend{}}
-
-// ExecuteQuery sends an execute request to the UQL service
-func ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	return client.ExecuteQuery(query, apiVersion)
-}
+var Client UqlClient = MakeBackendClient(nil)
 
 func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*Response, error) {
 	if query == nil || strings.Trim(query.Str, "") == "" {
@@ -189,11 +189,6 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 	}
 
 	return processResponse(response)
-}
-
-// ContinueQuery sends a continue request to the UQL service
-func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
-	return client.ContinueQuery(dataSet, rel)
 }
 
 func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {

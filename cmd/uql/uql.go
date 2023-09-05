@@ -138,7 +138,7 @@ func outputFormat(output string, useRaw bool) (format, error) {
 func runQuery(query string) (*Response, error) {
 	log.Info("fetch data")
 
-	resp, err := ExecuteQuery(&Query{Str: query}, ApiVersion1)
+	resp, err := Client.ExecuteQuery(&Query{Str: query}, ApiVersion1)
 	if err != nil {
 		return nil, err
 	}

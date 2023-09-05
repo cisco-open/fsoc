@@ -196,9 +196,9 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		query := buff.String()
 
 		// execute query, process results
-		resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+		resp, err := uql.Client.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
 		if err != nil {
-			return fmt.Errorf("uql.ExecuteQuery: %w", err)
+			return fmt.Errorf("uql.Client.ExecuteQuery: %w", err)
 		}
 		if resp.HasErrors() {
 			log.Error("Execution of events query encountered errors. Returned data may not be complete!")
@@ -236,9 +236,9 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			next_ok = false
 		}
 		for page := 2; next_ok; page++ {
-			resp, err = uql.ContinueQuery(data_set, "next")
+			resp, err = uql.Client.ContinueQuery(data_set, "next")
 			if err != nil {
-				return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+				return fmt.Errorf("page %v uql.Client.ContinueQuery: %w", page, err)
 			}
 			if resp.HasErrors() {
 				log.Errorf("Continuation of events query (page %v) encountered errors. Returned data may not be complete!", page)
@@ -314,15 +314,12 @@ type followEventResult struct {
 	err      error
 }
 
-var followClient uql.UqlClient = &uql.DefaultClient{
-	Backend: &uql.DefaultBackend{
-		ApiOptions: &api.Options{
-			Quiet: true}}}
+var followClient uql.UqlClient = uql.MakeBackendClient(&api.Options{Quiet: true})
 
 func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.DataSet, error) {
 	resp, err := followClient.ContinueQuery(data_set, "follow")
 	if err != nil {
-		return nil, fmt.Errorf("follow uql.ContinueQuery: %w", err)
+		return nil, fmt.Errorf("follow followClient.ContinueQuery: %w", err)
 	}
 	if resp.HasErrors() {
 		log.Error("Following of events query encountered errors. Returned data may not be complete!")
@@ -477,9 +474,9 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 		query := buff.String()
 
 		// execute query, process results
-		resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+		resp, err := uql.Client.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
 		if err != nil {
-			return fmt.Errorf("uql.ExecuteQuery: %w", err)
+			return fmt.Errorf("uql.Client.ExecuteQuery: %w", err)
 		}
 		if resp.HasErrors() {
 			log.Error("Execution of recommendations query encountered errors. Returned data may not be complete!")
@@ -517,9 +514,9 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			next_ok = false
 		}
 		for page := 2; next_ok; page++ {
-			resp, err = uql.ContinueQuery(data_set, "next")
+			resp, err = uql.Client.ContinueQuery(data_set, "next")
 			if err != nil {
-				return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+				return fmt.Errorf("page %v uql.Client.ContinueQuery: %w", page, err)
 			}
 			if resp.HasErrors() {
 				log.Errorf("Continuation of recommendations query (page %v) encountered errors. Returned data may not be complete!", page)
@@ -623,9 +620,9 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 	}
 	query := buff.String()
 
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.Client.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
 	if err != nil {
-		return []string{}, fmt.Errorf("uql.ExecuteQuery: %w", err)
+		return []string{}, fmt.Errorf("uql.Client.ExecuteQuery: %w", err)
 	}
 	if resp.HasErrors() {
 		log.Error("Execution of optimization query encountered errors. Returned data may not be complete!")
@@ -652,9 +649,9 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 
 	_, next_ok := mainDataSet.Links["next"]
 	for page := 2; next_ok; page++ {
-		resp, err = uql.ContinueQuery(mainDataSet, "next")
+		resp, err = uql.Client.ContinueQuery(mainDataSet, "next")
 		if err != nil {
-			return results, fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+			return results, fmt.Errorf("page %v uql.Client.ContinueQuery: %w", page, err)
 		}
 
 		if resp.HasErrors() {

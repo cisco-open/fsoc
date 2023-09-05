@@ -24,7 +24,7 @@ var localUqlTenantId string
 //
 //	go build -tags uql_direct -ldflags="-X 'github.com/cisco-open/fsoc/cmd/uql.localUqlUrl=http://localhost:8042' -X 'github.com/cisco-open/fsoc/cmd/uql.localUqlTenantId=00000000-0000-0000-0000-00000000'"
 func init() {
-	client.Backend = &localBackend{baseUrl: localUqlUrl, tenantId: localUqlTenantId, client: &http.Client{}}
+	Client.backend = &localBackend{baseUrl: localUqlUrl, tenantId: localUqlTenantId, client: &http.Client{}}
 }
 
 type localBackend struct {

@@ -85,7 +85,7 @@ func getWorkloadId(workloadName string) (*string, error) {
 	// UQL query to retrieve ID via workload.name attribute
 	queryStr := fmt.Sprintf("SINCE -7d FETCH id FROM entities(k8s:workload)[isActive = true][attributes(k8s.workload.name) = '%s']", workloadName)
 
-	response, err := uql.ExecuteQuery(&uql.Query{Str: queryStr}, uql.ApiVersion1)
+	response, err := uql.Client.ExecuteQuery(&uql.Query{Str: queryStr}, uql.ApiVersion1)
 	if err != nil {
 		return nil, err
 	}
