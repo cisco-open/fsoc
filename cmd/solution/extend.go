@@ -29,7 +29,7 @@ import (
 )
 
 var solutionExtendCmd = &cobra.Command{
-	Use:              "extend",
+	Use:              "extend [flags]",
 	Args:             cobra.ExactArgs(0),
 	Short:            "Extends your solution by adding new components",
 	Long:             `This command allows you to easily add new components to your solution.`,

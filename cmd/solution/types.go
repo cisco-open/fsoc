@@ -82,10 +82,6 @@ type Solution struct {
 	DisplayName    string `json:"displayName"`
 }
 
-type SolutionList struct {
-	Items []Solution `json:"items"`
-}
-
 func (manifest *Manifest) GetNamespaceName() string {
 	namespaceName := manifest.Name
 	if manifest.HasIsolation() {

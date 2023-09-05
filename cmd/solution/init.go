@@ -34,21 +34,13 @@ var solutionInitCmd = &cobra.Command{
 	Long: `This command creates a skeleton of a solution in the current directory.
 
 It creates a subdirectory named <solution-name> in the current directory and populates
-it with a solution manifest and objects for it. The optional --include-... flags
-define what objects are added to the solution. Once the solution is created,
-the "solution extend" command can be used to add more objects.`,
-	Example:          `  fsoc solution init --name=testSolution --include-service --include-knowledge`,
+it with a solution manifest and objects for it. Once the solution is created,
+the "solution extend" command can be used to add objects to it.`,
+	Example:          `  fsoc solution init mysolution`,
 	Run:              generateSolutionPackage,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
-
-// Planned options:
-//    include-service - Flag to include sample service component
-//    include-metric - Flag to include sample metric type component
-//    include-knowledge - Flag to include sample knowledge type component
-//    include-meltworkflow - Flag to include sample melt workflow
-//    include-dash-ui - Flag to include sample dash-ui template
 
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
@@ -57,8 +49,10 @@ func getInitSolutionCmd() *cobra.Command {
 
 	solutionInitCmd.Flags().
 		Bool("include-service", true, "Add a service component definition to this solution")
+	_ = solutionInitCmd.Flags().MarkDeprecated("include-service", `please use the "solution extend" command instead.`)
 	solutionInitCmd.Flags().
 		Bool("include-knowledge", true, "Add a knowledge type definition to this solution")
+	_ = solutionInitCmd.Flags().MarkDeprecated("include-knowledge", `please use the "solution extend" command instead.`)
 
 	return solutionInitCmd
 }
@@ -131,13 +125,13 @@ func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	filepath := fmt.Sprintf("%s/manifest.json", folderName)
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
 	if err != nil {
-		return fmt.Errorf("Failed to create manifest file %q: %w", filepath, err)
+		return fmt.Errorf("failed to create manifest file %q: %w", filepath, err)
 	}
 	defer manifestFile.Close()
 
 	err = output.WriteJson(manifest, manifestFile)
 	if err != nil {
-		return fmt.Errorf("Failed to write the manifest into file %q: %w", filepath, err)
+		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
 	}
 
 	// the file is closed before returning (see defer above)

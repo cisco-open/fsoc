@@ -63,7 +63,7 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, s
 	//       and use that as a prefix). This will have only cosmetic advantages.
 	targetDir, err := os.MkdirTemp("", "fsoc")
 	if err != nil {
-		return "", "", fmt.Errorf("Failed to create a temporary directory: %v", err)
+		return "", "", fmt.Errorf("failed to create a temporary directory: %v", err)
 	}
 	log.WithField("temp_solution_dir", targetDir).Info("Assembling solution in temp target directory")
 

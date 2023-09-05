@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/json"
 	"github.com/apex/log/handlers/multi"
@@ -43,9 +44,11 @@ var outputFormat string
 const FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 
 const (
-	secondsInDay      = 24 * 60 * 60
-	timestampFileName = "fsoc.timestamp"
+	versionCheckInterval = 24 * 60 * 60 // 1 day
+	versionFileName      = "fsoc.latest-version"
 )
+
+var updateChannel chan *semver.Version
 
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
@@ -77,6 +80,7 @@ For more information, see https://github.com/cisco-open/fsoc
 
 NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
+	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
 	DisableAutoGenTag: true,
 }
@@ -223,38 +227,27 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	}
 
 	// Do version checking
-	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
-	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
-	if err != nil {
-		envNoVerCheck = false
-	}
-	noVerCheck = noVerCheck || envNoVerCheck
-	updateCheckNeeded := !noVerCheck && int(time.Now().Unix())-getLastVersionCheckTime() > secondsInDay
-	if updateCheckNeeded {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Warnf("Failed to perform version check")
-				}
-			}()
-			var updateSemVar = version.CheckForUpdate()
-			version.CompareAndLogVersions(updateSemVar)
-			// Create new timestamp file (only if version was checked)
-			_ = os.Remove(getTimestampFilePath())
-			_, err := os.Create(getTimestampFilePath())
-			if err != nil {
-				log.Warnf("failed to create version check timestamp file: %v", err)
-			}
+	if versionCheckEnabled(cmd) && int(time.Now().Unix())-getLastVersionCheckTime() > versionCheckInterval {
+		updateChannel = make(chan *semver.Version)
+		go func() {
+			updateChannel <- version.CheckForUpdate()
 		}()
 	}
 }
 
-func getTimestampFilePath() string {
-	return os.TempDir() + "/" + timestampFileName
+func postExecHook(cmd *cobra.Command, args []string) {
+	latestVersion := completeVersionCheck()
+	if versionCheckEnabled(cmd) {
+		reportNewVersionAvailable(latestVersion)
+	}
+}
+
+func getVersionFilePath() string {
+	return os.TempDir() + "/" + versionFileName
 }
 
 func getLastVersionCheckTime() int {
-	fInfo, err := os.Stat(getTimestampFilePath())
+	fInfo, err := os.Stat(getVersionFilePath())
 	if err != nil {
 		return 0 // makes it a really old file
 	}
@@ -269,4 +262,76 @@ func bypassConfig(cmd *cobra.Command) bool {
 func isCompletionCommand(cmd *cobra.Command) bool {
 	p := cmd.Parent()
 	return (p != nil && p.Name() == "completion")
+}
+
+func versionCheckEnabled(cmd *cobra.Command) bool {
+	noVerCheck, _ := cmd.Flags().GetBool("no-version-check")
+	if noVerCheck {
+		return false
+	}
+	envNoVerCheck, err := strconv.ParseBool(os.Getenv(FSOC_NO_VERSION_CHECK))
+	if err == nil && envNoVerCheck {
+		return false
+	}
+	return true
+}
+
+// Complete the version check if it was started, in a non-blocking way. Returns the latest version if we could get it
+func completeVersionCheck() (latestVersion *semver.Version) {
+	if updateChannel == nil {
+		return nil // nothing to do
+	}
+
+	// See if we have a result, but don't block on it
+	select {
+	case latestVersion = <-updateChannel:
+		if latestVersion != nil {
+			// We got the latest version, store it in a file
+			f, err := os.Create(getVersionFilePath())
+			if err != nil {
+				log.Errorf("failed to create version file: %v", err)
+			} else {
+				_, err = f.WriteString(latestVersion.String())
+				if err != nil {
+					log.Errorf("failed to write to version file: %v", err)
+				}
+				f.Close()
+			}
+		}
+	default:
+		log.Infof("Did not finish checking for latest version in time, will try next time")
+	}
+
+	return latestVersion
+}
+
+func reportNewVersionAvailable(latestVersion *semver.Version) {
+	// If we did not do a successful version check, try to read from file, if it exists
+	if latestVersion == nil {
+		_, err := os.Stat(getVersionFilePath())
+		if err != nil {
+			return // no file, no version
+		}
+		f, err := os.Open(getVersionFilePath())
+		if err != nil {
+			log.Warnf("failed to open fsoc version file: %v", err)
+		} else {
+			defer f.Close()
+			// Read version from file
+			var versionString string
+			_, err = fmt.Fscanf(f, "%s", &versionString)
+			if err != nil {
+				log.Warnf("failed to read from fsoc version file: %v", err)
+			} else {
+				latestVersion, err = semver.NewVersion(versionString)
+				if err != nil {
+					log.Warnf("failed to parse fsoc version file: %v", err)
+				}
+			}
+		}
+	}
+	if latestVersion != nil {
+		version.CompareAndLogVersions(latestVersion)
+	}
+
 }

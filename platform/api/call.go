@@ -97,7 +97,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		// marshal body data to JSON
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to marshal body data: %w", err)
+			return nil, fmt.Errorf("failed to marshal body data: %w", err)
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	} else if body != nil {
@@ -119,7 +119,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	url.RawQuery = query
 	req, err := http.NewRequest(method, url.String(), bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a request for %q: %w", url.String(), err)
+		return nil, fmt.Errorf("failed to create a request for %q: %w", url.String(), err)
 	}
 
 	// add headers that are not already provided
@@ -224,7 +224,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	defer resp.Body.Close()
 	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
+		return fmt.Errorf("failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
 	}
 
 	// handle special case when access token needs to be refreshed and request retried
@@ -233,7 +233,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		log.Warn("Current token is no longer valid; trying to refresh")
 		err := login(callCtx)
 		if err != nil {
-			return fmt.Errorf("Failed to login: %w", err)
+			return fmt.Errorf("failed to login: %w", err)
 		}
 		cfg = callCtx.cfg // may have changed across login
 
@@ -254,7 +254,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		defer resp.Body.Close()
 		respBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("Failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
+			return fmt.Errorf("failed reading response to %v to %q (status %v): %w", method, req.URL.String(), resp.StatusCode, err)
 		}
 	}
 
@@ -282,13 +282,13 @@ func httpRequest(method string, path string, body any, out any, options *Options
 			// store the response data into specified file
 			err := os.WriteFile(solutionFileName, respBytes, 0777)
 			if err != nil {
-				return fmt.Errorf("Failed to save the solution archive file as %q: %w", solutionFileName, err)
+				return fmt.Errorf("failed to save the solution archive file as %q: %w", solutionFileName, err)
 			}
 			// if response code is 303 then it won't be valid json
 		} else if len(respBytes) > 0 && resp.StatusCode != 303 {
 			// unmarshal response from JSON (assuming JSON data, even if the content-type is not set)
 			if err := json.Unmarshal(respBytes, out); err != nil {
-				return fmt.Errorf("Failed to JSON-parse the response: %w (%q)", err, respBytes)
+				return fmt.Errorf("failed to JSON-parse the response: %w (%q)", err, respBytes)
 			}
 		}
 	}

@@ -65,7 +65,7 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"client-ID":     ClearField,
 			"secret-file":   AllowField,
 			"token":         ClearField,
-			"tenant":        ClearField,
+			"tenant":        AllowField,
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
@@ -77,7 +77,7 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"client-ID":     ClearField,
 			"secret-file":   AllowField,
 			"token":         ClearField,
-			"tenant":        ClearField,
+			"tenant":        AllowField,
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
@@ -122,7 +122,7 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"secret-file":   {}, //NA
 			"token":         {}, //NA
 			"tenant":        {}, //NA
-			"url":           {"tenant", "user", "token", "refresh_token", "secret-file"},
+			"url":           {"tenant", "user", "token", "refresh-token", "secret-file"},
 			"refresh-token": {}, //NA
 			"user":          {}, //NA
 			AppdTid:         {}, //NA
@@ -143,10 +143,10 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 		},
 		AuthMethodServicePrincipal: {
 			"client-ID":     {},
-			"secret-file":   {"url", "server", "tenant", "user", "token", "refresh_token"},
+			"secret-file":   {"url", "tenant", "user", "token", "refresh-token"},
 			"token":         {},
 			"tenant":        {},
-			"url":           {"tenant", "user", "token", "refresh_token"},
+			"url":           {"tenant", "user", "token", "refresh-token"},
 			"refresh-token": {},
 			"user":          {},
 			AppdTid:         {},
@@ -155,10 +155,10 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 		},
 		AuthMethodAgentPrincipal: {
 			"client-ID":     {},
-			"secret-file":   {"url", "server", "tenant", "user", "token", "refresh_token"},
+			"secret-file":   {"url", "tenant", "user", "token", "refresh-token"},
 			"token":         {},
 			"tenant":        {},
-			"url":           {"tenant", "user", "token", "refresh_token"},
+			"url":           {"tenant", "user", "token", "refresh-token"},
 			"refresh-token": {},
 			"user":          {},
 			AppdTid:         {},

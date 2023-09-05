@@ -117,7 +117,7 @@ func validateWriteReq(cmd *cobra.Command, authService string, field string) erro
 	if authProvider == "" {
 		return fmt.Errorf("must provide an authentication type before or while writing to other context fields")
 	}
-	if getAuthFieldConfigRow(authProvider)[field] == 0 {
+	if getAuthFieldConfigRow(authProvider)[field] == ClearField {
 		return fmt.Errorf("cannot write to field %s because it is not allowed for authentication method %s", field, authProvider)
 	}
 	return nil
@@ -129,9 +129,7 @@ func clearFields(fields []string, ctxPtr *Context) {
 	}
 	if slices.Contains(fields, "url") {
 		ctxPtr.URL = ""
-	}
-	if slices.Contains(fields, "server") {
-		ctxPtr.Server = ""
+		ctxPtr.Server = "" // server is just the old name of url
 	}
 	if slices.Contains(fields, "tenant") {
 		ctxPtr.Tenant = ""
@@ -142,7 +140,7 @@ func clearFields(fields []string, ctxPtr *Context) {
 	if slices.Contains(fields, "token") {
 		ctxPtr.Token = ""
 	}
-	if slices.Contains(fields, "refresh_token") {
+	if slices.Contains(fields, "refresh-token") {
 		ctxPtr.RefreshToken = ""
 	}
 	if slices.Contains(fields, "secret-file") {

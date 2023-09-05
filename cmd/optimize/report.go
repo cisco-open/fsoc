@@ -64,7 +64,7 @@ var reportCmd = &cobra.Command{
 List workloads and optimization eligibility
 
 If no flags are provided, all deployment workloads will be listed
-You can optionally filter worklaods to by cluster, namespace and/or name
+You can optionally filter workloads to by cluster, namespace and/or name
 You may specify also particular workloadId to fetch details for a single workload (recommended with -o detail or -o yaml)
 `,
 	Example:          `fsoc optimize report --namespace kube-system`,

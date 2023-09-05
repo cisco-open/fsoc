@@ -45,7 +45,7 @@ func newCallContext(quiet bool) *callContext {
 		log.Fatal("Missing context; use 'fsoc config set' to configure your context")
 		panic("unreachable") // keep golintci happy (until it recognizes apex/log fatals)
 	}
-	log.WithFields(log.Fields{"context": cfg.Name, "server": cfg.Server, "tenant": cfg.Tenant}).Info("Using context")
+	log.WithFields(log.Fields{"context": cfg.Name, "url": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")
 
 	var ctxSpinner *spinner.Spinner
 	if !quiet {
