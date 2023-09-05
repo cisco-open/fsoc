@@ -129,9 +129,9 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 		query := buff.String()
 
 		// execute query, process results
-		resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+		resp, err := uql.Client.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
 		if err != nil {
-			return fmt.Errorf("uql.ExecuteQuery: %w", err)
+			return fmt.Errorf("uql.Client.ExecuteQuery: %w", err)
 		}
 		if resp.HasErrors() {
 			log.Error("Execution of servo-logs query encountered errors. Returned data may not be complete!")
@@ -169,9 +169,9 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 			next_ok = false
 		}
 		for page := 2; next_ok; page++ {
-			resp, err = uql.ContinueQuery(data_set, "next")
+			resp, err = uql.Client.ContinueQuery(data_set, "next")
 			if err != nil {
-				return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+				return fmt.Errorf("page %v uql.Client.ContinueQuery: %w", page, err)
 			}
 			if resp.HasErrors() {
 				log.Errorf("Continuation of servo logs query (page %v) encountered errors. Returned data may not be complete!", page)
