@@ -235,6 +235,10 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			// instead of constraining to count
 			next_ok = false
 		}
+		if flags.follow {
+			// skip next cursor pagination on follow since the follow cursor contains the same data
+			next_ok = false
+		}
 		for page := 2; next_ok; page++ {
 			resp, err = uql.Client.ContinueQuery(data_set, "next")
 			if err != nil {
@@ -276,14 +280,13 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}{Items: eventRows, Total: len(eventRows)})
 
 		// handle follow
-		// restore first page dataset
-		data_set = main_data_set.Data[0][0].(*uql.DataSet)
 		if flags.follow && data_set != nil {
 			// setup async channels
 			interrupt := make(chan os.Signal, 1)
 			signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 			followChan := make(chan followEventResult, 1)
 			followChan <- followEventResult{data_set: data_set}
+			initialResultsExhausted := false
 
 			for {
 				select {
@@ -297,8 +300,12 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 					// queue up next follow interval sleep and print
 					// run in background to allow interrupts
 					go func() {
-						time.Sleep(flags.followInterval)
-						next_data_set, err := followDatasetAndPrint(cmd, followResult.data_set)
+						// Return immediately available results (additional pages) right away.
+						// Don't start waiting until follow cursor returns an empty response.
+						if initialResultsExhausted {
+							time.Sleep(flags.followInterval)
+						}
+						next_data_set, err := followDatasetAndPrint(cmd, followResult.data_set, &initialResultsExhausted)
 						followChan <- followEventResult{err: err, data_set: next_data_set}
 					}()
 				}
@@ -316,7 +323,7 @@ type followEventResult struct {
 
 var followClient uql.UqlClient = uql.MakeBackendClient(&api.Options{Quiet: true})
 
-func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.DataSet, error) {
+func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet, no_results_flag *bool) (*uql.DataSet, error) {
 	resp, err := followClient.ContinueQuery(data_set, "follow")
 	if err != nil {
 		return nil, fmt.Errorf("follow followClient.ContinueQuery: %w", err)
@@ -349,11 +356,12 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) (*uql.Data
 		return nil, fmt.Errorf("follow extractEventsData: %w", err)
 	}
 	if newRowsCount := len(newRows); newRowsCount > 0 {
-		// TODO print table without headers
 		output.PrintCmdOutputAdvanced(cmd, struct {
 			Items []eventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: newRows, Total: newRowsCount}, &output.PrintRequest{HideTableHeaders: true})
+	} else {
+		*no_results_flag = true
 	}
 	return data_set, nil
 }
