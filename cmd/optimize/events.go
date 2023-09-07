@@ -284,9 +284,8 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			// setup async channels
 			interrupt := make(chan os.Signal, 1)
 			signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-			followChan := make(chan followEventResult, 1)
-			followChan <- followEventResult{data_set: data_set}
-			initialResultsExhausted := false
+			followChan := make(chan *followEventResult, 1)
+			followChan <- &followEventResult{data_set: data_set}
 
 			for {
 				select {
@@ -302,11 +301,10 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 					go func() {
 						// Return immediately available results (additional pages) right away.
 						// Don't start waiting until follow cursor returns an empty response.
-						if initialResultsExhausted {
+						if followResult.cursorExhausted {
 							time.Sleep(flags.followInterval)
 						}
-						next_data_set, err := followDatasetAndPrint(cmd, followResult.data_set, &initialResultsExhausted)
-						followChan <- followEventResult{err: err, data_set: next_data_set}
+						followChan <- followDatasetAndPrint(cmd, followResult.data_set)
 					}()
 				}
 			}
@@ -317,16 +315,17 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 }
 
 type followEventResult struct {
-	data_set *uql.DataSet
-	err      error
+	data_set        *uql.DataSet
+	err             error
+	cursorExhausted bool
 }
 
 var followClient uql.UqlClient = uql.MakeBackendClient(&api.Options{Quiet: true})
 
-func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet, no_results_flag *bool) (*uql.DataSet, error) {
+func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEventResult {
 	resp, err := followClient.ContinueQuery(data_set, "follow")
 	if err != nil {
-		return nil, fmt.Errorf("follow followClient.ContinueQuery: %w", err)
+		return &followEventResult{err: fmt.Errorf("follow followClient.ContinueQuery: %w", err)}
 	}
 	if resp.HasErrors() {
 		log.Error("Following of events query encountered errors. Returned data may not be complete!")
@@ -337,33 +336,38 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet, no_results
 	main_data_set := resp.Main()
 	if main_data_set == nil {
 		log.Error("Following of events query has nil main data. Returned data may not be complete!")
-		return data_set, nil
+		return &followEventResult{data_set: data_set}
 	}
 	if len(main_data_set.Data) < 1 {
-		return nil, fmt.Errorf("follow main dataset %v has no rows", main_data_set.Name)
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v has no rows", main_data_set.Name)}
 	}
 	if len(main_data_set.Data[0]) < 1 {
-		return nil, fmt.Errorf("follow main dataset %v first row has no columns", main_data_set.Name)
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row has no columns", main_data_set.Name)}
 	}
 	var ok bool
 	data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 	if !ok {
-		return nil, fmt.Errorf("follow main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])}
 	}
 
+	result := &followEventResult{data_set: data_set}
 	newRows, err := extractEventsData(data_set)
 	if err != nil {
-		return nil, fmt.Errorf("follow extractEventsData: %w", err)
+		result.err = fmt.Errorf("follow extractEventsData: %w", err)
+		return result
 	}
-	if newRowsCount := len(newRows); newRowsCount > 0 {
+
+	newRowsCount := len(newRows)
+	if newRowsCount > 0 {
 		output.PrintCmdOutputAdvanced(cmd, struct {
 			Items []eventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: newRows, Total: newRowsCount}, &output.PrintRequest{HideTableHeaders: true})
-	} else {
-		*no_results_flag = true
 	}
-	return data_set, nil
+	if newRowsCount < 1000 {
+		result.cursorExhausted = true
+	}
+	return result
 }
 
 type recommendationsCmdFlags struct {
