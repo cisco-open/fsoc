@@ -300,7 +300,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 					// run in background to allow interrupts
 					go func() {
 						// Return immediately available results (additional pages) right away.
-						// Don't start waiting until follow cursor returns an empty response.
+						// Don't start waiting until follow cursor returns a response smaller than the max page size.
 						if followResult.cursorExhausted {
 							time.Sleep(flags.followInterval)
 						}
