@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"strconv"
@@ -280,18 +281,22 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				"Unable to parse profiler report_contents.optimization_configuration.guardrails.memory.pinned into boolean: %w", err)
 		}
 		// SLOs
-		newOptimizerConfig.Config.Slo.ErrorPercent.Target, err = strconv.ParseFloat(
+		errorPercentTarget, err := strconv.ParseFloat(
 			profilerReport["report_contents.optimization_configuration.slo.error_percent.target"].(string), 64)
 		if err != nil {
 			return fmt.Errorf(
 				"Unable to parse profiler report_contents.optimization_configuration.slo.error_percent.target into float64: %w", err)
 		}
-		newOptimizerConfig.Config.Slo.MedianResponseTime.Target, err = strconv.ParseFloat(
+		medianResponseTimeTarget, err := strconv.ParseFloat(
 			profilerReport["report_contents.optimization_configuration.slo.median_response_time.target"].(string), 64)
 		if err != nil {
 			return fmt.Errorf(
 				"Unable to parse profiler report_contents.optimization_configuration.slo.median_response_time.target into float64: %w", err)
 		}
+		// Use rounding for parity with UI logic
+		newOptimizerConfig.Config.Slo.ErrorPercent.Target = adaptivePrecisionRound(errorPercentTarget, 4)
+		newOptimizerConfig.Config.Slo.MedianResponseTime.Target = adaptivePrecisionRound(medianResponseTimeTarget, 3)
+
 		// Set suspensions to empty object
 		newOptimizerConfig.Suspensions = make(map[string]Suspension)
 
@@ -350,6 +355,14 @@ func buildOptimizerId(namespace string, workloadName string, workloadUid string)
 		wnPortion = string(wnRunes)
 	}
 	return fmt.Sprintf("%v-%v-%v", nsPortion, wnPortion, workloadUid)
+}
+
+func adaptivePrecisionRound(value float64, maxPrecision int) float64 {
+	if floored := math.Floor(value); floored == value {
+		return floored
+	}
+	precision := math.Max(0, math.Min(float64(maxPrecision), math.Round(3-math.Log10(value))))
+	return math.Round(value*math.Pow10(int(precision))) / math.Pow10(int(precision))
 }
 
 func getOptimizerConfig(optimizerId string, workloadId string, solutionName string) (OptimizerConfiguration, error) {
