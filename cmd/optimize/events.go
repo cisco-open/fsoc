@@ -363,8 +363,7 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEve
 			Items []eventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: newRows, Total: newRowsCount}, &output.PrintRequest{HideTableHeaders: true})
-	}
-	if newRowsCount < 1000 {
+	} else {
 		result.cursorExhausted = true
 	}
 	return result
