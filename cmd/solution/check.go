@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )

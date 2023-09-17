@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 )
 

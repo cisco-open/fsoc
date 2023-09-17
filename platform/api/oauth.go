@@ -30,7 +30,7 @@ import (
 	"go.pinniped.dev/pkg/oidcclient/pkce"
 	"golang.org/x/oauth2"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 const (

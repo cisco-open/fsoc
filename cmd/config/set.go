@@ -16,6 +16,7 @@ package config
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -26,6 +27,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/exp/slices"
+
+	cfg "github.com/cisco-open/fsoc/config"
 )
 
 var (
@@ -53,7 +56,7 @@ if on context name is specified, the current context is created/updated.`
 
 // configArgs are the positional arguments of form <name>=<value> that can be set.
 // They also correspond to the --flags for the same, for backward compatibility (deprecated)
-var configArgs = []string{AppdPid, AppdTid, AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
+var configArgs = []string{cfg.AppdPid, cfg.AppdTid, cfg.AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
 
 func newCmdConfigSet() *cobra.Command {
 
@@ -63,7 +66,7 @@ func newCmdConfigSet() *cobra.Command {
 		Long:        setContextLong,
 		Args:        cobra.MaximumNArgs(9),
 		Example:     setContextExample,
-		Annotations: map[string]string{AnnotationForConfigBypass: ""},
+		Annotations: map[string]string{cfg.AnnotationForConfigBypass: ""},
 		Run:         configSetContext,
 	}
 
@@ -71,12 +74,12 @@ func newCmdConfigSet() *cobra.Command {
 	cmd.Flags().Bool("patch", false, "Bypass field clearing")
 
 	// deprecated flags representing config settings
-	cmd.Flags().String(AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdPid, "please use arguments supplied as "+AppdPid+"="+strings.ToUpper(AppdPid))
-	cmd.Flags().String(AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdTid, "please use arguments supplied as "+AppdTid+"="+strings.ToUpper(AppdTid))
-	cmd.Flags().String(AppdPty, "", "pty to use (local auth type only, provide raw value to be encoded)")
-	_ = cmd.Flags().MarkDeprecated(AppdPty, "please use arguments supplied as "+AppdPty+"="+strings.ToUpper(AppdPty))
+	cmd.Flags().String(cfg.AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
+	_ = cmd.Flags().MarkDeprecated(cfg.AppdPid, "please use arguments supplied as "+cfg.AppdPid+"="+strings.ToUpper(cfg.AppdPid))
+	cmd.Flags().String(cfg.AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
+	_ = cmd.Flags().MarkDeprecated(cfg.AppdTid, "please use arguments supplied as "+cfg.AppdTid+"="+strings.ToUpper(cfg.AppdTid))
+	cmd.Flags().String(cfg.AppdPty, "", "pty to use (local auth type only, provide raw value to be encoded)")
+	_ = cmd.Flags().MarkDeprecated(cfg.AppdPty, "please use arguments supplied as "+cfg.AppdPty+"="+strings.ToUpper(cfg.AppdPty))
 	cmd.Flags().String("auth", "", fmt.Sprintf(`Select authentication method, one of {"%v"}`, strings.Join(GetAuthMethodsStringList(), `", "`)))
 	_ = cmd.Flags().MarkDeprecated("auth", `please use non-flag argument in the form "auth=AUTH"`)
 	cmd.Flags().String("server", "", "Set server host name")
@@ -123,7 +126,7 @@ func validateWriteReq(cmd *cobra.Command, authService string, field string) erro
 	return nil
 }
 
-func clearFields(fields []string, ctxPtr *Context) {
+func clearFields(fields []string, ctxPtr *cfg.Context) {
 	if slices.Contains(fields, "auth") {
 		ctxPtr.AuthMethod = ""
 	}
@@ -148,7 +151,7 @@ func clearFields(fields []string, ctxPtr *Context) {
 	}
 }
 
-func automatedFieldClearing(ctxPtr *Context, field string) {
+func automatedFieldClearing(ctxPtr *cfg.Context, field string) {
 	table := getAuthFieldClearConfig()
 	clearFields(table[ctxPtr.AuthMethod][field], ctxPtr)
 }
@@ -221,30 +224,15 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		log.Fatalf("at least one of %v must be specified", strings.Join(configArgs, ", "))
 	}
 
-	// Get context name (whether it exists or not)
-	contextName = GetCurrentProfileName()
+	// Try to locate the named context, whether it exists or not
+	contextName = cfg.GetCurrentProfileName() // it may not exist
+	ctxPtr, err := cfg.GetContext(contextName)
+	if errors.Is(err, cfg.ErrProfileNotFound) {
+		log.Infof("Context %q doesn't exist, creating it", contextName)
 
-	// Try to locate the named context
-	contextExists := false
-	var ctxPtr *Context
-	cfg := getConfig()
-	for idx, c := range cfg.Contexts {
-		if c.Name == contextName {
-			ctxPtr = &cfg.Contexts[idx]
-			contextExists = true
-			break
-		}
-	}
-
-	// If context not found, create a new one
-	if !contextExists {
-		log.Infof("context %q doesn't exist, creating it", contextName)
-
-		ctx := Context{
+		ctxPtr = &cfg.Context{
 			Name: contextName,
 		}
-		cfg.Contexts = append(cfg.Contexts, ctx)
-		ctxPtr = &cfg.Contexts[len(cfg.Contexts)-1]
 	}
 
 	patch, _ := cmd.Flags().GetBool("patch")
@@ -354,38 +342,38 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	}
 
 	// populate fields for local auth
-	if ctxPtr.AuthMethod == AuthMethodLocal {
-		if flags.Changed(AppdPid) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPid)
+	if ctxPtr.AuthMethod == cfg.AuthMethodLocal {
+		if flags.Changed(cfg.AppdPid) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, cfg.AppdPid)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			pid, _ := flags.GetString(AppdPid)
+			pid, _ := flags.GetString(cfg.AppdPid)
 			ctxPtr.LocalAuthOptions.AppdPid = pid
 			if !patch {
-				automatedFieldClearing(ctxPtr, AppdPid)
+				automatedFieldClearing(ctxPtr, cfg.AppdPid)
 			}
 		}
-		if flags.Changed(AppdPty) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdPty)
+		if flags.Changed(cfg.AppdPty) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, cfg.AppdPty)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			pty, _ := flags.GetString(AppdPty)
+			pty, _ := flags.GetString(cfg.AppdPty)
 			ctxPtr.LocalAuthOptions.AppdPty = pty
 			if !patch {
-				automatedFieldClearing(ctxPtr, AppdPty)
+				automatedFieldClearing(ctxPtr, cfg.AppdPty)
 			}
 		}
-		if flags.Changed(AppdTid) {
-			err := validateWriteReq(cmd, ctxPtr.AuthMethod, AppdTid)
+		if flags.Changed(cfg.AppdTid) {
+			err := validateWriteReq(cmd, ctxPtr.AuthMethod, cfg.AppdTid)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			tid, _ := flags.GetString(AppdTid)
+			tid, _ := flags.GetString(cfg.AppdTid)
 			ctxPtr.LocalAuthOptions.AppdTid = tid
 			if !patch {
-				automatedFieldClearing(ctxPtr, AppdTid)
+				automatedFieldClearing(ctxPtr, cfg.AppdTid)
 			}
 		}
 	}
@@ -397,16 +385,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	}
 
 	// update config file
-	update := map[string]interface{}{"contexts": cfg.Contexts}
-	if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
-		update["current_context"] = contextName
-		log.WithField("profile", contextName).Info("Setting context as current")
-	}
-	updateConfigFile(update)
-
-	if contextExists {
-		log.WithField("profile", contextName).Info("Updated context")
-	} else {
-		log.WithField("profile", contextName).Info("Created context")
+	if err := cfg.UpsertContext(ctxPtr); err != nil {
+		log.Fatalf("%v", err)
 	}
 }

@@ -20,17 +20,19 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
+	cfg "github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
 func newCmdConfigUse() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:   "use CONTEXT_NAME",
-		Short: "Set the current context in an fsoc config file",
-		Long:  `Set the current context in an fsoc config file`,
-		Args:  cobra.MaximumNArgs(1),
-		Run:   configUseContext,
+		Use:               "use CONTEXT_NAME",
+		Short:             "Set the current context in an fsoc config file",
+		Long:              `Set the current context in an fsoc config file`,
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: validArgsAutocomplete,
+		Run:               configUseContext,
 	}
 
 	return cmd
@@ -57,20 +59,9 @@ func configUseContext(cmd *cobra.Command, args []string) {
 		log.Fatalf("Missing the context name argument")
 	}
 
-	// look up selected context
-	contextExists := false
-	cfg := getConfig()
-	for _, c := range cfg.Contexts {
-		if c.Name == newContext {
-			contextExists = true
-			break
-		}
-	}
-	if !contextExists {
-		log.Fatalf("no context exists with the name: %q", newContext)
+	if err := cfg.SetDefaultContextName(newContext); err != nil {
+		log.Fatalf("%v", err)
 	}
 
-	// update config file
-	updateConfigFile(map[string]interface{}{"current_context": newContext})
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Switched to context %q\n", newContext))
 }

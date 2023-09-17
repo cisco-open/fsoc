@@ -23,6 +23,13 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
+// Config defines the subsystem configuration under fsoc
+type Config struct {
+	ApiVersion string `yaml:"apiver,omitempty"`
+}
+
+var GlobalConfig Config
+
 func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{

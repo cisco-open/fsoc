@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package knowledge
+// Package api provides access to the platform API, in all forms supported
+// by the config context (aka access profile)
+package api
 
 import (
-	"strings"
+	"encoding/base64"
+	"net/http"
 
 	"github.com/cisco-open/fsoc/config"
 )
 
-func getCorrectLayerID(layerType string, fqtn string) string {
-	cfg := config.GetCurrentContext()
-	var layerID string
-
-	if layerType == "TENANT" {
-		layerID = cfg.Tenant
-	} else if layerType == "SOLUTION" {
-		layerID = strings.Split(fqtn, ":")[0]
-	} else if layerType == "LOCALUSER" || layerType == "GLOBALUSER" {
-		layerID = cfg.User
-	} else {
-		layerID = ""
-	}
-
-	return layerID
+func AddLocalAuthReqHeaders(req *http.Request, opt *config.LocalAuthOptions) {
+	req.Header.Add(config.AppdPid, base64.StdEncoding.EncodeToString([]byte(opt.AppdPid)))
+	req.Header.Add(config.AppdPty, base64.StdEncoding.EncodeToString([]byte(opt.AppdPty)))
+	req.Header.Add(config.AppdTid, base64.StdEncoding.EncodeToString([]byte(opt.AppdTid)))
 }
