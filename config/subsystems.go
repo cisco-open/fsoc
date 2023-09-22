@@ -16,30 +16,65 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/apex/log"
 	"github.com/mitchellh/mapstructure"
+	"golang.org/x/exp/maps"
 )
 
-type ErrSubsystemParsingError struct {
-	SubsystemName string
-	ParsingError  error
+var subsystemConfigTemplates = map[string]any{}
+
+// RegisterSubsystemConfigTemplate registers a structure type that contains subsystem-specific settings
+func RegisterSubsystemConfigTemplate(subsystemName string, configTemplate any) error {
+	// check that the template is a structure and it's not already registered
+	typ := reflect.TypeOf(configTemplate)
+	if kind := typ.Kind(); kind != reflect.Struct {
+		return fmt.Errorf("(bug) subsystem config template must be a structure; found kind %v instead", kind)
+	}
+	if _, found := subsystemConfigTemplates[subsystemName]; found {
+		return fmt.Errorf("(bug) subsystem config template already registered")
+	}
+
+	// add a copy to the templates
+	subsystemConfigTemplates[subsystemName] = reflect.New(typ).Interface() // make a new, blank copy of the template struct value
+
+	return nil
 }
 
-func (e *ErrSubsystemParsingError) Error() string {
-	return fmt.Sprintf("failed to parse configuration for subsystem %q: %v", e.SubsystemName, e.ParsingError)
+// GetRegisteredSubsystems returns the names of subsystems that have registered a config template
+func GetRegisteredSubsystems() []string {
+	return maps.Keys(subsystemConfigTemplates)
 }
 
-func (e *ErrSubsystemParsingError) Unwrap() error {
-	return e.ParsingError
+// GetSubsytemConfigTemplate returns a read-only copy of a subsystem's registered configuration template
+func GetSubsytemConfigTemplate(subsystemName string) (any, error) {
+	tmpl, ok := subsystemConfigTemplates[subsystemName]
+	if !ok {
+		return nil, &ErrSubsystemNotFound{subsystemName}
+	}
+	return tmpl, nil
 }
 
-type ErrSubsystemNotFound struct {
-	SubsystemName string
-}
+// SetSubsystemSetting updates a single value into the subsystem-specific settings of the context.
+// It does not update the config file (if needed, call UpsertContext when all settings are in ready)
+func SetSubsystemSetting(ctx *Context, subsystemName string, settingName string, value any) error {
+	// fail if the subsystem doesn't exist or has not registered a config template
+	_, ok := subsystemConfigTemplates[subsystemName]
+	if !ok {
+		return &ErrSubsystemNotFound{subsystemName}
+	}
 
-func (e *ErrSubsystemNotFound) Error() string {
-	return fmt.Sprintf("found configuration for unknown subsystem %q", e.SubsystemName)
+	// add value to the context (without parsing or validation, as the structure may not be final)
+	ssmap, ok := ctx.SubsystemConfigs[subsystemName]
+	if !ok {
+		ssmap = map[string]any{settingName: value}
+		ctx.SubsystemConfigs[subsystemName] = ssmap
+	} else {
+		ssmap[settingName] = value
+	}
+
+	return nil
 }
 
 // UpdateSubsystemConfigs updates the subsystem-specific configurations from
@@ -53,7 +88,7 @@ func UpdateSubsystemConfigs(ctx *Context, subsystemConfigs map[string]any) []err
 	for name, config := range subsystemConfigs {
 		configStruct, ok := subsystemConfigs[name]
 		if !ok {
-			err := &ErrSubsystemNotFound{name}
+			err := fmt.Errorf("found configuration for %w", &ErrSubsystemNotFound{name})
 			log.Error(err.Error())
 			errlist = append(errlist, err)
 			continue

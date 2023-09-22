@@ -73,7 +73,7 @@ func newCmdConfigSet() *cobra.Command {
 	// real command flag(s)
 	cmd.Flags().Bool("patch", false, "Bypass field clearing")
 
-	// deprecated flags representing config settings
+	// deprecated flags representing core config settings
 	cmd.Flags().String(cfg.AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
 	_ = cmd.Flags().MarkDeprecated(cfg.AppdPid, "please use arguments supplied as "+cfg.AppdPid+"="+strings.ToUpper(cfg.AppdPid))
 	cmd.Flags().String(cfg.AppdTid, "", "tid to use (local auth type only, provide raw value to be encoded)")
@@ -98,130 +98,27 @@ func newCmdConfigSet() *cobra.Command {
 	return cmd
 }
 
-// expandHomePath replaces ~ in the path with the absolute home directory
-func expandHomePath(file string) string {
-	if strings.HasPrefix(file, "~/") {
-		dirname, _ := os.UserHomeDir()
-		file = filepath.Join(dirname, file[2:])
-	}
-	return file
-}
-
-func getAuthFieldConfigRow(authService string) AuthFieldConfigRow {
-	return getAuthFieldWritePermissions()[authService]
-}
-
-func validateWriteReq(cmd *cobra.Command, authService string, field string) error {
-	flags := cmd.Flags()
-	authProvider := authService
-	if flags.Changed("auth") {
-		authProvider, _ = flags.GetString("auth")
-	}
-	if authProvider == "" {
-		return fmt.Errorf("must provide an authentication type before or while writing to other context fields")
-	}
-	if getAuthFieldConfigRow(authProvider)[field] == ClearField {
-		return fmt.Errorf("cannot write to field %s because it is not allowed for authentication method %s", field, authProvider)
-	}
-	return nil
-}
-
-func clearFields(fields []string, ctxPtr *cfg.Context) {
-	if slices.Contains(fields, "auth") {
-		ctxPtr.AuthMethod = ""
-	}
-	if slices.Contains(fields, "url") {
-		ctxPtr.URL = ""
-		ctxPtr.Server = "" // server is just the old name of url
-	}
-	if slices.Contains(fields, "tenant") {
-		ctxPtr.Tenant = ""
-	}
-	if slices.Contains(fields, "user") {
-		ctxPtr.User = ""
-	}
-	if slices.Contains(fields, "token") {
-		ctxPtr.Token = ""
-	}
-	if slices.Contains(fields, "refresh-token") {
-		ctxPtr.RefreshToken = ""
-	}
-	if slices.Contains(fields, "secret-file") {
-		ctxPtr.SecretFile = ""
-	}
-}
-
-func automatedFieldClearing(ctxPtr *cfg.Context, field string) {
-	table := getAuthFieldClearConfig()
-	clearFields(table[ctxPtr.AuthMethod][field], ctxPtr)
-}
-
-func validateUrl(providedUrl string) (string, error) {
-	parsedUrl, err := url.Parse(providedUrl)
-	if err == nil && parsedUrl.Scheme == "" {
-		parsedUrl, err = url.Parse("https://" + providedUrl)
-	}
-	if err != nil {
-		return "", fmt.Errorf("the provided url, %q, is not valid: %w", providedUrl, err)
-	}
-	if parsedUrl.Host == "" {
-		return "", fmt.Errorf("no host is provided in the url %q", providedUrl)
-	}
-	if parsedUrl.Scheme != "https" && parsedUrl.Scheme != "http" {
-		return "", fmt.Errorf("the provided scheme, %q, is not recognized; use %q or %q", parsedUrl.Scheme, "http", "https")
-	}
-
-	retUrl := parsedUrl.String()
-	if retUrl != providedUrl {
-		log.Warnf("The provided url, %q, was adjusted and stored as %q.", providedUrl, parsedUrl.String())
-	}
-	return retUrl, nil
-}
-
-func validateArgs(cmd *cobra.Command, args []string) error {
-	flags := cmd.Flags()
-	for i := 0; i < len(args); i++ {
-		// check arg format ∑+=∑+
-		stringSegments := strings.SplitN(args[i], "=", 2)
-		if len(stringSegments) < 2 {
-			return fmt.Errorf("argument %q at position %d must be in the form KEY=VALUE", args[i], i+1)
-		}
-		name, value := stringSegments[0], stringSegments[1]
-		// check arg name is valid (i.e. no disallowed flags)
-		if !slices.Contains(configArgs, name) {
-			return fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(configArgs, ", "))
-		}
-		// make sure flag isn't already set
-		if flags.Changed(name) {
-			return fmt.Errorf("cannot have both flag and argument with same name")
-		}
-		// Set flag manually
-		err := flags.Set(name, value)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func configSetContext(cmd *cobra.Command, args []string) {
 	var contextName string
+	var subsystemSettingArgs []string
+	var err error
 
-	// Check that either context name or current context is specified
-	if err := validateArgs(cmd, args); err != nil {
+	// Extract core fsoc settings from args (i.e., the ones that correspond to legacy flags, as opposed to being subsystem-specific settings)
+	subsystemSettingArgs, err = extractCoreArgs(cmd, args)
+	if err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	// Check that at least one config value is specified (including empty)
+	// Check that at least one config value is specified (including empty); either core or subsytem-specific setting satisfies this check
 	flags := cmd.Flags()
-	valid := false
+	valid := len(subsystemSettingArgs) > 0 // at least one non-core setting is defined
 	flags.VisitAll(func(flag *pflag.Flag) {
 		if slices.Contains(configArgs, flag.Name) {
 			valid = valid || flag.Changed
 		}
 	})
 	if !valid {
-		log.Fatalf("at least one of %v must be specified", strings.Join(configArgs, ", "))
+		log.Fatalf("at least one of %v must be specified", strings.Join(configArgs, ", ")) // TODO expand the message to accommodate subsystem-specific settings
 	}
 
 	// Try to locate the named context, whether it exists or not
@@ -384,8 +281,159 @@ func configSetContext(cmd *cobra.Command, args []string) {
 		ctxPtr.CsvFile = ""
 	}
 
+	// process subsystem-specific settings
+	if err := processSubsystemSettings(ctxPtr, subsystemSettingArgs); err != nil {
+		log.Fatalf("Failed to set subsystem-specific settings: %v", err)
+	}
+
 	// update config file
 	if err := cfg.UpsertContext(ctxPtr); err != nil {
 		log.Fatalf("%v", err)
 	}
+}
+
+// expandHomePath replaces ~ in the path with the absolute home directory
+func expandHomePath(file string) string {
+	if strings.HasPrefix(file, "~/") {
+		dirname, _ := os.UserHomeDir()
+		file = filepath.Join(dirname, file[2:])
+	}
+	return file
+}
+
+func getAuthFieldConfigRow(authService string) AuthFieldConfigRow {
+	return getAuthFieldWritePermissions()[authService]
+}
+
+func validateWriteReq(cmd *cobra.Command, authService string, field string) error {
+	flags := cmd.Flags()
+	authProvider := authService
+	if flags.Changed("auth") {
+		authProvider, _ = flags.GetString("auth")
+	}
+	if authProvider == "" {
+		return fmt.Errorf("must provide an authentication type before or while writing to other context fields")
+	}
+	if getAuthFieldConfigRow(authProvider)[field] == ClearField {
+		return fmt.Errorf("cannot write to field %s because it is not allowed for authentication method %s", field, authProvider)
+	}
+	return nil
+}
+
+func clearFields(fields []string, ctxPtr *cfg.Context) {
+	if slices.Contains(fields, "auth") {
+		ctxPtr.AuthMethod = ""
+	}
+	if slices.Contains(fields, "url") {
+		ctxPtr.URL = ""
+		ctxPtr.Server = "" // server is just the old name of url
+	}
+	if slices.Contains(fields, "tenant") {
+		ctxPtr.Tenant = ""
+	}
+	if slices.Contains(fields, "user") {
+		ctxPtr.User = ""
+	}
+	if slices.Contains(fields, "token") {
+		ctxPtr.Token = ""
+	}
+	if slices.Contains(fields, "refresh-token") {
+		ctxPtr.RefreshToken = ""
+	}
+	if slices.Contains(fields, "secret-file") {
+		ctxPtr.SecretFile = ""
+	}
+}
+
+func automatedFieldClearing(ctxPtr *cfg.Context, field string) {
+	table := getAuthFieldClearConfig()
+	clearFields(table[ctxPtr.AuthMethod][field], ctxPtr)
+}
+
+func validateUrl(providedUrl string) (string, error) {
+	parsedUrl, err := url.Parse(providedUrl)
+	if err == nil && parsedUrl.Scheme == "" {
+		parsedUrl, err = url.Parse("https://" + providedUrl)
+	}
+	if err != nil {
+		return "", fmt.Errorf("the provided url, %q, is not valid: %w", providedUrl, err)
+	}
+	if parsedUrl.Host == "" {
+		return "", fmt.Errorf("no host is provided in the url %q", providedUrl)
+	}
+	if parsedUrl.Scheme != "https" && parsedUrl.Scheme != "http" {
+		return "", fmt.Errorf("the provided scheme, %q, is not recognized; use %q or %q", parsedUrl.Scheme, "http", "https")
+	}
+
+	retUrl := parsedUrl.String()
+	if retUrl != providedUrl {
+		log.Warnf("The provided url, %q, was adjusted and stored as %q.", providedUrl, parsedUrl.String())
+	}
+	return retUrl, nil
+}
+
+// extractCoreArgs extracts arguments from the commend line that are used in the core context (i.e., not subystem-related).
+// It translates these into flags (supporting legacy/deprecated flag-based) and removes them from the argument list. It returns
+// a list with the remaining arguments. If there is an error parsing, it returns the unmodified arguments and the error
+func extractCoreArgs(cmd *cobra.Command, args []string) ([]string, error) {
+	flags := cmd.Flags()
+	remainder := []string{}
+	for i := 0; i < len(args); i++ {
+		// split argument into name=value
+		stringSegments := strings.SplitN(args[i], "=", 2)
+		if len(stringSegments) < 2 {
+			return args, fmt.Errorf("argument %q at position %d must be in the form KEY=VALUE", args[i], i+1)
+		}
+		name, value := stringSegments[0], stringSegments[1]
+
+		// if the argument is a subsystem-specific setting, leave it in the remainder
+		if strings.Contains(name, ".") {
+			remainder = append(remainder, args[i])
+			continue
+		}
+
+		// check arg name is valid (i.e. no disallowed flags)
+		if !slices.Contains(configArgs, name) {
+			// TODO expand the message to accommodate subsystem-specific settings
+			return args, fmt.Errorf("argument name %s must be one of the following values %s", name, strings.Join(configArgs, ", "))
+		}
+		// make sure flag isn't already set
+		if flags.Changed(name) {
+			return args, fmt.Errorf("cannot have both flag and argument with same name")
+		}
+		// Set flag manually
+		err := flags.Set(name, value)
+		if err != nil {
+			return args, err
+		}
+	}
+	return remainder, nil
+}
+
+func processSubsystemSettings(ctx *cfg.Context, args []string) error {
+	for _, arg := range args {
+		// split argument into name=value
+		stringSegments := strings.SplitN(arg, "=", 2)
+		if len(stringSegments) < 2 {
+			return fmt.Errorf("argument %q must be in the form KEY=VALUE", arg)
+		}
+		name, value := stringSegments[0], stringSegments[1]
+
+		// parse subsystem name and setting name, enforcing simple, flat settings
+		nameSegments := strings.Split(name, ".")
+		if l := len(nameSegments); l < 2 {
+			// this should never happen, since args coming here are already vetted to include at least one '.' in the name
+			return fmt.Errorf("(bug) missing the subsystem name in argument %q", arg)
+		} else if l > 2 {
+			return fmt.Errorf("the setting name %q in argument %q must be in the form SUBSYSTEM.SETTING", nameSegments[0], arg)
+		}
+		subsystemName, settingName := nameSegments[0], nameSegments[1]
+
+		// update the setting in the context
+		if err := cfg.SetSubsystemSetting(ctx, subsystemName, settingName, value); err != nil {
+			return fmt.Errorf("error processing argument %q: %v", arg, err)
+		}
+	}
+
+	return nil
 }

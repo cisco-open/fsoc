@@ -94,12 +94,11 @@ func getConfig() configFileContents {
 }
 
 func updateConfigFile(keyValues map[string]interface{}) {
-	var err error
-
 	// update values
 	for key, value := range keyValues {
 		viper.Set(key, value)
 	}
+
 	// set up config file in viper
 	viper.SetConfigType("yaml")
 	if viper.ConfigFileUsed() == "" {
@@ -113,7 +112,7 @@ func updateConfigFile(keyValues map[string]interface{}) {
 	ensureConfigFile()
 
 	// update file contents
-	err = viper.WriteConfig()
+	err := viper.WriteConfig()
 	if err != nil {
 		log.Fatalf("failed to write config file %q: %v", viper.ConfigFileUsed(), err)
 	}
