@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package api
 
 import (
 	"testing"
@@ -22,7 +22,7 @@ import (
 
 func parseTest(s string, valid bool) bool {
 	// Check that parsing the string returns the expected result (pass/fail)
-	v, err := NewApiVersion(s)
+	v, err := NewVersion(s)
 	//fmt.Printf("%v> %q : %v %v\n", valid, s, v, err)
 	if valid != (err == nil) {
 		//fmt.Printf("\tfailing: err %v expected pass: %v\n", err, valid)

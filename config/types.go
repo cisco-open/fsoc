@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"regexp"
 )
 
 const (
@@ -85,24 +84,4 @@ func (o *LocalAuthOptions) String() string {
 type configFileContents struct {
 	Contexts       []Context
 	CurrentContext string `mapstructure:"current_context" yaml:"current_context,omitempty" json:"current_context,omitempty"`
-}
-
-// ApiVersion defines an API version string
-type ApiVersion string
-
-var versionRegExp = regexp.MustCompile(`v\d+(beta(\d+)?)?$`)
-
-// NewApiVersion parses a string value into an API version, ensuring that the
-// string matches the required pattern
-func NewApiVersion(s string) (ApiVersion, error) {
-	ok := versionRegExp.MatchString(s)
-	if !ok {
-		return "", fmt.Errorf(`API version %q does not match the required pattern, vN[beta[M]], where N and M are integers`, s)
-	}
-	return ApiVersion(s), nil
-}
-
-// String converts an API version to string, implementing the Stringer interface
-func (v *ApiVersion) String() string {
-	return string(*v)
 }

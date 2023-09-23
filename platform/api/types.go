@@ -14,6 +14,10 @@
 
 package api
 
+// Version defines an API version, as used in URI paths. Use NewVersion() to
+// create/parse from a string value and String() to convert back to string
+type Version string
+
 // CollectionResult is a structure that wraps API collections of type T.
 // See JSONGetCollection for reference to API collection RFC/standards
 type CollectionResult[T any] struct {

@@ -24,6 +24,7 @@ import (
 )
 
 var subsystemConfigs = map[string]any{}
+var decodeHooks = []mapstructure.DecodeHookFunc{}
 
 // RegisterSubsystemConfigStorage registers storage (a pointer to a struct) for a subsystem's configuration. In addition
 // to using the storage itself, this function uses the structure to introspect it for setting names, types and even
@@ -128,10 +129,10 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 
 		// create a decoder with the desired options & decode
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook:  apiVersionDecodeHookFunc(), // parse/enforce API version pattern
-			ErrorUnused: true,                       // no extra settings that are not recognized by the subsystem; this is mostly to avoid typos
-			ZeroFields:  true,                       // on re-parsing/re-loading, ensure that any maps start from empty (although we currently support only atomic types)
-			Result:      configStruct,               // target which will be used for introspection and result storage
+			DecodeHook:  mapstructure.ComposeDecodeHookFunc(decodeHooks),
+			ErrorUnused: true,         // no extra settings that are not recognized by the subsystem; this is mostly to avoid typos
+			ZeroFields:  true,         // on re-parsing/re-loading, ensure that any maps start from empty (although we currently support only atomic types)
+			Result:      configStruct, // target which will be used for introspection and result storage
 		})
 		if err != nil {
 			log.Fatalf("(bug) failed to create mapstrucure decoder: %v", err) // nb: likely not subsystem-specific, so no need to print name
@@ -159,20 +160,9 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 	return nil
 }
 
-func apiVersionDecodeHookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{}) (interface{}, error) {
-		// return if not from string or not to api.Version
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-		if t != reflect.TypeOf(ApiVersion("v1")) {
-			return data, nil
-		}
-
-		// parse, returning the tuple (value, err)
-		return NewApiVersion(data.(string))
-	}
+// RegisterTypeDecodeHook registers a mapstructure type decode hook for subsystem-
+// specific configuration types, primarily to enforce formats and parse directly
+// into types that are convenient for the subsystems to use.
+func RegisterTypeDecodeHook(hookFunc mapstructure.DecodeHookFunc) {
+	decodeHooks = append(decodeHooks, hookFunc)
 }
