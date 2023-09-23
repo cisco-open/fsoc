@@ -15,7 +15,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -85,38 +84,4 @@ func (o *LocalAuthOptions) String() string {
 type configFileContents struct {
 	Contexts       []Context
 	CurrentContext string `mapstructure:"current_context" yaml:"current_context,omitempty" json:"current_context,omitempty"`
-}
-
-// Errors
-
-var ErrProfileNotFound = errors.New("profile not found")
-
-type ErrSubsystemParsingError struct {
-	SubsystemName string
-	ParsingError  error
-}
-
-func (e *ErrSubsystemParsingError) Error() string {
-	return fmt.Sprintf("failed to parse configuration for subsystem %q: %v", e.SubsystemName, e.ParsingError)
-}
-
-func (e *ErrSubsystemParsingError) Unwrap() error {
-	return e.ParsingError
-}
-
-type ErrSubsystemNotFound struct {
-	SubsystemName string
-}
-
-func (e *ErrSubsystemNotFound) Error() string {
-	return fmt.Sprintf("unknown subsystem %q", e.SubsystemName)
-}
-
-type ErrSubsystemSettingNotFound struct {
-	SubsystemName string
-	SettingName   string
-}
-
-func (e *ErrSubsystemSettingNotFound) Error() string {
-	return fmt.Sprintf("unknown setting %q for subsystem %q", e.SettingName, e.SubsystemName)
 }

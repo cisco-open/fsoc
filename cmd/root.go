@@ -41,7 +41,6 @@ import (
 var cfgFile string
 var cfgProfile string
 var outputFormat string
-var subsystemConfigs = map[string]any{}
 
 const FSOC_NO_VERSION_CHECK = "FSOC_NO_VERSION_CHECK"
 
@@ -150,16 +149,14 @@ func registerSubsystem(cmd *cobra.Command) {
 	registerSubSystemWithConfig(cmd, nil)
 }
 
-func registerSubSystemWithConfig(cmd *cobra.Command, config any) {
+func registerSubSystemWithConfig(cmd *cobra.Command, store any) {
 	rootCmd.AddCommand(cmd)
 
-	name := cmd.Name()
-	_, ok := subsystemConfigs[name]
-	if ok {
-		log.Fatalf("(bug) attempt to register subsystem %q multiple times")
-	}
-	if config != nil {
-		subsystemConfigs[name] = config
+	// register subsystem's custom config store, if provided
+	if store != nil {
+		if err := config.RegisterSubsystemConfigStorage(cmd.Name(), store); err != nil {
+			log.Fatalf("failed to register config for subsystem %q: %v", cmd.Name(), err)
+		}
 	}
 }
 
@@ -236,12 +233,12 @@ func preExecHook(cmd *cobra.Command, args []string) {
 			log.Fatalf("fsoc is not fully configured: missing profile %q; please use \"fsoc config set\" to configure it", profile)
 		}
 		customSubsysConfigs := []string{}
-		if exists && len(subsystemConfigs) > 0 {
-			errlist := config.UpdateSubsystemConfigs(cfg, subsystemConfigs)
-			if errlist != nil {
+		if exists {
+			err := config.UpdateSubsystemConfigs(cfg)
+			if err != nil {
 				// note: UpdateSubsystemConfig prints log.warnings for each error with enough context
 				// more details can be provided, e.g., log.Fatalf("Subsystem configuration %q in profile %q is not among recognized subsystems %v", name, profileName, maps.Keys(subsystemConfigs))
-				log.Fatalf("Failed to parse subsystem configurations in profile %q", profile)
+				log.Fatalf("Failed to parse subsystem configurations in profile %q of config file %q: %v", profile, viper.ConfigFileUsed(), err)
 			}
 			customSubsysConfigs = maps.Keys(cfg.SubsystemConfigs)
 		}

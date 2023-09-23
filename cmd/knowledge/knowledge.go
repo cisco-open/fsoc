@@ -25,7 +25,7 @@ import (
 
 // Config defines the subsystem configuration under fsoc
 type Config struct {
-	ApiVersion string `yaml:"apiver,omitempty"`
+	ApiVersion string `mapstructure:"apiver,omitempty" fsoc-help:"API version to use, e.g., v1"`
 }
 
 var GlobalConfig Config
