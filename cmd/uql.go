@@ -19,5 +19,5 @@ import (
 )
 
 func init() {
-	registerSubsystem(uql.NewSubCmd())
+	registerSubSystemWithConfig(uql.NewSubCmd(), &uql.GlobalConfig)
 }

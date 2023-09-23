@@ -31,6 +31,14 @@ import (
 var outputFlag string
 var rawFlag bool
 
+// Config defines the subsystem configuration under fsoc
+type Config struct {
+	// TODO
+	// ApiVersion config.ApiVersion `mapstructure:"apiver,omitempty" fsoc-help:"API version to use, e.g., v1"`
+}
+
+var GlobalConfig Config
+
 const (
 	availableFormats string = "auto, table, json, yaml"
 )

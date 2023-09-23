@@ -103,8 +103,9 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	var subsystemSettingArgs []string
 	var err error
 
-	// Extract core fsoc settings from args (i.e., the ones that correspond to legacy flags, as opposed to being subsystem-specific settings)
-	subsystemSettingArgs, err = extractCoreArgs(cmd, args)
+	// transfer core fsoc settings from args to legacy flags, and extract the remainder
+	// as subsystem-specific settings
+	subsystemSettingArgs, err = transferCoreArgs(cmd, args)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -372,10 +373,10 @@ func validateUrl(providedUrl string) (string, error) {
 	return retUrl, nil
 }
 
-// extractCoreArgs extracts arguments from the commend line that are used in the core context (i.e., not subystem-related).
+// transferCoreArgs extracts arguments from the commend line that are used in the core context (i.e., not subystem-related).
 // It translates these into flags (supporting legacy/deprecated flag-based) and removes them from the argument list. It returns
 // a list with the remaining arguments. If there is an error parsing, it returns the unmodified arguments and the error
-func extractCoreArgs(cmd *cobra.Command, args []string) ([]string, error) {
+func transferCoreArgs(cmd *cobra.Command, args []string) ([]string, error) {
 	flags := cmd.Flags()
 	remainder := []string{}
 	for i := 0; i < len(args); i++ {
@@ -429,10 +430,22 @@ func processSubsystemSettings(ctx *cfg.Context, args []string) error {
 		}
 		subsystemName, settingName := nameSegments[0], nameSegments[1]
 
-		// update the setting in the context
-		if err := cfg.SetSubsystemSetting(ctx, subsystemName, settingName, value); err != nil {
+		// update (or delete) the setting in the context
+		var err error
+		if value != "" {
+			err = cfg.SetSubsystemSetting(ctx, subsystemName, settingName, value)
+		} else {
+			err = cfg.DeleteSubsystemSetting(ctx, subsystemName, settingName)
+		}
+		if err != nil {
 			return fmt.Errorf("error processing argument %q: %v", arg, err)
 		}
+	}
+
+	// update subsystem-specific settings, both for consistency and to cause the settings
+	// to be parsed according to the provided templates
+	if err := cfg.UpdateSubsystemConfigs(ctx); err != nil {
+		return err
 	}
 
 	return nil

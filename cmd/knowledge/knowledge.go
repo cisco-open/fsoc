@@ -20,12 +20,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
 // Config defines the subsystem configuration under fsoc
 type Config struct {
-	ApiVersion string `mapstructure:"apiver,omitempty" fsoc-help:"API version to use, e.g., v1"`
+	ApiVersion config.ApiVersion `mapstructure:"apiver,omitempty" fsoc-help:"API version to use, e.g., v1"`
 }
 
 var GlobalConfig Config
@@ -166,4 +167,12 @@ func parseObjectInfo(cmd *cobra.Command) (typeName string, objectID string, laye
 	}
 
 	return typeName, objectID, layerID, layerType, nil
+}
+
+func GetBaseUrl() string {
+	ver := GlobalConfig.ApiVersion.String()
+	if ver == "" {
+		ver = "v1"
+	}
+	return "knowledge-store/" + ver
 }

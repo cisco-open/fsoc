@@ -47,6 +47,10 @@ func getContext(name string) *Context {
 	// locate & return the named context
 	for _, c := range cfg.Contexts {
 		if c.Name == name {
+			// ensure a subsystem config map exists, even if empty
+			if c.SubsystemConfigs == nil {
+				c.SubsystemConfigs = map[string]map[string]any{}
+			}
 			return &c
 		}
 	}

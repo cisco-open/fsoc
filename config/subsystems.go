@@ -62,15 +62,20 @@ func GetSubsytemConfigTemplate(subsystemName string) (any, error) {
 	return tmpl, nil
 }
 
-// @@
 // SetSubsystemSetting updates a single value into the subsystem-specific settings of the context.
-// It does not update the config file (if needed, call UpsertContext when all settings are in ready)
+// It does not update the config file, nor it updates the subsystem-specific config storage (if needed,
+// call UpdateSubsystemConfigs and UpsertContext when all settings are in ready; this ensures that the
+// subsystem configs are parsed with all changes).
 func SetSubsystemSetting(ctx *Context, subsystemName string, settingName string, value any) error {
 	// fail if the subsystem doesn't exist or has not registered a config template
 	_, ok := subsystemConfigs[subsystemName]
 	if !ok {
 		return &ErrSubsystemNotFound{subsystemName}
 	}
+
+	// TODO: add a check for the setting name, so that unknown settings can be caught here rather than
+	// on parse. Doing this will require some additional work to extract the mapstructure names of the
+	// fields to check against
 
 	// add value to the context (without parsing or validation, as the structure may not be final)
 	ssmap, ok := ctx.SubsystemConfigs[subsystemName]
@@ -84,6 +89,25 @@ func SetSubsystemSetting(ctx *Context, subsystemName string, settingName string,
 	return nil
 }
 
+// DeleteSubsystemSetting removes a subsystem-specific configuration value, without
+// updating the config store or saving the file (see note on SetSubsystemSetting)
+func DeleteSubsystemSetting(ctx *Context, subsystemName string, settingName string) error {
+	// fail if the subsystem doesn't exist or has not registered a config template
+	_, ok := subsystemConfigs[subsystemName]
+	if !ok {
+		return &ErrSubsystemNotFound{subsystemName}
+	}
+
+	// remove value (and ignore if it doesn't exist)
+	ssmap, ok := ctx.SubsystemConfigs[subsystemName]
+	if !ok || ssmap == nil {
+		return nil // assume deleted if no settings
+	}
+	delete(ssmap, settingName)
+
+	return nil
+}
+
 // UpdateSubsystemConfigs updates the subsystem-specific configurations from
 // the config context into subsystem-provided structured store. If update fails
 // for a subsystem, an error for it will be recorded and updates to other subsystem
@@ -91,7 +115,6 @@ func SetSubsystemSetting(ctx *Context, subsystemName string, settingName string,
 // configuration while still getting configs for correctly configured systems.
 // Returns nil or a slice of errors (the slice, if not nil, will never be empty)
 func UpdateSubsystemConfigs(ctx *Context) error {
-
 	// parse all provided configs (TODO: zero all others)
 	errlist := []error{}
 	for name, config := range ctx.SubsystemConfigs {
@@ -105,9 +128,10 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 
 		// create a decoder with the desired options & decode
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			ErrorUnused: true,         // no extra settings that are not recognized by the subsystem; this is mostly to avoid typos
-			ZeroFields:  true,         // on re-parsing/re-loading, ensure that any maps start from empty (although we currently support only atomic types)
-			Result:      configStruct, // target which will be used for introspection and result storage
+			DecodeHook:  apiVersionDecodeHookFunc(), // parse/enforce API version pattern
+			ErrorUnused: true,                       // no extra settings that are not recognized by the subsystem; this is mostly to avoid typos
+			ZeroFields:  true,                       // on re-parsing/re-loading, ensure that any maps start from empty (although we currently support only atomic types)
+			Result:      configStruct,               // target which will be used for introspection and result storage
 		})
 		if err != nil {
 			log.Fatalf("(bug) failed to create mapstrucure decoder: %v", err) // nb: likely not subsystem-specific, so no need to print name
@@ -127,8 +151,28 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 		log.WithFields(fields).Info("Updated subsystem configuration")
 	}
 
+	// return if any errors were collected
 	if len(errlist) > 0 {
 		return &ErrSubsystemConfig{errlist}
 	}
+
 	return nil
+}
+
+func apiVersionDecodeHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data interface{}) (interface{}, error) {
+		// return if not from string or not to api.Version
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+		if t != reflect.TypeOf(ApiVersion("v1")) {
+			return data, nil
+		}
+
+		// parse, returning the tuple (value, err)
+		return NewApiVersion(data.(string))
+	}
 }
