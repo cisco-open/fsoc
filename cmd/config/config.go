@@ -28,9 +28,15 @@ import (
 func NewSubCmd() *cobra.Command {
 	// cmd represents the config sub command root
 	var cmd = &cobra.Command{
-		Use:              "config SUBCOMMAND [options]",
-		Short:            "Configure fsoc",
-		Long:             `View and modify fsoc config files and contexts`,
+		Use:   "config SUBCOMMAND [options]",
+		Short: "Configure fsoc",
+		Long:  `View and modify fsoc config files and contexts`,
+		Example: `  fsoc config list
+  fsoc config set auth=oauth url=https://mytenant.observe.appdynamics.com
+  fsoc config set auth=service-principal secret-file=my-svc-principal.json --profile ci
+  fsoc config get -o yaml
+  fsoc config use ci
+  fsoc config delete ci`,
 		TraverseChildren: true,
 	}
 

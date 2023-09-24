@@ -41,11 +41,21 @@ func newCmdConfigShowFields() *cobra.Command {
 	return cmd
 }
 
+const helpIntro = `The following settings can be configured with the "config set" command.
+The current setting values can be seen with the "config get" command. 
+
+Examples:
+  fsoc config set auth=oauth url=mytenant.observe.appdynamics.com
+  fsoc config set auth=oauth url=mytest.observe.appdynamics.com knowledge.apiver=v2beta --profile test
+  fsoc config set auth=oauth url=mytest.observe.appdynamics.com knowledge.apiver="" --profile test
+
+Settings:`
+
 var fieldHelp = map[string]string{
-	"auth":        `Authentication method, required. Must be of: "` + strings.Join(GetAuthMethodsStringList(), `", "`) + `".`,
+	"auth":        `Authentication method, required. Must be one of "` + strings.Join(GetAuthMethodsStringList(), `", "`) + `".`,
 	"url":         `URL to the tenant, scheme and host/port only; required. For example, https://mytenant.observe.appdynamics.com`,
-	"tenant":      `Tenant ID that is required only for auth methods that cannot automatically obtain it. Not needed for "oauth" and "service-principal" auth methods.`,
-	"secret-file": `File containing login credentials for "service-principal" and "agent-principal" auth methods. The file must remain available.`,
+	"tenant":      `Tenant ID that is required only for auth methods that cannot automatically obtain it. Not needed for the "oauth", "service-principal" and "local" auth methods.`,
+	"secret-file": `File containing login credentials for "service-principal" and "agent-principal" auth methods. The file must remain available, as fsoc saves only the file's path.`,
 	"envtype":     `FSO environment type, optional. Used only for special development/test FSO environments. If specified, can be "dev" or "prod".`,
 	"token":       `Authentication token needed only for the "token" auth method.`,
 	cfg.AppdTid:   `Value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
@@ -55,14 +65,11 @@ var fieldHelp = map[string]string{
 }
 
 func configShowFields(cmd *cobra.Command, args []string) {
-	cmd.Printf(`The following settings can be configured with the "config set" command.` + "\n\n" +
-		`Example:
-  fsoc config set auth=oauth url=mytenant.observe.appdynamics.com` + "\n\n")
+	cmd.Println(helpIntro)
 
 	// display core fields
 	fields := []string{}
 	helps := []string{}
-	cmd.Printf("Core configuration fields\n\n")
 	for _, field := range configArgs {
 		help, found := fieldHelp[field]
 		if !found {
@@ -72,14 +79,9 @@ func configShowFields(cmd *cobra.Command, args []string) {
 		fields = append(fields, field)
 		helps = append(helps, help)
 	}
-	formatAndDisplayFields(cmd, fields, helps)
 
-	// display subsystem-specific configuration fields
-	fields = []string{}
-	helps = []string{}
+	// add subsystem-specific configuration fields
 	for _, subsystemName := range cfg.GetRegisteredSubsystems() {
-		cmd.Printf("Subsystem %q configuration fields\n", subsystemName)
-
 		// get config template structure for the subsystem
 		template, err := cfg.GetSubsytemConfigTemplate(subsystemName)
 		if err != nil {
@@ -108,8 +110,8 @@ func configShowFields(cmd *cobra.Command, args []string) {
 			fields = append(fields, subsystemName+"."+fieldName) // subsystem.setting
 			helps = append(helps, fsochelpTag)
 		}
-		formatAndDisplayFields(cmd, fields, helps)
 	}
+	formatAndDisplayFields(cmd, fields, helps)
 }
 
 func formatAndDisplayFields(cmd *cobra.Command, fields []string, helps []string) {
