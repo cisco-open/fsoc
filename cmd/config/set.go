@@ -56,7 +56,8 @@ if on context name is specified, the current context is created/updated.`
 
 // configArgs are the positional arguments of form <name>=<value> that can be set.
 // They also correspond to the --flags for the same, for backward compatibility (deprecated)
-var configArgs = []string{cfg.AppdPid, cfg.AppdTid, cfg.AppdPty, "auth", "server", "url", "tenant", "token", "secret-file", "envtype"}
+// The order here is how the fields are displayed in `config show-help` topic
+var configArgs = []string{"auth", "url", "tenant", "secret-file", "envtype", "token", cfg.AppdTid, cfg.AppdPty, cfg.AppdPid, "server"}
 
 func newCmdConfigSet() *cobra.Command {
 
@@ -64,7 +65,6 @@ func newCmdConfigSet() *cobra.Command {
 		Use:         "set [--config CONFIG_FILE] [--profile CONTEXT] [KEY=VALUE]+",
 		Short:       "Create or modify a context entry in an fsoc config file",
 		Long:        setContextLong,
-		Args:        cobra.MaximumNArgs(9),
 		Example:     setContextExample,
 		Annotations: map[string]string{cfg.AnnotationForConfigBypass: ""},
 		Run:         configSetContext,

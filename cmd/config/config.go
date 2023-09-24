@@ -28,9 +28,10 @@ import (
 func NewSubCmd() *cobra.Command {
 	// cmd represents the config sub command root
 	var cmd = &cobra.Command{
-		Use:   "config SUBCOMMAND [options]",
-		Short: "Configure fsoc",
-		Long:  `View and modify fsoc config files and contexts`,
+		Use:              "config SUBCOMMAND [options]",
+		Short:            "Configure fsoc",
+		Long:             `View and modify fsoc config files and contexts`,
+		TraverseChildren: true,
 	}
 
 	cmd.AddCommand(newCmdConfigGet())
@@ -38,6 +39,7 @@ func NewSubCmd() *cobra.Command {
 	cmd.AddCommand(newCmdConfigUse())
 	cmd.AddCommand(newCmdConfigList())
 	cmd.AddCommand(newCmdConfigDelete())
+	cmd.AddCommand(newCmdConfigShowFields())
 
 	return cmd
 }
