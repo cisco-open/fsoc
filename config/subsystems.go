@@ -106,6 +106,11 @@ func DeleteSubsystemSetting(ctx *Context, subsystemName string, settingName stri
 	}
 	delete(ssmap, settingName)
 
+	// delete subsystem map if this was the last setting
+	if len(ssmap) == 0 {
+		delete(subsystemConfigs, subsystemName)
+	}
+
 	return nil
 }
 
@@ -122,14 +127,14 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 		configStruct, ok := subsystemConfigs[name]
 		if !ok {
 			err := fmt.Errorf("found configuration for %w", &ErrSubsystemNotFound{name})
-			//log.Error(err.Error())
 			errlist = append(errlist, err)
 			continue
 		}
 
 		// create a decoder with the desired options & decode
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook:  mapstructure.ComposeDecodeHookFunc(decodeHooks),
+			// DecodeHook: mapstructure.ComposeDecodeHookFunc([]mapstructure.DecodeHookFunc{}...),
+			DecodeHook:  mapstructure.ComposeDecodeHookFunc(decodeHooks...),
 			ErrorUnused: true,         // no extra settings that are not recognized by the subsystem; this is mostly to avoid typos
 			ZeroFields:  true,         // on re-parsing/re-loading, ensure that any maps start from empty (although we currently support only atomic types)
 			Result:      configStruct, // target which will be used for introspection and result storage
@@ -140,8 +145,8 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 		parseErr := decoder.Decode(config)
 		if parseErr != nil {
 			err := &ErrSubsystemParsingError{name, parseErr}
-			//log.Error(err.Error())
 			errlist = append(errlist, err)
+			continue
 		}
 
 		// log successful configuration
@@ -163,6 +168,6 @@ func UpdateSubsystemConfigs(ctx *Context) error {
 // RegisterTypeDecodeHook registers a mapstructure type decode hook for subsystem-
 // specific configuration types, primarily to enforce formats and parse directly
 // into types that are convenient for the subsystems to use.
-func RegisterTypeDecodeHook(hookFunc mapstructure.DecodeHookFunc) {
-	decodeHooks = append(decodeHooks, hookFunc)
+func RegisterTypeDecodeHooks(y ...mapstructure.DecodeHookFunc) {
+	decodeHooks = append(decodeHooks, y...)
 }

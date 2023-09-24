@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 
 	fsoc "github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var outputFlag string
@@ -34,7 +35,7 @@ var rawFlag bool
 // Config defines the subsystem configuration under fsoc
 type Config struct {
 	// TODO
-	// ApiVersion config.ApiVersion `mapstructure:"apiver,omitempty" fsoc-help:"API version to use, e.g., v1"`
+	ApiVersion api.Version `mapstructure:"apiver,omitempty" fsoc-help:"API version to use for UQL queries. The default is \"v1\"."`
 }
 
 var GlobalConfig Config

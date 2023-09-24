@@ -63,6 +63,8 @@ func (e *ErrSubsystemParsingError) Error() string {
 			}
 			errText = strings.Join(errTexts, " | ")
 		}
+	} else { // note that not all mapstructure-returned errors need to be mapstructure.Error
+		errText = e.ParsingError.Error()
 	}
 
 	return fmt.Sprintf("failed to parse configuration for subsystem %q: %v", e.SubsystemName, errText)

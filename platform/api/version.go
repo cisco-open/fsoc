@@ -27,7 +27,7 @@ import (
 var versionRegExp = regexp.MustCompile(`v\d+(beta(\d+)?)?$`)
 
 func init() {
-	config.RegisterTypeDecodeHook(versionDecodeHookFunc)
+	config.RegisterTypeDecodeHooks(versionDecodeHookFunc())
 }
 
 // NewVersion parses a string value into an API version, ensuring that the
