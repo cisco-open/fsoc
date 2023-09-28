@@ -38,7 +38,6 @@ type reportRow struct {
 
 type templateValues struct {
 	WorkloadId      string
-	Eligible        bool
 	WorkloadFilters string
 }
 
@@ -47,11 +46,12 @@ var (
 	cluster      string
 	namespace    string
 	workloadName string
+	eligible     bool
 )
 
 var reportTemplate = template.Must(template.New("").Parse(`
 SINCE -1w
-FETCH id, attributes, events(k8sprofiler:report){{if .Eligible}}[attributes("report_contents.optimizable") = "true"]{{end}}{attributes, timestamp}
+FETCH id, attributes, events(k8sprofiler:report){attributes, timestamp}
 FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFilters}}[{{.}}]{{end}}
 LIMITS events.count(1)
 `))
@@ -88,7 +88,7 @@ func init() {
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "namespace")
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "workload-name")
 
-	reportCmd.Flags().BoolVarP(&tempVals.Eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
+	reportCmd.Flags().BoolVarP(&eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
 }
 
 func listReports(cmd *cobra.Command, args []string) error {
@@ -220,11 +220,14 @@ func extractReportData(dataset *uql.DataSet) ([]reportRow, error) {
 			if err != nil {
 				return results, fmt.Errorf("row %v sliceToMap(firstRowComplexData.Data): %w", index, err)
 			}
+			if eligible && reportRow.ProfileAttributes["report_contents.optimizable"] != "true" {
+				continue
+			}
 			reportRow.ProfileTimestamp, ok = firstRow[1].(time.Time)
 			if !ok {
 				log.Warnf("Returned data is not complete. Type assertion failed for profile event timestamp (main dataset row %v): %+v", index, firstRow)
 			}
-		} else if tempVals.Eligible {
+		} else if eligible {
 			continue // filter out workloads with no eligible event returned
 		}
 
