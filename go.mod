@@ -16,14 +16,14 @@ require (
 	github.com/peterhellberg/link v1.2.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/relvacode/iso8601 v1.3.0
-	github.com/spf13/afero v1.9.5
+	github.com/spf13/afero v1.10.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/proto/otlp v1.0.0
-	go.pinniped.dev v0.25.0
+	go.pinniped.dev v0.26.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/oauth2 v0.12.0
 	golang.org/x/term v0.12.0
