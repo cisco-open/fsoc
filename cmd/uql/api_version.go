@@ -29,8 +29,8 @@ type ApiVersion string
 
 // constants for direct use
 const (
-	ApiVersion1     ApiVersion = ApiVersion("v1")
-	ApiVersion1Beta ApiVersion = ApiVersion("v1beta")
+	ApiVersion1 ApiVersion = ApiVersion("v1")
+	//ApiVersion1Beta ApiVersion = ApiVersion("v1beta")
 
 	ApiVersionDefault ApiVersion = ApiVersion1
 )
@@ -40,14 +40,18 @@ const (
 
 var supportedApiVersions = []string{
 	string(ApiVersion1),
-	string(ApiVersion1Beta),
+	//string(ApiVersion1Beta),
 }
 
-func (a *ApiVersion) ValidateAndSet(v string) error {
-	if !slices.Contains(supportedApiVersions, v) {
-		return errors.New(fmt.Sprintf(`API version %q is not supported; use one of "%v"`, v, strings.Join(supportedApiVersions, `", "`)))
+func (a *ApiVersion) ValidateAndSet(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return errors.New(fmt.Sprintf(`the API version value must be a string, found %T instead`, v))
 	}
-	*a = ApiVersion(v)
+	if !slices.Contains(supportedApiVersions, s) {
+		return errors.New(fmt.Sprintf(`API version %q is not supported; valid value(s): "%v"`, v, strings.Join(supportedApiVersions, `", "`)))
+	}
+	*a = ApiVersion(s)
 	return nil
 }
 
