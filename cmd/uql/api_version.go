@@ -31,14 +31,19 @@ type ApiVersion string
 const (
 	ApiVersion1     ApiVersion = ApiVersion("v1")
 	ApiVersion1Beta ApiVersion = ApiVersion("v1beta")
+
+	ApiVersionDefault ApiVersion = ApiVersion1
 )
+
+// note: when changing the set of supported values and/or the default,
+// don't forget to update the fsoc-help tag in the GlobalConfig (see uql.go)
 
 var supportedApiVersions = []string{
 	string(ApiVersion1),
 	string(ApiVersion1Beta),
 }
 
-func (a *ApiVersion) Set(v string) error {
+func (a *ApiVersion) ValidateAndSet(v string) error {
 	if !slices.Contains(supportedApiVersions, v) {
 		return errors.New(fmt.Sprintf(`API version %q is not supported; use one of "%v"`, v, strings.Join(supportedApiVersions, `", "`)))
 	}
@@ -47,11 +52,11 @@ func (a *ApiVersion) Set(v string) error {
 }
 
 func (a *ApiVersion) String() string {
-	return string(*a)
-}
-
-func (a *ApiVersion) ValidValues() []string {
-	return slices.Clone(supportedApiVersions)
+	if a == nil || string(*a) == "" {
+		return string(ApiVersionDefault)
+	} else {
+		return string(*a)
+	}
 }
 
 func GetAPIEndpoint(apiVersion ApiVersion) string {
