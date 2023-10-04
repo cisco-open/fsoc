@@ -108,7 +108,7 @@ func DeleteSubsystemSetting(ctx *Context, subsystemName string, settingName stri
 
 	// delete subsystem map if this was the last setting
 	if len(ssmap) == 0 {
-		delete(subsystemConfigs, subsystemName)
+		delete(ctx.SubsystemConfigs, subsystemName)
 	}
 
 	return nil
