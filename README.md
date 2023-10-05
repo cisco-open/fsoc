@@ -12,22 +12,24 @@ The Cisco Full Stack Observability (FSO) Platform  provides core capabilities fo
 *MELT: Metrics, Events, Logs and Traces
 
 The FSO control tool, `fsoc`, provides a command line interface to help developers manage their solutions 
-lifecycle and interact with the core services and solutions currently available in the platform.
+lifecycle and interact with the core services and solutions in the FSO platform.
 
 ## Documentation
 
-The `fsoc` documentation is going to be published in Cisco's [DevNet](https://developer.cisco.com/docs/fso/). This link may not work until the first document publication is available. Until then, the `fsoc help` command is a good starting point. Most commands provide sample command lines you can try.
+The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [FSO Platform Documentation](https://developer.cisco.com/docs/fso/). 
+
+As `fsoc` is still evolving quickly, the DevNet documentation may sometimes not include information about the latest released version of `fsoc`. The `fsoc help` command is always the best way to get the correct help for the version of fsoc you have. Most commands provide sample command lines you can try.
 
 You can also run `fsoc gendocs` to generate a command reference. It provides the same information as `fsoc help` but in static Markdown pages.
 
-## TL;DR Build
+## Build `fsoc` from source code
 
 To build `fsoc` locally, after cloning this repository:
 
 * Run `go build`
 * Use the binary saved in the same directory, e.g., `./fsoc help`
 
-For more information on setting up the development environment and building fsoc, please see [CONTRIBUTING](CONTRIBUTING.md).
+For more information on setting up the development environment and building `fsoc`, please see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Install using Homebrew
 
@@ -38,7 +40,7 @@ For more information on setting up the development environment and building fsoc
     brew install fsoc
     ```
 
-## TL;DR Install Prebuilt Binaries
+## Install Prebuilt Binaries
 
 Prebuilt binaries are published for each [`fsoc` release](https://github.com/cisco-open/fsoc/releases) for the following platforms:
 
@@ -50,7 +52,9 @@ Prebuilt binaries are published for each [`fsoc` release](https://github.com/cis
 | Linux, ARM | `fsoc-linux-arm64` |
 | Windows 10/11 | `fsoc-windows-amd64.exe` |
 
-### Installing on Linux or Windows with WSL
+### Install on Linux or Windows with WSL
+
+To install `fsoc` on Linux or on Windows with the Windows Subsystem for Linux (WSL), use the following commands:
 
 ```
 FSOCOS=linux-amd64 \
@@ -60,7 +64,7 @@ sudo mv fsoc /usr/local/bin
 ```
 Change the `FSOCOS` platform name above to `linux-arm64` for installing on Linux/ARM.
 
-### Installing on Mac OS, Intel
+### Install on Mac OS, Intel
 
 ```
 curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-darwin-amd64"
@@ -68,7 +72,7 @@ chmod +x fsoc
 sudo mv fsoc /usr/local/bin
 ```
 
-### Installing on Mac OS, M1/M2
+### Install on Mac OS, M1/M2
 
 ```
 curl -fSL -o fsoc "https://github.com/cisco-open/fsoc/releases/latest/download/fsoc-darwin-arm64"
@@ -76,7 +80,7 @@ chmod +x fsoc
 sudo mv fsoc /usr/local/bin
 ```
 
-### Installing On Windows
+### Install On Windows
 
 If you will run `fsoc` on the Windows Subsystem for Linux (WSL), please use the Linux and WSL instructions above.
 
