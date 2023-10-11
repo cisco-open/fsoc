@@ -161,21 +161,20 @@ func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
 				"type":        "string",
 				"description": "The apiKey used to secure the REST endpoint and added to calls by the poller function",
 			},
+			"name": map[string]interface{}{
+				"type":        "string",
+				"description": "Name for the data collector configuration that will be used to generate the ID for this knowledge object",
+			},
 		},
-		"required": []string{"cloudCollectorTargetURL", "cloudCollectorTargetApiKey"},
-	}
-	idGen := &IdGenerationDef{
-		EnforceGlobalUniqueness: true,
-		GenerateRandomId:        true,
-		IdGenerationMechanism:   "{{layer.id}}",
+		"required": []string{"cloudCollectorTargetURL", "cloudCollectorTargetApiKey", "name"},
 	}
 
 	knowledgeComponent := &KnowledgeDef{
-		Name:             "dataCollectorConfiguration",
-		AllowedLayers:    []string{"TENANT"},
-		IdGeneration:     idGen,
-		SecureProperties: []string{"$.collectorTargetApiKey"},
-		JsonSchema:       jsonSchema,
+		Name:                  "dataCollectorConfiguration",
+		AllowedLayers:         []string{"TENANT"},
+		IdentifyingProperties: []string{"/name"},
+		SecureProperties:      []string{"$.collectorTargetApiKey"},
+		JsonSchema:            jsonSchema,
 	}
 
 	return knowledgeComponent
