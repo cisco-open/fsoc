@@ -92,7 +92,7 @@ type DashuiTooltip struct {
 
 type DashuiClickable struct {
 	*DashuiWidget
-	OnClick *DashuiEvent `json:"onclick,omitempty"`
+	OnClick *DashuiEvent `json:"onClick,omitempty"`
 	Trigger *DashuiLabel `json:"trigger,omitempty"`
 }
 

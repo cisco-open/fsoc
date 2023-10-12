@@ -21,7 +21,7 @@ import (
 
 	"github.com/apex/log"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 // requiredSettings defines what config.Context fields are required for each authentication method

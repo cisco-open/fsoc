@@ -177,7 +177,8 @@ func PrintCmdOutputAdvanced(cmd *cobra.Command, v any, pr *PrintRequest) {
 
 func printCmdOutputCustom(pr *PrintRequest, v any) {
 	// if no field spec is given on the command line and built-in specs are available, use them
-	if pr.Fields == "" && pr.Annotations != nil {
+	// as long as there is no custom table
+	if pr.Fields == "" && pr.Annotations != nil && (pr.Table == nil || pr.Table.Headers == nil) {
 		// choose which annotations to use and in what priority order
 		annotations := []string{} // names of annotations to use for fields, in priority order
 		switch pr.Format {
@@ -480,6 +481,11 @@ func canonicalizeData(v any) any {
 			log.Warnf("failed to convert output data back from JSON in preparation for transformations: %v; leaving it as is", err)
 			return v
 		}
+		// err := mapstructure.Decode(v, &data)
+		// if err != nil {
+		// 	log.Warnf("failed to convert output data to map for transformations: %v; leaving it as is", err)
+		// 	return v
+		// }
 	}
 
 	// if the map already has the standard FSO API structure, use it

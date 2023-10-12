@@ -30,9 +30,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/maps"
 
-	"github.com/cisco-open/fsoc/cmd/config"
 	"github.com/cisco-open/fsoc/cmd/version"
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/logfilter"
 	"github.com/cisco-open/fsoc/platform/api"
 )
@@ -145,7 +146,18 @@ func initConfig() {
 }
 
 func registerSubsystem(cmd *cobra.Command) {
+	registerSubSystemWithConfig(cmd, nil)
+}
+
+func registerSubSystemWithConfig(cmd *cobra.Command, store any) {
 	rootCmd.AddCommand(cmd)
+
+	// register subsystem's custom config store, if provided
+	if store != nil {
+		if err := config.RegisterSubsystemConfigStorage(cmd.Name(), store); err != nil {
+			log.Fatalf("failed to register config for subsystem %q: %v", cmd.Name(), err)
+		}
+	}
 }
 
 func helperFlagFormatter(fs *pflag.FlagSet) string {
@@ -214,15 +226,27 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	if err != nil { // bypass == true
 		log.Infof("Unable to read config file (%v), proceeding without a config", err)
 	} else { // err == nil
-		profile := config.GetCurrentProfileName()
-		exists := config.GetCurrentContext() != nil
+		profile := config.GetCurrentProfileName() // may not exist, so don't try from cfg
+		cfg := config.GetCurrentContext()         // nil if profile does not exist
+		exists := cfg != nil
 		if !exists && !bypass {
 			log.Fatalf("fsoc is not fully configured: missing profile %q; please use \"fsoc config set\" to configure it", profile)
 		}
+		customSubsysConfigs := []string{}
+		if exists {
+			err := config.UpdateSubsystemConfigs(cfg)
+			if err != nil {
+				// note: UpdateSubsystemConfig prints log.warnings for each error with enough context
+				// more details can be provided, e.g., log.Fatalf("Subsystem configuration %q in profile %q is not among recognized subsystems %v", name, profileName, maps.Keys(subsystemConfigs))
+				log.Fatalf("Failed to parse subsystem configurations in profile %q of config file %q: %v", profile, viper.ConfigFileUsed(), err)
+			}
+			customSubsysConfigs = maps.Keys(cfg.SubsystemConfigs)
+		}
 		log.WithFields(log.Fields{
-			"config_file": viper.ConfigFileUsed(),
-			"profile":     profile,
-			"existing":    exists,
+			"config_file":    viper.ConfigFileUsed(),
+			"profile":        profile,
+			"existing":       exists,
+			"custom_configs": customSubsysConfigs,
 		}).Info("fsoc context")
 	}
 

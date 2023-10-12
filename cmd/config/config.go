@@ -19,23 +19,10 @@
 package config
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/apex/log"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-)
 
-const (
-	FSOC_PROFILE_ENVVAR = "FSOC_PROFILE"
-	FSOC_CONFIG_ENVVAR  = "FSOC_CONFIG"
+	cfg "github.com/cisco-open/fsoc/config"
 )
-
-var activeProfile string
 
 // Package registration function for the config root command
 func NewSubCmd() *cobra.Command {
@@ -44,6 +31,13 @@ func NewSubCmd() *cobra.Command {
 		Use:   "config SUBCOMMAND [options]",
 		Short: "Configure fsoc",
 		Long:  `View and modify fsoc config files and contexts`,
+		Example: `  fsoc config list
+  fsoc config set auth=oauth url=https://mytenant.observe.appdynamics.com
+  fsoc config set auth=service-principal secret-file=my-svc-principal.json --profile ci
+  fsoc config get -o yaml
+  fsoc config use ci
+  fsoc config delete ci`,
+		TraverseChildren: true,
 	}
 
 	cmd.AddCommand(newCmdConfigGet())
@@ -51,249 +45,23 @@ func NewSubCmd() *cobra.Command {
 	cmd.AddCommand(newCmdConfigUse())
 	cmd.AddCommand(newCmdConfigList())
 	cmd.AddCommand(newCmdConfigDelete())
+	cmd.AddCommand(newCmdConfigShowFields())
 
 	return cmd
 }
 
-// GetCurrentContext returns the context (access profile) selected by the user
-// for the particular invocation of the fsoc utility. Returns nil if no current context is defined (and the
-// only command allowed in this state is `config set`, which will create the context).
-// Note that GetCurrentContext returns a pointer into the config file's overall configuration; it can be
-// modified and then updated using ReplaceCurrentContext().
-func GetCurrentContext() *Context {
-	return getContext(GetCurrentProfileName())
-}
-
-func getContext(name string) *Context {
-	// read config file
-	cfg := getConfig()
-	if len(cfg.Contexts) == 0 {
-		return nil
-	}
-
-	// locate & return the named context
-	for _, c := range cfg.Contexts {
-		if c.Name == name {
-			return &c
-		}
-	}
-
-	return nil
-}
-
-func checkUpgradeScheme(c *configFileContents) {
-	needReWrite := false
-	newContexts := make([]Context, len(c.Contexts))
-	for i, context := range c.Contexts {
-		if context.Server != "" {
-			context.URL = "https://" + context.Server
-			log.WithFields(log.Fields{
-				"context": context.Name,
-				"server":  context.Server,
-				"url":     context.URL,
-			}).Warn("The \"server\" config attribute is deprecated; replacing it with \"url\" now.")
-			context.Server = ""
-			needReWrite = true
-		}
-		newContexts[i] = context
-	}
-	if needReWrite {
-		updateConfigFile(map[string]interface{}{
-			"contexts": newContexts,
-		})
-		c.Contexts = newContexts
-		log.Warnf("Config file updated to upgrade settings schema.")
+// GetAuthMethodsStringList returns the list of authentication methods as strings (for join, etc.)
+func GetAuthMethodsStringList() []string {
+	return []string{
+		cfg.AuthMethodNone,
+		cfg.AuthMethodOAuth,
+		cfg.AuthMethodServicePrincipal,
+		cfg.AuthMethodAgentPrincipal,
+		cfg.AuthMethodJWT,
+		cfg.AuthMethodLocal,
 	}
 }
 
-func getConfig() configFileContents {
-	// read config file with all contexts
-	var c configFileContents
-	err := viper.Unmarshal(&c)
-	if err != nil {
-		log.Fatalf("unable to read config: %v", err)
-	}
-
-	// check if scheme needs to be upgraded; do it and update file if so
-	checkUpgradeScheme(&c)
-
-	return c
-}
-
-// ListContexts returns a list of context names which begin with `prefix`,
-// used for the command line autocompletion
-func ListContexts(prefix string) []string {
-	config := getConfig()
-	var ret []string
-	for _, c := range config.Contexts {
-		name := c.Name
-		if strings.HasPrefix(name, prefix) {
-			ret = append(ret, name)
-		}
-	}
-	return ret
-}
-
-func updateConfigFile(keyValues map[string]interface{}) {
-	var err error
-
-	// update values
-	for key, value := range keyValues {
-		viper.Set(key, value)
-	}
-	// set up config file in viper
-	viper.SetConfigType("yaml")
-	if viper.ConfigFileUsed() == "" {
-		home, _ := os.UserHomeDir()
-		configFileLocation := strings.Replace(DefaultConfigFile, "~", home, 1)
-		viper.SetConfigFile(configFileLocation)
-	}
-	viper.SetConfigPermissions(0600) // o=rw
-
-	// ensure file exists (viper fails to create it, likely a bug in viper)
-	ensureConfigFile()
-
-	// update file contents
-	err = viper.WriteConfig()
-	if err != nil {
-		log.Fatalf("failed to write config file %q: %v", viper.ConfigFileUsed(), err)
-	}
-}
-
-func ensureConfigFile() {
-	appFs := afero.NewOsFs()
-
-	// finalize the path to use
-	var fileLoc = viper.ConfigFileUsed()
-	if strings.Contains(fileLoc[:2], "~/") {
-		homeDir, _ := os.UserHomeDir()
-		fileLoc = strings.Replace(fileLoc, "~", homeDir, 1)
-	}
-	configPath, _ := filepath.Abs(fileLoc)
-
-	// try to open the file, create it if it doesn't exist
-	_, err := appFs.Open(configPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			_, err = appFs.Create(configPath)
-			if err != nil {
-				log.Fatalf("failed to create config file %q: %v", configPath, err)
-			}
-			viper.SetConfigFile(configPath)
-		} else {
-			log.Fatalf("failed to open config file %q: %v", configPath, err)
-		}
-	}
-}
-
-func updateContext(ctx *Context) {
-	contextExists := false
-	var ctxPtr *Context
-
-	if ctx.Name == "" {
-		log.Fatalf("bug: context name cannot be empty when updating context")
-	}
-
-	cfg := getConfig()
-	for idx, c := range cfg.Contexts {
-		if c.Name == ctx.Name {
-			ctxPtr = &cfg.Contexts[idx]
-			contextExists = true
-			break
-		}
-	}
-
-	// If context not found, create a new one
-	if !contextExists {
-		ctx := Context{
-			Name: ctx.Name,
-		}
-		cfg.Contexts = append(cfg.Contexts, ctx)
-		ctxPtr = &cfg.Contexts[len(cfg.Contexts)-1]
-	}
-
-	// copy context if needed
-	if ctx != ctxPtr {
-		*ctxPtr = *ctx // copy, in case ctx is not what GetCurrentContext() had returned
-	}
-
-	update := map[string]interface{}{"contexts": cfg.Contexts}
-	if !contextExists && len(cfg.Contexts) == 1 { // just created the first context, set it as current
-		update["current_context"] = ctx.Name
-		log.Infof("Setting context %s as current", ctx.Name)
-	}
-	updateConfigFile(update)
-
-	if contextExists {
-		log.WithField("profile", ctx.Name).Info("Updated context")
-	} else {
-		log.WithField("profile", ctx.Name).Info("Created context")
-	}
-}
-
-// ReplaceCurrentContext updates the all values within the current context.
-// It accepts a Context structure, which may or may not be returned by GetCurrentContext().
-// Note that the Context.Name must match the current context.
-func ReplaceCurrentContext(ctx *Context) {
-	// enforce that the *current* context is being replaced
-	curCtx := GetCurrentContext()
-	if curCtx == nil {
-		log.Errorf("Attempt to update current context as %q when there is no current context; update ignored", ctx.Name)
-		return
-	}
-	if ctx.Name != curCtx.Name {
-		log.Errorf("Attempt to update current context %q using non-matching context name %q; update ignored", curCtx.Name, ctx.Name)
-		return
-	}
-
-	// update context
-	updateContext(ctx)
-}
-
-// SetActiveProfile sets the name of the profile that should be used instead of the
-// config file's current profile value.
-func SetActiveProfile(cmd *cobra.Command, args []string, emptyOK bool) {
-	var profile string // used only in this block
-
-	if cmd.Flags().Changed("profile") {
-		profile, _ = cmd.Flags().GetString("profile")
-	} else {
-		profile = os.Getenv(FSOC_PROFILE_ENVVAR) // remains empty if not defined
-	}
-	if profile == "" {
-		return // no change
-	}
-	// Check if profile exists
-	if !emptyOK && getContext(profile) == nil {
-		log.Fatalf("Could not find profile %q", profile)
-	}
-	if activeProfile != "" {
-		log.Warnf("The selected profile is being overridden: old=%q, new=%q", activeProfile, profile)
-	}
-	activeProfile = profile
-}
-
-// GetCurrentProfileName returns the profile name that is used to select the context.
-// This is mostly the same as returned by GetCurrentContext().Name, except for the
-// case when a new profile is being created.
-func GetCurrentProfileName() string {
-	// start with default
-	profile := DefaultContext
-
-	// use the profile from command line or the config file's current
-	if activeProfile != "" {
-		profile = activeProfile
-	} else {
-		// get profile that is current for the config file
-		cfg := getConfig()
-		if cfg.CurrentContext == "" {
-			cfg.CurrentContext = DefaultContext // dealing with old "current-context" keys (temporary)
-		}
-		if cfg.CurrentContext != "" {
-			profile = cfg.CurrentContext
-		}
-		// note: the profile may not exist, that's OK
-	}
-
-	return profile
+func validArgsAutocomplete(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return cfg.ListContexts(toComplete), cobra.ShellCompDirectiveDefault
 }

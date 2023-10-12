@@ -17,7 +17,7 @@ package optimize
 import (
 	"fmt"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 // sliceToMap converts a list of lists (slice [][2]any) to a dictionary for table output jq support

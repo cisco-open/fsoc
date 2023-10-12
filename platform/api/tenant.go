@@ -24,7 +24,7 @@ import (
 
 	"github.com/apex/log"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 const RESOLVER_HOST = "observe-tenant-lookup-api"

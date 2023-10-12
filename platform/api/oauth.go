@@ -30,14 +30,14 @@ import (
 	"go.pinniped.dev/pkg/oidcclient/pkce"
 	"golang.org/x/oauth2"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 const (
 	oauth2ClientId       = "default"
-	oauth2AuthUriSuffix  = "oauth2/authorize"               // API for obtaining authorization codes
-	oauth2TokenUriSuffix = "oauth2/token"                   // API for exchanging the auth code for a token
-	oauthRedirectUri     = "http://127.0.0.1:3101/callback" // TODO: change localhost to 127.0.0.1 to match examples
+	oauth2AuthUriSuffix  = "oauth2/authorize" // API for obtaining authorization codes
+	oauth2TokenUriSuffix = "oauth2/token"     // API for exchanging the auth code for a token
+	oauthRedirectUri     = "http://127.0.0.1:3101/callback"
 )
 
 // appTokens is what the AppD backend returns when it hands back the tokens (in exchange for the authorization code)

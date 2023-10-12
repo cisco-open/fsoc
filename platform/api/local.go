@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package api provides access to the platform API, in all forms supported
+// by the config context (aka access profile)
 package api
 
-// Version defines an API version, as used in URI paths. Use NewVersion() to
-// create/parse from a string value and String() to convert back to string
-type Version string
+import (
+	"encoding/base64"
+	"net/http"
 
-// CollectionResult is a structure that wraps API collections of type T.
-// See JSONGetCollection for reference to API collection RFC/standards
-type CollectionResult[T any] struct {
-	Items []T `json:"items"`
-	Total int `json:"total"`
+	"github.com/cisco-open/fsoc/config"
+)
+
+func AddLocalAuthReqHeaders(req *http.Request, opt *config.LocalAuthOptions) {
+	req.Header.Add(config.AppdPid, base64.StdEncoding.EncodeToString([]byte(opt.AppdPid)))
+	req.Header.Add(config.AppdPty, base64.StdEncoding.EncodeToString([]byte(opt.AppdPty)))
+	req.Header.Add(config.AppdTid, base64.StdEncoding.EncodeToString([]byte(opt.AppdTid)))
 }

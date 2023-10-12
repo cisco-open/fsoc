@@ -30,7 +30,7 @@ import (
 	"github.com/apex/log"
 	"github.com/moul/http2curl"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 var FlagCurlifyRequests bool
@@ -138,7 +138,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	}
 
 	if cfg.AuthMethod == config.AuthMethodLocal {
-		cfg.LocalAuthOptions.AddHeaders(req)
+		AddLocalAuthReqHeaders(req, &cfg.LocalAuthOptions)
 	}
 
 	// add explicit headers

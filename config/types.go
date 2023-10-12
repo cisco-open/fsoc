@@ -15,8 +15,7 @@
 package config
 
 import (
-	b64 "encoding/base64"
-	"net/http"
+	"fmt"
 )
 
 const (
@@ -53,18 +52,20 @@ const (
 // field contains the name of the context (which is unique within the config file);
 // the remaining fields define the access profile.
 type Context struct {
-	Name             string           `json:"name" yaml:"name"`
-	AuthMethod       string           `json:"auth_method,omitempty" yaml:"auth_method,omitempty" mapstructure:"auth_method"`
-	Server           string           `json:"server,omitempty" yaml:"server,omitempty"` // deprecated
-	URL              string           `json:"url,omitempty" yaml:"url,omitempty"`
-	Tenant           string           `json:"tenant,omitempty" yaml:"tenant,omitempty"`
-	User             string           `json:"user,omitempty" yaml:"user,omitempty"`
-	Token            string           `json:"token,omitempty" yaml:"token,omitempty"` // access token
-	RefreshToken     string           `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty" mapstructure:"refresh_token"`
-	CsvFile          string           `json:"csv_file,omitempty" yaml:"csv_file,omitempty"`
-	SecretFile       string           `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file"`
-	EnvType          string           `json:"env_type,omitempty" yaml:"env_type,omitempty" mapstructure:"env_type"`
-	LocalAuthOptions LocalAuthOptions `json:"auth-options,omitempty" yaml:"auth-options,omitempty" mapstructure:"auth-options"`
+	Name             string                    `json:"name" yaml:"name" mapstructure:"name"`
+	AuthMethod       string                    `json:"auth_method" yaml:"auth_method" mapstructure:"auth_method"`
+	Server           string                    `json:"server,omitempty" yaml:"server,omitempty" mapstructure:"server,omitempty"` // deprecated
+	URL              string                    `json:"url" yaml:"url" mapstructure:"url"`
+	Tenant           string                    `json:"tenant,omitempty" yaml:"tenant,omitempty" mapstructure:"tenant,omitempty"`
+	User             string                    `json:"user,omitempty" yaml:"user,omitempty" mapstructure:"user,omitempty"`
+	Token            string                    `json:"token,omitempty" yaml:"token,omitempty" mapstructure:"token,omitempty"` // access token
+	RefreshToken     string                    `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty" mapstructure:"refresh_token,omitempty"`
+	CsvFile          string                    `json:"csv_file,omitempty" yaml:"csv_file,omitempty" mapstructure:"csv_file,omitempty"`
+	SecretFile       string                    `json:"secret_file,omitempty" yaml:"secret_file,omitempty" mapstructure:"secret_file,omitempty"`
+	EnvType          string                    `json:"env_type,omitempty" yaml:"env_type,omitempty" mapstructure:"env_type,omitempty"`
+	LocalAuthOptions LocalAuthOptions          `json:"auth-options,omitempty" yaml:"auth-options,omitempty" mapstructure:"auth-options,omitempty"`
+	SubsystemConfigs map[string]map[string]any `json:"subsystems,omitempty" yaml:"subsystems,omitempty" mapstructure:"subsystems,omitempty"`
+	// Note: when adding fields, remember to add display for them in get.go
 }
 
 type LocalAuthOptions struct {
@@ -73,26 +74,14 @@ type LocalAuthOptions struct {
 	AppdPid string `json:"appd-pid" yaml:"appd-pid" mapstructure:"appd-pid"`
 }
 
-func (opt *LocalAuthOptions) AddHeaders(req *http.Request) {
-	req.Header.Add(AppdPid, b64.StdEncoding.EncodeToString([]byte(opt.AppdPid)))
-	req.Header.Add(AppdPty, b64.StdEncoding.EncodeToString([]byte(opt.AppdPty)))
-	req.Header.Add(AppdTid, b64.StdEncoding.EncodeToString([]byte(opt.AppdTid)))
+func (o *LocalAuthOptions) String() string {
+	if o.AppdPid == "" && o.AppdTid == "" && o.AppdPty == "" {
+		return ""
+	}
+	return fmt.Sprintf("appd-pty=%v appd-pid=%v appd-tid=%v", o.AppdPty, o.AppdPid, o.AppdTid)
 }
 
-// internal, to be renamed to lower case
 type configFileContents struct {
 	Contexts       []Context
 	CurrentContext string `mapstructure:"current_context" yaml:"current_context,omitempty" json:"current_context,omitempty"`
-}
-
-// GetAuthMethodsStringList returns the list of authentication methods as strings (for join, etc.)
-func GetAuthMethodsStringList() []string {
-	return []string{
-		AuthMethodNone,
-		AuthMethodOAuth,
-		AuthMethodServicePrincipal,
-		AuthMethodAgentPrincipal,
-		AuthMethodJWT,
-		AuthMethodLocal,
-	}
 }

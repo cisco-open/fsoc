@@ -26,13 +26,6 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
-type ApiVersion string
-
-const (
-	ApiVersion1     ApiVersion = "v1"
-	ApiVersion1Beta ApiVersion = "v1beta"
-)
-
 // Query represents a UQL request body
 type Query struct {
 	Str string `json:"query"`
@@ -107,7 +100,7 @@ func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResp
 	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONPost("/monitoring/"+string(apiVersion)+"/query/execute", query, &rawJson, b.apiOptions)
+	err := api.JSONPost(GetAPIEndpoint(apiVersion), query, &rawJson, b.apiOptions)
 	if err != nil {
 		if problem, ok := err.(api.Problem); ok {
 			return parsedResponse{}, makeUqlProblem(problem)
