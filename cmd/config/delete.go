@@ -15,21 +15,24 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
+
+	cfg "github.com/cisco-open/fsoc/config"
+	"github.com/cisco-open/fsoc/output"
 )
 
 func newCmdConfigDelete() *cobra.Command {
 
 	var cmd = &cobra.Command{
-		Use:   "delete CONTEXT_NAME",
-		Short: "Delete a context from the fsoc config file",
-		Long:  `Delete a context from the fsoc config file`,
-		Args:  cobra.ExactArgs(1),
-		Run:   configDeleteContext,
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return ListContexts(toComplete), cobra.ShellCompDirectiveDefault
-		},
+		Use:               "delete CONTEXT_NAME",
+		Short:             "Delete a context from the fsoc config file",
+		Long:              `Delete a context from the fsoc config file`,
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: validArgsAutocomplete,
+		Run:               configDeleteContext,
 	}
 
 	return cmd
@@ -37,40 +40,8 @@ func newCmdConfigDelete() *cobra.Command {
 
 func configDeleteContext(cmd *cobra.Command, args []string) {
 	profile := args[0]
-
-	// Make sure profile exists
-	ctx := getContext(profile)
-	if ctx == nil {
-		log.Fatalf("Could not find profile %q", profile)
+	if err := cfg.DeleteContext(profile); err != nil {
+		log.Fatalf("%v", err)
 	}
-
-	cfg := getConfig()
-	profileIdx := -1
-	for idx, c := range cfg.Contexts {
-		if profile == c.Name {
-			profileIdx = idx
-			break
-		}
-	}
-
-	if profileIdx == -1 {
-		log.Fatalf("(possible bug) Could not find profile %q", profile)
-	}
-
-	// Delete context from config
-	newContexts := append(cfg.Contexts[:profileIdx], cfg.Contexts[profileIdx+1:]...)
-	update := map[string]interface{}{"contexts": newContexts}
-	if cfg.CurrentContext == profile {
-		var newCurrentContext string
-		if len(newContexts) > 0 {
-			newCurrentContext = newContexts[0].Name
-		} else {
-			newCurrentContext = DefaultContext
-		}
-		update["current_context"] = newCurrentContext
-		log.Infof("Setting current profile to %q", newCurrentContext)
-	}
-
-	updateConfigFile(update)
-	log.Infof("Deleted prfofile %q", profile)
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Deleted profile %q\n", profile))
 }

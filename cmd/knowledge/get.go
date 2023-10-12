@@ -151,15 +151,15 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 }
 
 func getTypeUrl(fqtn string) string {
-	return fmt.Sprintf("knowledge-store/v1/types/%s", fqtn)
+	return fmt.Sprintf("%v/types/%s", GetBaseUrl(), fqtn)
 }
 
 func getObjectUrl(fqtn, objId string) string {
-	return fmt.Sprintf("knowledge-store/v1/objects/%s/%s", fqtn, objId)
+	return fmt.Sprintf("%v/objects/%s/%s", GetBaseUrl(), fqtn, objId)
 }
 
 func getObjectListUrl(fqtn string) string {
-	return fmt.Sprintf("knowledge-store/v1/objects/%s", fqtn)
+	return fmt.Sprintf("%v/objects/%s", GetBaseUrl(), fqtn)
 }
 
 type layerType string

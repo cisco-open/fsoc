@@ -15,12 +15,22 @@
 package config
 
 import (
-	"fmt"
+	"slices"
 
+	"github.com/apex/log"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 
+	cfg "github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 )
+
+const tableFieldSpec = `` +
+	`use:.use, ` +
+	`name:.name, ` +
+	`auth_method:(if .auth_method == "" then "-" else .auth_method end), ` +
+	`url:(if .url == "" then "-" else .url end), ` +
+	`env_type:(if .env_type == null then "" else .env_type end)`
 
 func newCmdConfigList() *cobra.Command {
 
@@ -28,46 +38,71 @@ func newCmdConfigList() *cobra.Command {
 		Use:   "list",
 		Short: "Displays all contexts in an fsoc config file",
 		Long:  `Displays all contexts in an fsoc config file`,
+		Args:  cobra.NoArgs,
 		RunE:  configListContexts,
+		Annotations: map[string]string{
+			output.TableFieldsAnnotation: tableFieldSpec,
+		},
 	}
 
 	return cmd
 }
 
-var headers = []string{
-	"Use", "Name", "Auth Method", "URL", "User",
-}
-
 func configListContexts(cmd *cobra.Command, args []string) error {
-	// fail and display help if any arguments were supplied
-	if len(args) > 0 {
-		return fmt.Errorf("unexpected argument(s): %v", args)
-	}
+	// determine if detailed human format which requires special handling
+	outputFormat, err := cmd.Flags().GetString("output")
+	detailView := err == nil && outputFormat == "detail"
 
-	activeProfile := GetCurrentProfileName() // whether it is current or not
+	// get names of all profiles (sorted) and which ones are active/default
+	profiles := cfg.ListAllContexts()
+	activeProfile := cfg.GetCurrentProfileName()  // whether it is the default or not
+	defaultProfile := cfg.GetDefaultContextName() // the "current" set in the config file
+	slices.Sort(profiles)
 
-	// read all contexts from the config file
-	cfg := getConfig()
-
-	var contexts [][]string
-	for _, c := range cfg.Contexts {
-		current := ""
-		if c.Name == activeProfile {
-			current = "Current"
-		} else if c.Name == cfg.CurrentContext {
-			current = "Default"
+	contextList := []map[string]any{}
+	for _, name := range profiles {
+		context, err := cfg.GetContext(name)
+		if err != nil {
+			log.Warnf("(bug?) can't find listed context %q: %v; skipping", name, err)
+			continue
 		}
-		// credentials := c.SecretFile
-		// if credentials == "" && c.CsvFile != "" {
-		// 	credentials = c.CsvFile
-		// }
-		contexts = append(contexts, []string{current, c.Name, c.AuthMethod, c.URL, c.User})
+
+		// determine how the profile is used (active, default or neither)
+		use := ""
+		if name == activeProfile {
+			use = "Current"
+		} else if name == defaultProfile {
+			use = "Default"
+		}
+
+		// display detailed view using the "get" command displayer
+		if detailView {
+			outputContext(cmd, context, use) // adds extra line
+			continue
+		}
+
+		var cMap map[string]any
+		err = mapstructure.Decode(context, &cMap)
+		if err != nil {
+			log.Warnf("(bug?) failed to marshal context %q to mapstructure: %v; skipping", name, err)
+			continue
+		}
+
+		// add the use indicator and append the entry
+		cMap["use"] = use
+		contextList = append(contextList, cMap)
 	}
 
-	output.PrintCmdOutputCustom(cmd, cfg, &output.Table{
-		Headers: headers,
-		Lines:   contexts,
-		Detail:  false})
+	// output data (for all output formats except "detail" which is already displayed)
+	if !detailView {
+		output.PrintCmdOutput(cmd, struct {
+			Items []map[string]any `json:"items"`
+			Total int              `json:"total"`
+		}{
+			contextList,
+			len(contextList),
+		})
+	}
 
 	return nil
 }
