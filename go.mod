@@ -10,7 +10,6 @@ require (
 	github.com/charmbracelet/lipgloss v0.9.0
 	github.com/google/uuid v1.3.1
 	github.com/mitchellh/go-wordwrap v1.0.1
-	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moul/http2curl v1.0.0
 	github.com/muesli/termenv v0.15.2
@@ -27,7 +26,6 @@ require (
 	go.pinniped.dev v0.27.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/oauth2 v0.13.0
-	golang.org/x/term v0.13.0
 	golang.org/x/term v0.13.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
