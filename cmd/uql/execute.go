@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,7 @@ package uql
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
-
-	"github.com/apex/log"
-	"github.com/pkg/errors"
-
-	"github.com/cisco-open/fsoc/platform/api"
 )
 
 // Query represents a UQL request body
@@ -57,91 +51,16 @@ type modelRef struct {
 	Model    string `json:"$model"`
 }
 
-// uqlProblem represents parsed data from an object returned with content-type application/problem+json according to the RFC-7807
-// These parsed data are specific for the UQL service.
-type uqlProblem struct {
-	query        string
-	title        string
-	detail       string
-	errorDetails []errorDetail
-}
-
-func (p uqlProblem) Error() string {
-	return fmt.Sprintf("%s: %s", p.title, p.detail)
-}
-
-// errorDetail contains detailed information about user error in the query
-type errorDetail struct {
-	message          string
-	fixSuggestion    string
-	fixPossibilities []string
-	errorType        string
-	errorFrom        position
-	errorTo          position
-}
-
-// position is a place in a multi-line string. Numbering of lines starts with 1
-// Position before the first character has column value 0
-type position struct {
-	line   int
-	column int
-}
-
 type uqlService interface {
 	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
 	Continue(link *Link) (parsedResponse, error)
 }
 
-type defaultBackend struct {
-}
-
-func (b defaultBackend) Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error) {
-	log.WithFields(log.Fields{"query": query.Str, "apiVersion": apiVersion}).Info("executing UQL query")
-
-	var rawJson json.RawMessage
-	err := api.JSONPost(GetAPIEndpoint(apiVersion), query, &rawJson, nil)
-	if err != nil {
-		if problem, ok := err.(api.Problem); ok {
-			return parsedResponse{}, makeUqlProblem(problem)
-		}
-		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to execute UQL Query: '%s'", query.Str))
-	}
-	var chunks []parsedChunk
-	err = json.Unmarshal(rawJson, &chunks)
-	if err != nil {
-		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for UQL Query: '%s'", query.Str))
-	}
-	return parsedResponse{
-		chunks:  chunks,
-		rawJson: &rawJson,
-	}, nil
-}
-
-func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
-	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
-
-	var rawJson json.RawMessage
-	err := api.JSONGet(link.Href, &rawJson, nil)
-	if err != nil {
-		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
-	}
-	var chunks []parsedChunk
-	err = json.Unmarshal(rawJson, &chunks)
-	if err != nil {
-		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed to parse response for link: '%s'", link.Href))
-	}
-	return parsedResponse{
-		chunks:  chunks,
-		rawJson: &rawJson,
-	}, nil
-}
-
-var backend uqlService = &defaultBackend{}
-
-// ExecuteQuery sends an execute request to the UQL service
-func ExecuteQuery(query *Query, apiVersion ApiVersion) (*Response, error) {
-	return executeUqlQuery(query, apiVersion, backend)
-}
+// Default clients that can be used as `uql.Client` from other packages
+// - Client should be used to go with the default API version (possibly overridden in fsoc config)
+// - ClientV1 should be used when `v1` is required
+var Client UqlClient = NewClient()
+var ClientV1 UqlClient = NewClient(WithClientApiVersion(ApiVersion1))
 
 func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*Response, error) {
 	if query == nil || strings.Trim(query.Str, "") == "" {
@@ -149,7 +68,10 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 	}
 
 	if apiVersion == "" {
-		return nil, fmt.Errorf("uql API version missing")
+		apiVersion = ApiVersionDefault
+		if GlobalConfig.ApiVersion != nil && *GlobalConfig.ApiVersion != "" {
+			apiVersion = *GlobalConfig.ApiVersion // from fsoc config file
+		}
 	}
 
 	response, err := backend.Execute(query, apiVersion)
@@ -158,11 +80,6 @@ func executeUqlQuery(query *Query, apiVersion ApiVersion, backend uqlService) (*
 	}
 
 	return processResponse(response)
-}
-
-// ContinueQuery sends a continue request to the UQL service
-func ContinueQuery(dataSet *DataSet, rel string) (*Response, error) {
-	return continueUqlQuery(dataSet, rel, backend)
 }
 
 func continueUqlQuery(dataSet *DataSet, rel string, backend uqlService) (*Response, error) {
@@ -374,66 +291,4 @@ func resolveRefs(dataSet *DataSet, dataSets map[string]*DataSet) *DataSet {
 		}
 	}
 	return dataSet
-}
-
-func makeUqlProblem(original api.Problem) uqlProblem {
-	problem := uqlProblem{
-		query:        asStringOrNothing(original.Extensions["query"]),
-		title:        original.Title,
-		detail:       original.Detail,
-		errorDetails: make([]errorDetail, 0),
-	}
-	switch array := original.Extensions["errorDetails"].(type) {
-	case []any:
-		for _, values := range array {
-			switch asMap := values.(type) {
-			case map[string]any:
-				problem.errorDetails = append(problem.errorDetails, makeErrorDetail(asMap))
-			}
-		}
-	}
-	return problem
-}
-
-func makeErrorDetail(values map[string]any) errorDetail {
-	detail := errorDetail{
-		message:       asStringOrNothing(values["message"]),
-		fixSuggestion: asStringOrNothing(values["fixSuggestion"]),
-		errorType:     asStringOrNothing(values["errorType"]),
-		errorFrom:     asPositionOrNothing(asStringOrNothing(values["errorFrom"])),
-		errorTo:       asPositionOrNothing(asStringOrNothing(values["errorTo"])),
-	}
-	switch typed := values["fixPossibilities"].(type) {
-	case []any:
-		for _, val := range typed {
-			detail.fixPossibilities = append(detail.fixPossibilities, asStringOrNothing(val))
-		}
-	}
-	return detail
-}
-
-func asStringOrNothing(value any) string {
-	if str, ok := value.(string); ok {
-		return str
-	}
-	return ""
-}
-
-func asPositionOrNothing(value string) position {
-	if strings.Count(value, ":") != 1 {
-		return position{}
-	}
-	split := strings.Split(value, ":")
-	line, err := strconv.Atoi(split[0])
-	if err != nil {
-		return position{}
-	}
-	col, err := strconv.Atoi(split[1])
-	if err != nil {
-		return position{}
-	}
-	return position{
-		line:   line,
-		column: col,
-	}
 }

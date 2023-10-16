@@ -202,7 +202,7 @@ func followLogs(initialResponse *uql.Response, formatter rowFormatter, limit int
 }
 
 func queryLogs(query string) (*uql.Response, error) {
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.Client.ExecuteQuery(&uql.Query{Str: query})
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func queryLogs(query string) (*uql.Response, error) {
 }
 
 func followDataSet(dataSet *uql.DataSet) (*uql.Response, error) {
-	resp, err := uql.ContinueQuery(dataSet, "follow")
+	resp, err := uql.Client.ContinueQuery(dataSet, "follow")
 	if err != nil {
 		return nil, err
 	}

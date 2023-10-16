@@ -27,7 +27,15 @@ import (
 )
 
 // Tests that a proper server response is correctly deserialized into a Response struct
-func TestExecuteUqlQuery_HappyDay(t *testing.T) {
+func TestExecuteUqlQuery_HappyDay_Version1(t *testing.T) {
+	testExecuteUqlQuery_HappyDay(t, ApiVersion1)
+}
+
+func TestExecuteUqlQuery_HappyDay_NoVersion(t *testing.T) {
+	testExecuteUqlQuery_HappyDay(t, ApiVersion(""))
+}
+
+func testExecuteUqlQuery_HappyDay(t *testing.T, apiVersion ApiVersion) {
 	// given
 	// language=json
 	serverResponse := `[
@@ -69,7 +77,7 @@ func TestExecuteUqlQuery_HappyDay(t *testing.T) {
 	]`
 
 	// when
-	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, ApiVersion1, mockExecuteResponse(serverResponse))
+	response, err := executeUqlQuery(&Query{"fetch count, events(logs:generic_record) from entities"}, apiVersion, mockExecuteResponse(serverResponse))
 
 	// then
 	check := assert.New(t)
@@ -335,11 +343,6 @@ func TestExecuteUqlQuery_Validation(t *testing.T) {
 		response, err := executeUqlQuery(&Query{""}, ApiVersion1, emptyResponse())
 		assert.Nil(t, response)
 		assert.ErrorContains(t, err, "uql query missing", "no error thrown")
-	})
-	t.Run("missing api version", func(t *testing.T) {
-		response, err := executeUqlQuery(&Query{"fetch count from entities"}, "", emptyResponse())
-		assert.Nil(t, response)
-		assert.ErrorContains(t, err, "uql API version missing", "no error thrown")
 	})
 }
 

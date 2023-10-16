@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2023 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/apex/log"
 	"github.com/moul/http2curl"
@@ -337,8 +338,32 @@ func parseIntoError(resp *http.Response, respBytes []byte) error {
 // urlDisplayPath returns the URL path in a display-friendly form (may be abbreviated)
 func urlDisplayPath(uri *url.URL) string {
 	s := uri.Path
+	s = abbreviateString(s, 50)
 	if uri.RawQuery == "" {
 		return s
 	}
-	return s + "?" + uri.RawQuery
+	return s + "?" + abbreviateString(uri.RawQuery, 6)
+}
+
+// abbreviateString trims the input string to not exceed the specified maximum number of characters.
+// If the string is longer than the maximum, it is cut off and an ellipsis rune is added at the end,
+// still maintaining the specified maximum length.
+func abbreviateString(s string, n uint) string {
+	// if the string is short enough, return it as is
+	// nb: this handles some edge cases for short s and low n
+	if uint(utf8.RuneCountInString(s)) <= n {
+		return s
+	}
+
+	// handle remaining edge cases
+	if n == 0 {
+		return ""
+	} else if n == 1 {
+		return "…"
+	}
+
+	// get the first n-1 runes and append ellipsis to make n runes
+	runes := []rune(s)
+	runes[n-1] = '…'
+	return string(runes[:n])
 }
