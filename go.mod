@@ -7,7 +7,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
-	github.com/charmbracelet/lipgloss v0.9.0
+	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/google/uuid v1.3.1
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.5.0
