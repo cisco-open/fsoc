@@ -101,7 +101,7 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 		var response statusJsonStoreItem
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:status/%v", flags.solutionName, flags.optimizerId)
 
-		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
+		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers}, false)
 		if err != nil {
 			return fmt.Errorf("JSONGet: Unable to fetch %v:status by optimizer ID. api.JSONGet: %w", flags.solutionName, err)
 		}

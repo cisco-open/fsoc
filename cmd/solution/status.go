@@ -94,7 +94,7 @@ func getObjects(url string, headers map[string]string) StatusItem {
 	var res ResponseBlob
 	var emptyData StatusItem
 
-	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
+	err := api.JSONGet(url, &res, &api.Options{Headers: headers}, true)
 
 	if err != nil {
 		log.Fatalf("Error fetching status object %q: %v", url, err)
@@ -110,7 +110,7 @@ func getObjects(url string, headers map[string]string) StatusItem {
 func getExtensibilitySolutionObject(url string, headers map[string]string) ExtensibilitySolutionObjectData {
 	var res GetExtensibilitySolutionObjectByIdResponse
 
-	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
+	err := api.JSONGet(url, &res, &api.Options{Headers: headers}, false)
 
 	if err != nil {
 		log.Fatalf("Error fetching extensibility:solution object %q: %v", url, err)

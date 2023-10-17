@@ -132,7 +132,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	var objStoreUrl string
 	var isCollection bool = true
 	if objID != "" {
-		objStoreUrl = getObjectUrl(fqtn, objID)
+		objStoreUrl = getObjectUrl(fqtn, url.QueryEscape(objID))
 		isCollection = false
 	} else {
 		if cmd.Flags().Changed("filter") {

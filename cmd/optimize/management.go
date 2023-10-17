@@ -61,7 +61,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 		var response configJsonStoreItem
 
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
-		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
+		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers}, false)
 		if err != nil {
 			return optimizerConfig, fmt.Errorf("Unable to fetch config by optimizer ID. api.JSONGet: %w", err)
 		}
@@ -77,7 +77,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 			flags.cluster, flags.namespace, flags.workloadName))
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
 
-		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
+		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers}, true)
 		if err != nil {
 			return optimizerConfig, fmt.Errorf("unable to fetch config by workload information. api.JSONGet: %w", err)
 		}

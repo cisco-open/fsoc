@@ -43,53 +43,54 @@ type Options struct {
 }
 
 // JSONGet performs a GET request and parses the response as JSON
-func JSONGet(path string, out any, options *Options) error {
-	return httpRequest("GET", path, nil, out, options)
+func JSONGet(path string, out any, options *Options, isCollection bool) error {
+	return httpRequest("GET", path, nil, out, options, isCollection)
 }
 
 // JSONDelete performs a DELETE request and parses the response as JSON
 func JSONDelete(path string, out any, options *Options) error {
-	return httpRequest("DELETE", path, nil, out, options)
+	return httpRequest("DELETE", path, nil, out, options, false)
 }
 
 // JSONPost performs a POST request with JSON command and response
 func JSONPost(path string, body any, out any, options *Options) error {
-	return httpRequest("POST", path, body, out, options)
+	return httpRequest("POST", path, body, out, options, false)
 }
 
 // HTTPPost performs a POST request with HTTP command and response - Accept and Content-Type headers are provided by the caller
 func HTTPPost(path string, body []byte, out any, options *Options) error {
-	return httpRequest("POST", path, body, out, options)
+	return httpRequest("POST", path, body, out, options, false)
 }
 
 // HTTPGet performs a GET request with HTTP command and response - Accept and Content-Type headers are provided by the caller
 func HTTPGet(path string, out any, options *Options) error {
-	return httpRequest("GET", path, nil, out, options)
+	return httpRequest("GET", path, nil, out, options, false)
 }
 
 // JSONPut performs a PUT request with JSON command and response
 func JSONPut(path string, body any, out any, options *Options) error {
-	return httpRequest("PUT", path, body, out, options)
+	return httpRequest("PUT", path, body, out, options, false)
 }
 
 // JSONPatch performs a PATCH request and parses the response as JSON
 func JSONPatch(path string, body any, out any, options *Options) error {
-	return httpRequest("PATCH", path, body, out, options)
+	return httpRequest("PATCH", path, body, out, options, false)
 }
 
 // JSONRequest performs an HTTP request and parses the response as JSON, allowing
 // the http method to be specified
-func JSONRequest(method string, path string, body any, out any, options *Options) error {
-	return httpRequest(method, path, body, out, options)
+func JSONRequest(method string, path string, body any, out any, options *Options, isCollection bool) error {
+	return httpRequest(method, path, body, out, options, isCollection)
 }
 
 // --- Internal methods -----------------------------------------------------
 
-func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string, path string, body any, headers map[string]string) (*http.Request, error) {
+func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string, path string, body any, headers map[string]string, isCollection bool) (*http.Request, error) {
 	// body will be JSONified if a body is given but no Content-Type is provided
 	// (if a content type is provided, we assume the body is in the desired format)
 	jsonify := body != nil && (headers == nil || headers["Content-Type"] == "")
-
+	var uriString string
+	var err error
 	// prepare a body reader
 	var bodyReader io.Reader = nil
 	if jsonify {
@@ -110,15 +111,25 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 
 	// create HTTP request
 	path, query, _ := strings.Cut(path, "?")
-	url, err := url.Parse(cfg.URL)
+	uri, err := url.Parse(cfg.URL)
 	if err != nil {
 		log.Fatalf("Failed to parse the url provided in context (%q): %v", cfg.URL, err)
 	}
-	url.Path = path
-	url.RawQuery = query
-	req, err := http.NewRequest(method, url.String(), bodyReader)
+	uri.Path = path
+	uri.RawQuery = query
+	if isCollection {
+		uriString = uri.String()
+	} else {
+		// Encoded string was being encoded again after setting it as uri.String() so we should unencode the re-encoded string
+		uriString, err = url.QueryUnescape(uri.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse query escaped string for request %q: %w", uri.String(), err)
+		}
+	}
+
+	req, err := http.NewRequest(method, uriString, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a request for %q: %w", url.String(), err)
+		return nil, fmt.Errorf("failed to create a request for %q: %w", uri.String(), err)
 	}
 
 	// add headers that are not already provided
@@ -176,7 +187,7 @@ func getCurlCommandOfRequest(req *http.Request) (string, error) {
 	return command.String(), nil
 }
 
-func httpRequest(method string, path string, body any, out any, options *Options) error {
+func httpRequest(method string, path string, body any, out any, options *Options, isCollection bool) error {
 	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling FSO platform API")
 
 	callCtx := newCallContext()
@@ -205,7 +216,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	}
 
 	// build HTTP request
-	req, err := prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
+	req, err := prepareHTTPRequest(cfg, client, method, path, body, options.Headers, isCollection)
 	if err != nil {
 		return err // assume error messages provide sufficient info
 	}
@@ -238,7 +249,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 
 		// retry the request
 		log.Info("Retrying the request with the refreshed token")
-		req, err = prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
+		req, err = prepareHTTPRequest(cfg, client, method, path, body, options.Headers, isCollection)
 		if err != nil {
 			return err // error should have enough context
 		}

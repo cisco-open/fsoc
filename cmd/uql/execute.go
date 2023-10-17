@@ -121,7 +121,7 @@ func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
 	log.WithFields(log.Fields{"query": link.Href}).Info("continuing UQL query")
 
 	var rawJson json.RawMessage
-	err := api.JSONGet(link.Href, &rawJson, nil)
+	err := api.JSONGet(link.Href, &rawJson, nil, true)
 	if err != nil {
 		return parsedResponse{}, errors.Wrap(err, fmt.Sprintf("failed follow link: '%s'", link.Href))
 	}

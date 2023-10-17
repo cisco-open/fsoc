@@ -376,7 +376,7 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		var response configJsonStoreItem
 
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", solutionName, optimizerId)
-		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
+		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers}, false)
 		if err != nil {
 			if problem, ok := err.(api.Problem); ok && problem.Status == 404 {
 				return optimizerConfig, fmt.Errorf("%w: No matches found for the given optimizerId", optimizerConfigNotFoundError)
@@ -396,7 +396,7 @@ func getOptimizerConfig(optimizerId string, workloadId string, solutionName stri
 		}
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", solutionName, queryStr)
 
-		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
+		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers}, true)
 		if err != nil {
 			return optimizerConfig, fmt.Errorf("unable to fetch existing config by workload ID. api.JSONGet: %w", err)
 		}

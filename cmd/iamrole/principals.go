@@ -64,7 +64,7 @@ type principalsCollection struct {
 func listPrincipals(cmd *cobra.Command, args []string) {
 	// note: the API is not compliant with collections/pagination, so collect as a single request
 	var out principalsResponse
-	err := api.JSONGet(getIamRoleUrl(args[0], "principals"), &out, nil)
+	err := api.JSONGet(getIamRoleUrl(args[0], "principals"), &out, nil, true)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

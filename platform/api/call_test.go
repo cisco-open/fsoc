@@ -14,7 +14,7 @@ func TestPrepareHTTPRequest(t *testing.T) {
 	cfg := &config.Context{
 		URL: "http://localhost:8080",
 	}
-	req, err := prepareHTTPRequest(cfg, client, "POST", "/test/path/1", nil, nil)
+	req, err := prepareHTTPRequest(cfg, client, "POST", "/test/path/1", nil, nil, false)
 	assert.Nil(t, err)
 	assert.Equal(t, "http://localhost:8080/test/path/1", req.URL.String())
 }
@@ -24,7 +24,7 @@ func TestPrepareJSONRequest(t *testing.T) {
 	cfg := &config.Context{
 		URL: "http://localhost:8080",
 	}
-	req, err := prepareHTTPRequest(cfg, client, "POST", "/test/path/1", nil, nil)
+	req, err := prepareHTTPRequest(cfg, client, "POST", "/test/path/1", nil, nil, false)
 	assert.Nil(t, err)
 	assert.Equal(t, "http://localhost:8080/test/path/1", req.URL.String())
 }

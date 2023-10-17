@@ -88,7 +88,7 @@ func FetchAndPrint(cmd *cobra.Command, path string, options *FetchAndPrintOption
 		res = result
 
 	} else {
-		err = api.JSONRequest(method, path, body, &res, httpOptions)
+		err = api.JSONRequest(method, path, body, &res, httpOptions, false)
 	}
 	if err != nil {
 		log.Fatalf("Platform API call failed: %v", err)

@@ -187,7 +187,7 @@ func testSolutionStatus(cmd *cobra.Command, args []string) {
 
 	// Send the test-run-id to the test-runner and print the response
 	var res SolutionTestStatusResult
-	err := api.JSONGet(getSolutionTestStatusUrl(suppliedTestId), &res, nil)
+	err := api.JSONGet(getSolutionTestStatusUrl(suppliedTestId), &res, nil, true)
 	if err != nil {
 		log.Fatalf("Solution Test Status request failed: %v", err)
 	}

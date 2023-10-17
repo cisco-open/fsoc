@@ -103,7 +103,7 @@ func Fetch(path string, httpOptions *api.Options) map[string]interface{} {
 	// finalize override fields
 	var res map[string]interface{}
 	// fetch data
-	if err := api.JSONGet(path, &res, httpOptions); err != nil {
+	if err := api.JSONGet(path, &res, httpOptions, false); err != nil {
 		log.Fatalf("Platform API call failed: %v", err)
 	}
 	return res

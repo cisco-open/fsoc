@@ -35,7 +35,7 @@ const (
 // https://developer.cisco.com/api-guidelines/#rest-style/API.REST.STYLE.25 and
 // https://developer.cisco.com/api-guidelines/#rest-style/API.REST.STYLE.24
 func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Options) (err error) {
-
+	log.WithFields(log.Fields{"options": options}).Info("value of options in JSONGetCollection")
 	subOptions := Options{}
 	if options != nil {
 		subOptions = *options // shallow copy
@@ -45,7 +45,7 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 	var pageNo int
 	for pageNo = 0; true; pageNo += 1 {
 		// request collection
-		err := httpRequest("GET", path, nil, &page, &subOptions)
+		err := httpRequest("GET", path, nil, &page, &subOptions, true)
 		if err != nil {
 			if pageNo > 0 {
 				return fmt.Errorf("Error retrieving non-first page #%v in collection at %q: %v. All data discarded", pageNo+1, path, err)

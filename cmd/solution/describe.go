@@ -45,7 +45,7 @@ func solutionDescribe(cmd *cobra.Command, args []string) {
 
 	log.WithField("solution", solution).Info("Getting solution details")
 	var res Solution
-	err := api.JSONGet(getSolutionDescribeUrl(url.PathEscape(solution)), &res, &api.Options{Headers: headers})
+	err := api.JSONGet(getSolutionDescribeUrl(url.PathEscape(solution)), &res, &api.Options{Headers: headers}, false)
 	if err != nil {
 		log.Fatalf("Cannot get solution details: %v", err)
 	}
