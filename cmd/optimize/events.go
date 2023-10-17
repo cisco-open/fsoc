@@ -66,6 +66,7 @@ type eventsCmdFlags struct {
 type eventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
+	Blockers        []string
 }
 
 func NewCmdEvents() *cobra.Command {
@@ -285,8 +286,8 @@ func NewCmdRecommendations() *cobra.Command {
 		RunE:             listRecommendations(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Timestamp: .Timestamp",
-			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Timestamp: .Timestamp, Attributes: .EventAttributes",
+			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .EventAttributes[\"optimize.ignored_blockers.presence\"], Timestamp: .Timestamp",
+			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .Blockers, Timestamp: .Timestamp, Attributes: .EventAttributes",
 		},
 	}
 
@@ -322,6 +323,13 @@ type recommendationsTemplateValues struct {
 	SolutionName       string
 }
 
+type optimizationStartedTemplateValues struct {
+	Since        string
+	Until        string
+	Filter       string
+	SolutionName string
+}
+
 var recommendationsTemplate = template.Must(template.New("").Parse(`
 {{ with .Since }}SINCE {{ . }}
 {{ end -}}
@@ -339,6 +347,20 @@ FETCH events(
 	{attributes, timestamp}
 {{ with .Limits }}LIMITS events.count({{ . }})
 {{ end -}}
+ORDER events.asc()
+`))
+
+var optimizationStartedTemplate = template.Must(template.New("").Parse(`
+{{ with .Since }}SINCE {{ . }}
+{{ end -}}
+{{ with .Until }}UNTIL {{ . }}
+{{ end -}}
+FETCH events(
+		{{ .SolutionName }}:optimization_started
+	)
+	{{ with .Filter }}[{{ . }}]
+	{{ end -}}
+	{attributes, timestamp}
 ORDER events.asc()
 `))
 
@@ -460,6 +482,32 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			_, next_ok = data_set.Links["next"]
 		}
 
+		// extract recommendation optimizer ID + num to query and append blocker data from optimization_started events
+		for i := range recommendationRows {
+			blockerRows, err := getOptimizationBlockerData(recommendationRows[i], flags)
+			if err != nil {
+				return fmt.Errorf("Could not get optimization_started data association with recommendation: %w", err)
+			}
+
+			recommendationRows[i].Blockers = make([]string, 0)
+
+			// merge recommendation and blocker data
+			for _, row2 := range *blockerRows {
+				for attr, val := range row2.EventAttributes {
+					recommendationRows[i].EventAttributes[attr] = val
+
+					// extract the ID from the attribute string
+					splitAttr := strings.Split(attr, ".")
+					if len(splitAttr) > 3 {
+						blockerID := splitAttr[len(splitAttr)-2]
+						if !strings.Contains(strings.Join(recommendationRows[i].Blockers, ","), blockerID) {
+							recommendationRows[i].Blockers = append(recommendationRows[i].Blockers, blockerID)
+						}
+					}
+				}
+			}
+		}
+
 		output.PrintCmdOutput(cmd, struct {
 			Items []eventsRow `json:"items"`
 			Total int         `json:"total"`
@@ -467,6 +515,73 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 
 		return nil
 	}
+}
+
+func getOptimizationBlockerData(row eventsRow, flags *recommendationsCmdFlags) (*[]eventsRow, error) {
+
+	optimizerId, _ := row.EventAttributes["optimize.optimization.optimizer_id"]
+	optimizationNum, _ := row.EventAttributes["optimize.optimization.num"]
+	tempVals := optimizationStartedTemplateValues{
+		Since:        flags.since,
+		Until:        flags.until,
+		SolutionName: flags.solutionName,
+		Filter:       fmt.Sprintf("attributes(optimize.optimization.optimizer_id) = %q && attributes(optimize.optimization.num) = %q", optimizerId, optimizationNum),
+	}
+	var buff bytes.Buffer
+	if err := optimizationStartedTemplate.Execute(&buff, tempVals); err != nil {
+		return nil, fmt.Errorf("optimizationStartedTemplate.Execute: %w", err)
+	}
+	query := buff.String()
+
+	// execute query, process results
+	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	if err != nil {
+		return nil, fmt.Errorf("uql.ExecuteQuery: %w", err)
+	}
+	if resp.HasErrors() {
+		log.Error("Execution of optimization_started query encountered errors. Returned data may not be complete!")
+		for _, e := range resp.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
+		}
+	}
+
+	main_data_set := resp.Main()
+	if main_data_set == nil || len(main_data_set.Data) < 1 {
+		return nil, fmt.Errorf("No optimization_started results found for given input\n")
+	}
+	if len(main_data_set.Data[0]) < 1 {
+		return nil, fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+	}
+
+	data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
+	if !ok {
+		return nil, fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+	}
+	optimizationStartedRows, err := extractEventsData(data_set)
+	if err != nil {
+		return nil, fmt.Errorf("extractEventsData: %w", err)
+	}
+	optimizationStartedRows, err = parseBlockerData(optimizationStartedRows)
+
+	return &optimizationStartedRows, nil
+}
+
+func parseBlockerData(rows []eventsRow) ([]eventsRow, error) {
+	for i := range rows {
+		presence := "false"
+		newAttributes := make(map[string]any)
+
+		for attr, val := range rows[i].EventAttributes {
+			if strings.HasPrefix(attr, "optimize.ignored_blockers") {
+				presence = "true"
+				newAttributes[attr] = val
+			}
+		}
+
+		newAttributes["optimize.ignored_blockers.presence"] = presence
+		rows[i].EventAttributes = newAttributes
+	}
+	return rows, nil
 }
 
 func extractEventsData(dataset *uql.DataSet) ([]eventsRow, error) {

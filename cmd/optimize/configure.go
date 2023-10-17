@@ -22,6 +22,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
@@ -38,15 +39,17 @@ import (
 )
 
 type configureFlags struct {
-	Cluster      string
-	Namespace    string
-	WorkloadName string
-	optimizerId  string
-	workloadId   string
-	filePath     string
-	create       bool
-	start        bool
-	solutionName string
+	Cluster            string
+	Namespace          string
+	WorkloadName       string
+	optimizerId        string
+	workloadId         string
+	filePath           string
+	create             bool
+	start              bool
+	bypassSoftBlockers bool
+	bypassHardBlockers bool
+	solutionName       string
 }
 
 var optimizerConfigNotFoundError = errors.New("Optimizer config not found")
@@ -100,9 +103,15 @@ and push the configuration to the knowledge store. You may optionally override t
 
 	configureCmd.MarkFlagsMutuallyExclusive("optimizer-id", "create")
 
+	configureCmd.Flags().BoolVar(&flags.bypassSoftBlockers, "bypass-soft-blockers", false, "Bypass soft blockers for specified optimizer")
+	configureCmd.Flags().BoolVar(&flags.bypassHardBlockers, "bypass-hard-blockers", false, "Bypass hard blockers for specified optimizer")
+
 	configureCmd.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
 	if err := configureCmd.LocalFlags().MarkHidden("solution-name"); err != nil {
 		log.Warnf("Failed to set solution-name flag hidden: %v", err)
+	}
+	if err := configureCmd.LocalFlags().MarkHidden("bypass-hard-blockers"); err != nil {
+		log.Warnf("Failed to set bypass-hard-blockers flag hidden: %v", err)
 	}
 
 	return configureCmd
@@ -297,6 +306,68 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		newOptimizerConfig.Config.Slo.ErrorPercent.Target = adaptivePrecisionRound(errorPercentTarget, 4)
 		newOptimizerConfig.Config.Slo.MedianResponseTime.Target = adaptivePrecisionRound(medianResponseTimeTarget, 3)
 
+		// Set ignored blockers
+		prefix := "report_contents.optimization_blockers."
+		rawBlockers := make(map[string]interface{})
+
+		for key, value := range profilerReport {
+			if strings.HasPrefix(key, prefix) {
+				parts := strings.TrimPrefix(key, prefix)
+				segments := strings.Split(parts, ".")
+				setNestedMap(rawBlockers, segments, value)
+			}
+		}
+		if rawBlockers != nil {
+			var ignoredBlockers IgnoredBlockers
+			ignoredBlockers.Timestamp = time.Now().UTC().String()
+			ignoredBlockers.Principal = Principal{
+				Type: config.GetCurrentContext().AuthMethod,
+				Id:   config.GetCurrentContext().User,
+			}
+
+			blockers := assignToBlocker(rawBlockers)
+
+			log.Warn("Optimizer has the following unresolved blockers:\n")
+
+			// Format output
+			headers := []string{"Blocker Name", "Description", "Impact", "Overridable"}
+			var blockersOutput [][]string
+
+			val := reflect.ValueOf(&blockers).Elem()
+			typ := val.Type()
+			for i := 0; i < val.NumField(); i++ {
+				blockerField := val.Field(i)
+				if blocker, ok := blockerField.Interface().(*Blocker); ok && blocker != nil {
+					fieldName := typ.Field(i).Name
+					blockersOutput = append(blockersOutput, []string{fieldName, blocker.Description, blocker.Impact, strconv.FormatBool(blocker.Overridable)})
+				}
+			}
+
+			output.PrintCmdOutputCustom(cmd, blockers, &output.Table{
+				Headers: headers,
+				Lines:   blockersOutput,
+				Detail:  true,
+			})
+
+			// Ascertain bypassability of blockers
+			if (flags.bypassSoftBlockers == true) || (flags.bypassHardBlockers == true) {
+				if flags.bypassHardBlockers == true {
+					log.Warn("Caution: bypassing hard blockers")
+				} else if flags.bypassSoftBlockers == true {
+					if checkHardBlockers(&blockers) {
+						return fmt.Errorf("Cannot soft bypass, hard blockers present. Resolve before onboarding the optimizer")
+					} else {
+						log.Warn("Bypassing soft blockers")
+					}
+				}
+			} else {
+				return fmt.Errorf("Resolve the listed blockers before onboarding the optimizer")
+			}
+
+			ignoredBlockers.Blockers = blockers
+			newOptimizerConfig.IgnoredBlockers = ignoredBlockers
+		}
+
 		// Set suspensions to empty object
 		newOptimizerConfig.Suspensions = make(map[string]Suspension)
 
@@ -338,6 +409,93 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer configured with ID %q\n", newOptimizerConfig.OptimizerID))
 		return nil
 	}
+}
+
+func assignToBlocker(rawBlockers map[string]interface{}) (blockers Blockers) {
+	for key, _ := range rawBlockers {
+		blocker := &Blocker{}
+		switch key {
+		case "stateful":
+			blocker.Description = "There are stateful pods in the workload"
+			blocker.Impact = "Stateful workloads can’t be spun up and down frequently, which is required for our tuning instance to perform optimization"
+			blockers.Stateful = blocker
+		case "no_traffic":
+			blocker.Description = "Your workload doesn’t have enough traffic to run optimization tests"
+			blocker.Impact = "We can’t evaluate the impact of the changes we’re making on application performance and reliability"
+			blockers.NoTraffic = blocker
+		case "resources_not_specified":
+			blocker.Description = "Your workloads don't have any existing thresholds for requests and limits on CPU and memory resources"
+			blocker.Impact = "Without these thresholds, we aren't able to determine a baseline and usable range for optimization tests"
+			blockers.ResourcesNotSpecified = blocker
+		case "cpu_not_specified":
+			blocker.Description = "Your workloads don't have any existing thresholds for requests and limits on CPU"
+			blocker.Impact = "Without these thresholds, we aren't able to determine a baseline and usable range for optimization tests"
+			blockers.CPUNotSpecified = blocker
+		case "mem_not_specified":
+			blocker.Description = "Your workloads don't have any existing thresholds for requests and limits on memory"
+			blocker.Impact = "Without these thresholds, we aren't able to determine a baseline and usable range for optimization tests"
+			blockers.MemNotSpecified = blocker
+		case "cpu_resources_change":
+			blocker.Description = "CPU requests and/or limits on the workload have changed during the last 7 days"
+			blocker.Impact = "These values must be stable for 7 days prior to optimization so that we can analyze historical metrics from a stable resource"
+			blockers.CPUResourcesChange = blocker
+		case "mem_resources_change":
+			blocker.Description = "Memory requests and/or limits on the workload have changed during the last 7 days"
+			blocker.Impact = "These values must be stable for 7 days prior to optimization so that we can analyze historical metrics from a stable resource"
+			blockers.MemoryResourcesChange = blocker
+		case "k8s_metrics_deficient":
+			blocker.Description = "Kubernetes metrics for CPU and/or memory were not recorded at least 90% of the time during the last 7 days"
+			blocker.Impact = "Without adequate coverage (90%) over the last 7 days, we can't analyze the historical metrics to determine baseline performance"
+			blockers.K8sMetricsDeficient = blocker
+		case "apm_metrics_missing":
+			blocker.Description = "There were no APM metrics for this workload during the last 7 days. The workload may not be instrumented with APM"
+			blocker.Impact = "We aren't able to perform optimization for workloads that don't have APM metrics"
+			blockers.APMMetricsMissing = blocker
+		case "apm_metrics_deficient":
+			blocker.Description = "APM metrics for latency, error percent, and/or calls per minute were not recorded at least 90% of the time during the last 7 days"
+			blocker.Impact = "Without adequate coverage (90%) over the last 7 days, we can't analyze the historical metrics to determine baseline performance"
+			blockers.APMMetricsDeficient = blocker
+		case "multiple_apm":
+			blocker.Description = "More than one container in this workload is reporting APM metrics"
+			blocker.Impact = "If multiple containers have APM metrics, we don't know which one to optimize"
+			blockers.MultipleAPM = blocker
+		case "unequal_load_distribution":
+			blocker.Description = "Individual pods in your workload aren't receiving equal shares of incoming traffic"
+			blocker.Impact = "Since pods may be serving different load, this prevents us from benchmarking a pod with an optimized configuration against a baseline pod"
+			blockers.UnequalLoadDistribution = blocker
+		case "no_scaling":
+			blocker.Description = "We didn't observe any horizontal scaling on this workload in the last 7 day."
+			blocker.Impact = "To perform optimization, the workload must have autoscaled in the last 7 days and must use average CPU utilization as a metric for driving auto-scaling"
+			blockers.NoScaling = blocker
+		case "insufficient_relative_scaling":
+			blocker.Description = "During the last 7 days, the workload did not scale above the observed minimum of replicas during this period at least 25% of the time"
+			blocker.Impact = "To perform optimization, the workload must be actively scaling above its minimum scale at least 25% of the time"
+			blockers.InsufficientRelativeScaling = blocker
+		case "insufficient_fixed_scaling":
+			blocker.Description = "During the last 7 days, the workload did not have a minimum horizontal scale of at least 3 for the entire period"
+			blocker.Impact = "To perform optimization, the workload must have a minimum horizontal scale of 3 (during the last 7 days). This ensures that optimization tests receive at most one quarter of the total live load"
+			blockers.InsufficientFixedScaling = blocker
+		case "mtbf_high":
+			blocker.Description = "The per-pod mean time between failure (MTBF) is less than 1 day"
+			blocker.Impact = "This may indicate that your workload is unstable, which could impact optimization results"
+			blockers.MTBFHigh = blocker
+		case "error_rate_high":
+			blocker.Description = "More than 5% of requests are resulting in errors"
+			blocker.Impact = "This may indicate that there's a larger problem in the service, so we cannot perform optimization tests"
+			blockers.ErrorRateHigh = blocker
+		case "no_orchestration":
+			blocker.Description = "We didn't detect the Orchestration Client on your workload, which is responsible for provisioning and deprovisioning the Servo Agent"
+			blocker.Impact = "Optimization cannot be performed because the Servo Agent can't be provisioned on your cluster"
+			blockers.NoOrchestrationAgent = blocker
+		}
+		data := rawBlockers[key].(map[string]interface{})
+		if data["overridable"] == "true" {
+			blocker.Overridable = true
+		} else {
+			blocker.Overridable = false
+		}
+	}
+	return blockers
 }
 
 func buildOptimizerId(namespace string, workloadName string, workloadUid string) string {

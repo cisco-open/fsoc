@@ -16,6 +16,7 @@ package optimize
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/cisco-open/fsoc/cmd/config"
 )
@@ -51,9 +52,33 @@ func sliceToMap(slice [][]any) (map[string]any, error) {
 	return results, nil
 }
 
+func setNestedMap(baseMap map[string]interface{}, keys []string, value interface{}) {
+	if len(keys) == 1 {
+		baseMap[keys[0]] = value
+		return
+	}
+
+	if _, ok := baseMap[keys[0]]; !ok {
+		baseMap[keys[0]] = make(map[string]interface{})
+	}
+	setNestedMap(baseMap[keys[0]].(map[string]interface{}), keys[1:], value)
+}
+
 func getOrionTenantHeaders() map[string]string {
 	return map[string]string{
 		"layer-type": "TENANT",
 		"layer-id":   config.GetCurrentContext().Tenant,
 	}
+}
+
+func checkHardBlockers(b *Blockers) bool {
+	val := reflect.ValueOf(b).Elem()
+
+	for i := 0; i < val.NumField(); i++ {
+		blockerField := val.Field(i)
+		if blocker, ok := blockerField.Interface().(*Blocker); ok && blocker != nil && !blocker.Overridable {
+			return true
+		}
+	}
+	return false
 }
