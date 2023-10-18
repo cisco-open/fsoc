@@ -350,10 +350,10 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			})
 
 			// Ascertain bypassability of blockers
-			if (flags.bypassSoftBlockers == true) || (flags.bypassHardBlockers == true) {
-				if flags.bypassHardBlockers == true {
+			if flags.bypassSoftBlockers || flags.bypassHardBlockers {
+				if flags.bypassHardBlockers {
 					log.Warn("Caution: bypassing hard blockers")
-				} else if flags.bypassSoftBlockers == true {
+				} else if flags.bypassSoftBlockers {
 					if checkHardBlockers(&blockers) {
 						return fmt.Errorf("Cannot soft bypass, hard blockers present. Resolve before onboarding the optimizer")
 					} else {
@@ -412,7 +412,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 }
 
 func assignToBlocker(rawBlockers map[string]interface{}) (blockers Blockers) {
-	for key, _ := range rawBlockers {
+	for key := range rawBlockers {
 		blocker := &Blocker{}
 		switch key {
 		case "stateful":

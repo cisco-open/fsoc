@@ -519,8 +519,8 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 
 func getOptimizationBlockerData(row eventsRow, flags *recommendationsCmdFlags) (*[]eventsRow, error) {
 
-	optimizerId, _ := row.EventAttributes["optimize.optimization.optimizer_id"]
-	optimizationNum, _ := row.EventAttributes["optimize.optimization.num"]
+	optimizerId := row.EventAttributes["optimize.optimization.optimizer_id"]
+	optimizationNum := row.EventAttributes["optimize.optimization.num"]
 	tempVals := optimizationStartedTemplateValues{
 		Since:        flags.since,
 		Until:        flags.until,
@@ -561,12 +561,15 @@ func getOptimizationBlockerData(row eventsRow, flags *recommendationsCmdFlags) (
 	if err != nil {
 		return nil, fmt.Errorf("extractEventsData: %w", err)
 	}
-	optimizationStartedRows, err = parseBlockerData(optimizationStartedRows)
+	optimizationStartedRows, err = extractBlockerData(optimizationStartedRows)
+	if err != nil {
+		return nil, fmt.Errorf("extractBlockerData: %w", err)
+	}
 
 	return &optimizationStartedRows, nil
 }
 
-func parseBlockerData(rows []eventsRow) ([]eventsRow, error) {
+func extractBlockerData(rows []eventsRow) ([]eventsRow, error) {
 	for i := range rows {
 		presence := "false"
 		newAttributes := make(map[string]any)
