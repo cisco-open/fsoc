@@ -317,7 +317,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				setNestedMap(rawBlockers, segments, value)
 			}
 		}
-		if rawBlockers != nil {
+		if len(rawBlockers) != 0 {
 			var ignoredBlockers IgnoredBlockers
 			ignoredBlockers.Timestamp = time.Now().UTC().String()
 			ignoredBlockers.Principal = Principal{
