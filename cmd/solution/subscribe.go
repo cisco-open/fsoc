@@ -54,8 +54,13 @@ func getSubscribeSolutionCmd() *cobra.Command {
 
 }
 
+func subscribeToSolution(cmd *cobra.Command, args []string) {
+	manageSubscription(cmd, args, true)
+}
+
 func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name")
+	name := getSolutionNameFromArgs(cmd, args, "name")
+	tag, _ := cmd.Flags().GetString("tag")
 
 	var message string
 	if isSubscribed {
@@ -63,37 +68,80 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 	} else {
 		message = "Unsubscribing from solution"
 	}
-	log.WithField("solution", solutionName).Info(message)
+	log.WithFields(
+		log.Fields{"solution": name, "tag": tag},
+	).Info(message)
 
-	cfg := config.GetCurrentContext()
-	layerID := cfg.Tenant
+	// locate solution object (temporary support for now-deprecated
+	// pseudo-isolation)
+	objectUrl := locateSolutionUrl(name, tag)
 
-	headers := map[string]string{
-		"layer-type": "TENANT",
-		"layer-id":   layerID,
+	// reject attempts to unsubscribe from a system solution
+	if !isSubscribed {
+		isSystemSolution, err := isSystemSolution(objectUrl)
+		if err != nil {
+			log.Fatalf("Failed to get solution status: %v", err)
+		}
+		if isSystemSolution {
+			log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution", name)
+		}
 	}
 
-	subscribe := subscriptionStruct{IsSubscribed: isSubscribed}
-
+	// update subscription status in solution object at the tenant layer
 	var res any
-	err := api.JSONPatch(getSolutionSubscribeUrl()+"/"+solutionName, &subscribe, &res, &api.Options{Headers: headers})
+	subscribe := subscriptionStruct{IsSubscribed: isSubscribed}
+	err := api.JSONPatch(objectUrl, &subscribe, &res, &api.Options{Headers: getHeaders()})
 	if err != nil {
 		log.Fatalf("Solution command failed: %v", err)
 	}
 
+	// display status message
+	tenant := config.GetCurrentContext().Tenant
 	if isSubscribed {
-		message = fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionName)
+		message = fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", tenant, name)
 	} else {
-		message = fmt.Sprintf("Tenant %s has successfully unsubscribed from solution %s\n", layerID, solutionName)
+		message = fmt.Sprintf("Tenant %s has successfully unsubscribed from solution %s\n", tenant, name)
 	}
-
 	output.PrintCmdStatus(cmd, message)
 }
 
-func subscribeToSolution(cmd *cobra.Command, args []string) {
-	manageSubscription(cmd, args, true)
+func locateSolutionUrl(name string, tag string) string {
+	// handle stable tag where solution ID == solution name
+	if tag == "" || tag == "stable" {
+		return getSolutionObjectUrl(name)
+	}
+
+	// first, try to find the solution using native isolation
+	url := getSolutionObjectUrl(name + "." + tag)
+	var data any
+	err := api.JSONGet(url, &data, &api.Options{Headers: getHeaders()})
+	if err == nil {
+		return url
+	}
+
+	// next, construct a pseudo-isolated solution's name
+	// respecting different rules for dev and prod environments
+	// (dev environments don't allow 'dev' tag)
+	if config.GetCurrentContext().EnvType == "dev" {
+		name = name + tag // no ".dev" is needed for dev environments
+	} else if tag == "dev" {
+		name = name + ".dev" // no pseudo-isolation, just set the ".dev" suffix
+	} else {
+		name = name + tag + ".dev" // pseudo-isolation and ".dev" suffix
+	}
+
+	return getSolutionObjectUrl(name)
 }
 
-func getSolutionSubscribeUrl() string {
-	return "knowledge-store/v1/objects/extensibility:solution"
+func isSystemSolution(objUrl string) (bool, error) {
+	var solData struct {
+		Data SolutionDef `json:"data"`
+	}
+
+	err := api.JSONGet(objUrl, &solData, &api.Options{Headers: getHeaders()})
+	if err != nil {
+		return false, fmt.Errorf("failed to get solution info: %v", err)
+	}
+
+	return solData.Data.IsSystem, nil
 }

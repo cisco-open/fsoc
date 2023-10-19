@@ -69,7 +69,7 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	}
 
 	// get data and display
-	solutionBaseURL := getSolutionListUrl()
+	solutionBaseURL := getSolutionObjectUrl("")
 	var filters []string
 	if subscribed {
 		filters = []string{"filter=" + url.QueryEscape("data.isSubscribed eq true")}
@@ -80,10 +80,6 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	cmdkit.FetchAndPrint(cmd, solutionBaseURL, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true, Filters: filters})
 }
 
-func getSolutionListUrl() string {
-	return "knowledge-store/v1/objects/extensibility:solution"
-}
-
 func getSolutionNames(prefix string) (names []string) {
 	headers := map[string]string{
 		"layer-type": "TENANT",
@@ -92,7 +88,7 @@ func getSolutionNames(prefix string) (names []string) {
 	httpOptions := &api.Options{Headers: headers}
 
 	var result api.CollectionResult[Solution]
-	err := api.JSONGetCollection[Solution](getSolutionListUrl(), &result, httpOptions)
+	err := api.JSONGetCollection[Solution](getSolutionObjectUrl(""), &result, httpOptions)
 	if err != nil {
 		return names
 	}

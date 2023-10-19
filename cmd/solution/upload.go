@@ -226,7 +226,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 			"layer-id":   layerID,
 		}
 		for i := 1; i <= MAX_SUBSCRIBE_TRIES; i++ {
-			url := getSolutionSubscribeUrl() + "/" + solutionObjName
+			url := getSolutionObjectUrl(solutionObjName)
 			err = api.JSONPatch(url, &subscriptionStruct{IsSubscribed: true}, &res, &api.Options{Headers: headers})
 			if err == nil {
 				output.PrintCmdStatus(cmd, fmt.Sprintf("Tenant %s has successfully subscribed to solution %s\n", layerID, solutionObjName))

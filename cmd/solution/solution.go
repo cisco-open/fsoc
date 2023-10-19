@@ -15,7 +15,12 @@
 package solution
 
 import (
+	"net/url"
+
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/config"
 )
 
 // loginCmd represents the login command
@@ -62,4 +67,65 @@ func NewSubCmd() *cobra.Command {
 	solutionListCmd.Flags().StringP("output", "o", "", "Output format (human*, json, yaml)")
 
 	return solutionCmd
+}
+
+// getSolutionNameFromArgs gets the solution name from the command line, either from
+// the first positional argument or from a flag (deprecated but kepts for backward compatibility).
+// The flagName is optional (use "" to omit).
+// Prints error message and terminates if the name is missing/empty
+func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string) string {
+	// get solution name from a flag, if provided (deprecated but kept for backward compatibility)
+	var nameFromFlag string
+	if flagName != "" {
+		var err error
+		nameFromFlag, err = cmd.Flags().GetString(flagName)
+		if err != nil {
+			log.Fatalf("Error parsing flag %q: %v", flagName, err)
+		}
+	}
+
+	// get solution name from the first positional argument and
+	// return it (or fail if flag was provided as well)
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
+	if name != "" {
+		if nameFromFlag != "" {
+			log.Fatal("Solution name must be specified either as a positional argument or with a flag but not both")
+		}
+
+		return name
+	}
+
+	// return the solution name from flag, if provided
+	if nameFromFlag != "" {
+		return nameFromFlag
+	}
+
+	// fail
+	log.Fatal("A non-empty <solution-name> argument is required.")
+	return "" // unreachable
+}
+
+// getSolutionObjectUrl returns the tenant-relative URL path to the solution object
+// for a given solution (solution ID). If the solutionId is empty, then the root
+// is returned (which can then be used to query the table)
+func getSolutionObjectUrl(solutionId string) string {
+	// nb: JoinPath doesn't add '/' for empty elements; PathEscape doesn't change the empty string
+	url, err := url.JoinPath("knowledge-store/v1/objects/extensibility:solution", url.PathEscape(solutionId))
+	if err != nil {
+		log.Fatalf("(bug) unexpected failure to construct path for solution ID %q", solutionId)
+	}
+	return url
+}
+
+// getHeaders returns the tenant-level headers required for accessing solution objects
+func getHeaders() map[string]string {
+	cfg := config.GetCurrentContext()
+
+	return map[string]string{
+		"layer-type": "TENANT",
+		"layer-id":   cfg.Tenant,
+	}
 }
