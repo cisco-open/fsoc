@@ -66,7 +66,6 @@ type eventsCmdFlags struct {
 type EventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
-	Blockers        []string
 }
 
 type recommendationRow struct {
