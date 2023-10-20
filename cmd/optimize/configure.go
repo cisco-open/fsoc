@@ -487,6 +487,8 @@ func assignToBlocker(rawBlockers map[string]interface{}) (blockers Blockers) {
 			blocker.Description = "We didn't detect the Orchestration Client on your workload, which is responsible for provisioning and deprovisioning the Servo Agent"
 			blocker.Impact = "Optimization cannot be performed because the Servo Agent can't be provisioned on your cluster"
 			blockers.NoOrchestrationAgent = blocker
+		default:
+			log.Warnf("Unknown blocker %q encountered", key)
 		}
 		data := rawBlockers[key].(map[string]interface{})
 		if data["overridable"] == "true" {
