@@ -330,13 +330,6 @@ type recommendationsTemplateValues struct {
 	SolutionName       string
 }
 
-type optimizationStartedTemplateValues struct {
-	Since        string
-	Until        string
-	Filter       string
-	SolutionName string
-}
-
 var recommendationsTemplate = template.Must(template.New("").Parse(`
 {{ with .Since }}SINCE {{ . }}
 {{ end -}}
