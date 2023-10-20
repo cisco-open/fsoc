@@ -70,7 +70,7 @@ type eventsRow struct {
 }
 
 type recommendationRow struct {
-	EventsRow          eventsRow
+	eventsRow
 	BlockersAttributes map[string]any
 	BlockersPresent    string
 	Blockers           []string
@@ -293,8 +293,8 @@ func NewCmdRecommendations() *cobra.Command {
 		RunE:             listRecommendations(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OptimizerId: .EventsRow.EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventsRow.EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventsRow.EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventsRow.EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .BlockersPresent, Timestamp: .EventsRow.Timestamp",
-			output.DetailFieldsAnnotation: "OptimizerId: .EventsRow.EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventsRow.EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventsRow.EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventsRow.EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .Blockers, BlockersAttributes: .BlockersAttributes, Attributes: .EventsRow.EventAttributes, Timestamp: .EventsRow.Timestamp",
+			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .BlockersPresent, Timestamp: .Timestamp",
+			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .Blockers, BlockersAttributes: .BlockersAttributes, Attributes: .EventAttributes, Timestamp: .Timestamp",
 		},
 	}
 
@@ -497,41 +497,33 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			uniqueKey := fmt.Sprintf("%s-%s", optimizerId.(string), optimizationNum.(string))
 
 			recommendationWithBlockers := recommendationRow{}
-			recommendationWithBlockers.EventsRow = recommendationRows[i]
+			recommendationWithBlockers.eventsRow = recommendationRows[i]
 			recommendationWithBlockers.BlockersAttributes = make(map[string]any)
 
-			startedEventFound := false
+			recommendationWithBlockers.BlockersPresent = "false"
 
-			if len(blockerRows) > 0 {
-				recommendationWithBlockers.BlockersPresent = "false"
+			// merge recommendation and blocker data
+			if startedRow, ok := blockerRows[uniqueKey]; !ok {
+				log.Warnf("No optimization_started event found for recommendation with optimizer_id: %v and num: %v", optimizerId, optimizationNum)
+			} else {
+				for attr, val := range startedRow.(map[string]any) {
+					recommendationWithBlockers.BlockersAttributes[attr] = val
 
-				// merge recommendation and blocker data
-				for key, value := range blockerRows {
-					if key == uniqueKey {
-						startedEventFound = true
-
-						for attr, val := range value.(map[string]any) {
-							recommendationWithBlockers.BlockersAttributes[attr] = val
-
-							// extract the ID from the attribute string
-							if !strings.Contains(attr, "principal") {
-								splitAttr := strings.Split(attr, ".")
-								if len(splitAttr) > 3 {
-									blockerID := splitAttr[len(splitAttr)-2]
-									if !strings.Contains(strings.Join(recommendationWithBlockers.Blockers, ","), blockerID) {
-										recommendationWithBlockers.Blockers = append(recommendationWithBlockers.Blockers, blockerID)
-									}
-								}
+					// extract the ID from the attribute string
+					if !strings.Contains(attr, "principal") {
+						splitAttr := strings.Split(attr, ".")
+						if len(splitAttr) > 3 {
+							blockerID := splitAttr[len(splitAttr)-2]
+							if !strings.Contains(strings.Join(recommendationWithBlockers.Blockers, ","), blockerID) {
+								recommendationWithBlockers.Blockers = append(recommendationWithBlockers.Blockers, blockerID)
 							}
 						}
 					}
 				}
-				if len(recommendationWithBlockers.Blockers) > 0 {
-					recommendationWithBlockers.BlockersPresent = "true"
-				}
 			}
-			if !startedEventFound {
-				log.Warnf("No optimization_started event found for recommendation with optimizer_id: %v and num: %v", optimizerId, optimizationNum)
+
+			if len(recommendationWithBlockers.Blockers) > 0 {
+				recommendationWithBlockers.BlockersPresent = "true"
 			}
 
 			recommendationRowsWithBlockers = append(recommendationRowsWithBlockers, recommendationWithBlockers)
