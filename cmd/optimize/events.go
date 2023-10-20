@@ -578,11 +578,13 @@ func getOptimizationBlockerData(tempVals recommendationsTemplateValues) (map[str
 }
 
 func extractStartedBlockersData(dataset *uql.DataSet) (map[string]any, error) {
-	resp_data := &dataset.Data
+
 	results := make(map[string]any)
-	if resp_data == nil {
+	if dataset == nil {
 		return results, nil
 	}
+	resp_data := &dataset.Data
+
 	for _, row := range *resp_data {
 
 		attributes := row[0].(uql.ComplexData)
