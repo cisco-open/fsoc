@@ -63,14 +63,14 @@ type eventsCmdFlags struct {
 	events          []string
 }
 
-type eventsRow struct {
+type EventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
 	Blockers        []string
 }
 
 type recommendationRow struct {
-	eventsRow
+	EventsRow
 	BlockersAttributes map[string]any
 	BlockersPresent    string
 	Blockers           []string
@@ -270,7 +270,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 
 		output.PrintCmdOutput(cmd, struct {
-			Items []eventsRow `json:"items"`
+			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: eventRows, Total: len(eventRows)})
 
@@ -497,7 +497,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			uniqueKey := fmt.Sprintf("%s-%s", optimizerId.(string), optimizationNum.(string))
 
 			recommendationWithBlockers := recommendationRow{}
-			recommendationWithBlockers.eventsRow = recommendationRows[i]
+			recommendationWithBlockers.EventsRow = recommendationRows[i]
 			recommendationWithBlockers.BlockersAttributes = make(map[string]any)
 
 			recommendationWithBlockers.BlockersPresent = "false"
@@ -581,7 +581,9 @@ func getOptimizationBlockerData(tempVals recommendationsTemplateValues) (map[str
 func extractStartedBlockersData(dataset *uql.DataSet) (map[string]any, error) {
 	resp_data := &dataset.Data
 	results := make(map[string]any)
-
+	if resp_data == nil {
+		return results, nil
+	}
 	for _, row := range *resp_data {
 
 		attributes := row[0].(uql.ComplexData)
@@ -600,18 +602,18 @@ func extractStartedBlockersData(dataset *uql.DataSet) (map[string]any, error) {
 	return results, nil
 }
 
-func extractEventsData(dataset *uql.DataSet) ([]eventsRow, error) {
+func extractEventsData(dataset *uql.DataSet) ([]EventsRow, error) {
 	if dataset == nil {
-		return []eventsRow{}, nil
+		return []EventsRow{}, nil
 	}
 	resp_data := &dataset.Data
-	results := make([]eventsRow, 0, len(*resp_data))
+	results := make([]EventsRow, 0, len(*resp_data))
 
 	for _, row := range *resp_data {
 		attributes := row[0].(uql.ComplexData)
 		attributesMap, _ := sliceToMap(attributes.Data)
 		timestamp := row[1].(time.Time)
-		results = append(results, eventsRow{Timestamp: timestamp, EventAttributes: attributesMap})
+		results = append(results, EventsRow{Timestamp: timestamp, EventAttributes: attributesMap})
 	}
 
 	return results, nil
