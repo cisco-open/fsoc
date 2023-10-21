@@ -63,7 +63,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
 		err := api.JSONGet(urlStr, &response, &api.Options{Headers: headers})
 		if err != nil {
-			return optimizerConfig, fmt.Errorf("Unable to fetch config by optimizer ID. api.JSONGet: %w", err)
+			return optimizerConfig, fmt.Errorf("unable to fetch config by optimizer ID. api.JSONGet: %w", err)
 		}
 
 		optimizerConfig = response.Data
@@ -82,12 +82,12 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 			return optimizerConfig, fmt.Errorf("unable to fetch config by workload information. api.JSONGet: %w", err)
 		}
 		if configPage.Total != 1 {
-			return optimizerConfig, fmt.Errorf("Found %v optimizer configurations for the given workload information", configPage.Total)
+			return optimizerConfig, fmt.Errorf("found %v optimizer configurations for the given workload information", configPage.Total)
 		}
 
 		optimizerConfig = configPage.Items[0].Data
 	} else {
-		return optimizerConfig, errors.New("No identifying information provided for the optimizer to be managed")
+		return optimizerConfig, errors.New("no identifying information provided for the optimizer to be managed")
 	}
 
 	return optimizerConfig, nil
@@ -97,7 +97,7 @@ func (flags *managementFlags) updateOptimizerConfiguration(config OptimizerConfi
 	var res any
 	urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
 	if err := api.JSONPut(urlStr, config, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
-		return fmt.Errorf("Failed to update knowledge object with new optimizer configuration. api.JSONPut: %w", err)
+		return fmt.Errorf("failed to update knowledge object with new optimizer configuration. api.JSONPut: %w", err)
 	}
 	return nil
 }
@@ -140,7 +140,7 @@ func startOptimizer(flags *startFlags) func(cmd *cobra.Command, args []string) e
 		}
 		if config.DesiredState == "started" {
 			if !flags.restart {
-				return errors.New("Optimizer already started (did you mean to specify --restart?)")
+				return errors.New("optimizer already started (did you mean to specify --restart?)")
 			}
 		}
 
@@ -179,7 +179,7 @@ func stopOptimizer(flags *managementFlags) func(cmd *cobra.Command, args []strin
 			return fmt.Errorf("flags.getOptimizerConfig: %w", err)
 		}
 		if config.DesiredState == "stopped" {
-			return errors.New("Optimizer already stopped")
+			return errors.New("optimizer already stopped")
 		}
 
 		config.DesiredState = "stopped"
@@ -236,8 +236,8 @@ func suspendOptimizer(flags *suspendFlags) func(*cobra.Command, []string) error 
 		}
 		if _, ok := optimizerConfig.Suspensions[flags.suspensionId]; ok {
 			return fmt.Errorf(
-				"Optimizer configuration already has suspension with ID %q. "+
-					"Please use a different suspension ID to avoid removing a suspension you may not have added",
+				"optimizer configuration already has suspension with ID %q; "+
+					"please use a different suspension ID to avoid removing a suspension you may not have added",
 				flags.suspensionId,
 			)
 		}
@@ -279,10 +279,10 @@ func unsuspendOptimizer(flags *suspendFlags) func(*cobra.Command, []string) erro
 		}
 
 		if config.Suspensions == nil || len(config.Suspensions) < 1 {
-			return errors.New("Optimizer has no suspensions to remove")
+			return errors.New("optimizer has no suspensions to remove")
 		}
 		if _, ok := config.Suspensions[flags.suspensionId]; !ok {
-			return fmt.Errorf("Optimizer has no suspension with ID %q to be removed", flags.suspensionId)
+			return fmt.Errorf("optimizer has no suspension with ID %q to be removed", flags.suspensionId)
 		}
 		delete(config.Suspensions, flags.suspensionId)
 

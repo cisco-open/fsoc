@@ -63,9 +63,16 @@ type eventsCmdFlags struct {
 	events          []string
 }
 
-type eventsRow struct {
+type EventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
+}
+
+type recommendationRow struct {
+	EventsRow
+	BlockersAttributes map[string]any
+	BlockersPresent    string
+	Blockers           []string
 }
 
 func NewCmdEvents() *cobra.Command {
@@ -175,7 +182,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 
 		if flags.count != -1 {
 			if flags.count > 1000 {
-				return errors.New("Counts higher than 1000 are not supported")
+				return errors.New("counts higher than 1000 are not supported")
 			}
 			tempVals.Limits = strconv.Itoa(flags.count)
 		}
@@ -204,12 +211,12 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			return nil
 		}
 		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 		}
 
 		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 		if !ok {
-			return fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 		}
 		eventRows, err := extractEventsData(data_set)
 		if err != nil {
@@ -243,14 +250,14 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 				break
 			}
 			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("Page %v main dataset %v has no rows", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
 			}
 			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
 			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
-				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
+				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
 
 			newRows, err := extractEventsData(data_set)
@@ -262,7 +269,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 
 		output.PrintCmdOutput(cmd, struct {
-			Items []eventsRow `json:"items"`
+			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: eventRows, Total: len(eventRows)})
 
@@ -285,8 +292,8 @@ func NewCmdRecommendations() *cobra.Command {
 		RunE:             listRecommendations(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Timestamp: .Timestamp",
-			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Timestamp: .Timestamp, Attributes: .EventAttributes",
+			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .BlockersPresent, Timestamp: .Timestamp",
+			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .Blockers, BlockersAttributes: .BlockersAttributes, Attributes: .EventAttributes, Timestamp: .Timestamp",
 		},
 	}
 
@@ -342,6 +349,20 @@ FETCH events(
 ORDER events.asc()
 `))
 
+var optimizationStartedTemplate = template.Must(template.New("").Parse(`
+{{ with .Since }}SINCE {{ . }}
+{{ end -}}
+{{ with .Until }}UNTIL {{ . }}
+{{ end -}}
+FETCH events(
+		{{ .SolutionName }}:optimization_started
+	)
+	{{ with .Filter }}[{{ . }}]
+	{{ end -}}
+	{attributes, timestamp}
+ORDER events.asc()
+`))
+
 func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// setup query
@@ -374,7 +395,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 
 		if flags.count != -1 {
 			if flags.count > 1000 {
-				return errors.New("Counts higher than 1000 are not supported")
+				return errors.New("counts higher than 1000 are not supported")
 			}
 			tempVals.Limits = strconv.Itoa(flags.count)
 		}
@@ -403,12 +424,12 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			return nil
 		}
 		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 		}
 
 		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 		if !ok {
-			return fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 		}
 		recommendationRows, err := extractEventsData(data_set)
 		if err != nil {
@@ -442,14 +463,14 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 				break
 			}
 			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("Page %v main dataset %v has no rows", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
 			}
 			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
 			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
-				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
+				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
 
 			newRows, err := extractEventsData(data_set)
@@ -460,27 +481,140 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			_, next_ok = data_set.Links["next"]
 		}
 
+		recommendationRowsWithBlockers := make([]recommendationRow, 0, len(recommendationRows))
+
+		// extract blocker rows
+		blockerRows, err := getOptimizationBlockerData(tempVals)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve optimization_started blocker data: %v", err)
+		}
+
+		// iterate through recommendations rows and append blocker data from optimization_started events, linking on optimizer ID + num
+		for i := range recommendationRows {
+			optimizerId := recommendationRows[i].EventAttributes["optimize.optimization.optimizer_id"]
+			optimizationNum := recommendationRows[i].EventAttributes["optimize.optimization.num"]
+			uniqueKey := fmt.Sprintf("%s-%s", optimizerId.(string), optimizationNum.(string))
+
+			recommendationWithBlockers := recommendationRow{}
+			recommendationWithBlockers.EventsRow = recommendationRows[i]
+			recommendationWithBlockers.BlockersAttributes = make(map[string]any)
+
+			recommendationWithBlockers.BlockersPresent = "false"
+
+			// merge recommendation and blocker data
+			if startedRow, ok := blockerRows[uniqueKey]; !ok {
+				log.Warnf("No optimization_started event found for recommendation with optimizer_id: %v and num: %v", optimizerId, optimizationNum)
+			} else {
+				for attr, val := range startedRow.(map[string]any) {
+					recommendationWithBlockers.BlockersAttributes[attr] = val
+
+					// extract the ID from the attribute string
+					if !strings.Contains(attr, "principal") {
+						splitAttr := strings.Split(attr, ".")
+						if len(splitAttr) > 3 {
+							blockerID := splitAttr[len(splitAttr)-2]
+							if !strings.Contains(strings.Join(recommendationWithBlockers.Blockers, ","), blockerID) {
+								recommendationWithBlockers.Blockers = append(recommendationWithBlockers.Blockers, blockerID)
+							}
+						}
+					}
+				}
+			}
+
+			if len(recommendationWithBlockers.Blockers) > 0 {
+				recommendationWithBlockers.BlockersPresent = "true"
+			}
+
+			recommendationRowsWithBlockers = append(recommendationRowsWithBlockers, recommendationWithBlockers)
+		}
+
 		output.PrintCmdOutput(cmd, struct {
-			Items []eventsRow `json:"items"`
-			Total int         `json:"total"`
-		}{Items: recommendationRows, Total: len(recommendationRows)})
+			Items []recommendationRow `json:"items"`
+			Total int                 `json:"total"`
+		}{Items: recommendationRowsWithBlockers, Total: len(recommendationRowsWithBlockers)})
 
 		return nil
 	}
 }
 
-func extractEventsData(dataset *uql.DataSet) ([]eventsRow, error) {
+func getOptimizationBlockerData(tempVals recommendationsTemplateValues) (map[string]any, error) {
+
+	var buff bytes.Buffer
+	if err := optimizationStartedTemplate.Execute(&buff, tempVals); err != nil {
+		return nil, fmt.Errorf("optimizationStartedTemplate.Execute: %w", err)
+	}
+	query := buff.String()
+
+	// execute query, process results
+	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	if err != nil {
+		return nil, fmt.Errorf("uql.ExecuteQuery: %w", err)
+	}
+	if resp.HasErrors() {
+		log.Error("Execution of optimization_started query encountered errors. Returned data may not be complete!")
+		for _, e := range resp.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
+		}
+	}
+
+	main_data_set := resp.Main()
+	if main_data_set == nil || len(main_data_set.Data) < 1 {
+		return nil, fmt.Errorf("no optimization_started results found for given input")
+	}
+	if len(main_data_set.Data[0]) < 1 {
+		return nil, fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
+	}
+
+	data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
+	if !ok {
+		return nil, fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+	}
+	startedBlockersData, err := extractStartedBlockersData(data_set)
+	if err != nil {
+		return nil, fmt.Errorf("extractStartedBlockersData: %w", err)
+	}
+
+	return startedBlockersData, nil
+}
+
+func extractStartedBlockersData(dataset *uql.DataSet) (map[string]any, error) {
+
+	results := make(map[string]any)
 	if dataset == nil {
-		return []eventsRow{}, nil
+		return results, nil
 	}
 	resp_data := &dataset.Data
-	results := make([]eventsRow, 0, len(*resp_data))
+
+	for _, row := range *resp_data {
+
+		attributes := row[0].(uql.ComplexData)
+		attributesMap, _ := sliceToMap(attributes.Data)
+		newAttributes := make(map[string]any)
+
+		for attr, val := range attributesMap {
+			if strings.HasPrefix(attr, "optimize.ignored_blockers") {
+				newAttributes[attr] = val
+			}
+		}
+		uniqueKey := fmt.Sprintf("%s-%s", attributesMap["optimize.optimization.optimizer_id"].(string), attributesMap["optimize.optimization.num"].(string))
+		results[uniqueKey] = newAttributes
+	}
+
+	return results, nil
+}
+
+func extractEventsData(dataset *uql.DataSet) ([]EventsRow, error) {
+	if dataset == nil {
+		return []EventsRow{}, nil
+	}
+	resp_data := &dataset.Data
+	results := make([]EventsRow, 0, len(*resp_data))
 
 	for _, row := range *resp_data {
 		attributes := row[0].(uql.ComplexData)
 		attributesMap, _ := sliceToMap(attributes.Data)
 		timestamp := row[1].(time.Time)
-		results = append(results, eventsRow{Timestamp: timestamp, EventAttributes: attributesMap})
+		results = append(results, EventsRow{Timestamp: timestamp, EventAttributes: attributesMap})
 	}
 
 	return results, nil
@@ -519,7 +653,7 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 		filterList = append(filterList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", flags.workloadName))
 	}
 	if len(filterList) < 1 {
-		return []string{}, errors.New("Sanity check failed, optimizations query must at least filter on namespace or workload name, otherwise this query can be skipped")
+		return []string{}, errors.New("sanity check failed, optimizations query must at least filter on namespace or workload name, otherwise this query can be skipped")
 	}
 	if flags.clusterId != "" {
 		filterList = append(filterList, fmt.Sprintf("attributes(\"k8s.cluster.id\") = %q", flags.clusterId))
