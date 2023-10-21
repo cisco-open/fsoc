@@ -70,7 +70,11 @@ func (b defaultBackend) Continue(link *Link) (parsedResponse, error) {
 }
 
 func NewDefaultBackend(options ...BackendOption) defaultBackend {
-	return defaultBackend{}
+	b := defaultBackend{}
+	for _, option := range options {
+		option(&b)
+	}
+	return b
 }
 
 type BackendOption func(c *defaultBackend)
