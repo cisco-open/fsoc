@@ -182,7 +182,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 
 		if flags.count != -1 {
 			if flags.count > 1000 {
-				return errors.New("Counts higher than 1000 are not supported")
+				return errors.New("counts higher than 1000 are not supported")
 			}
 			tempVals.Limits = strconv.Itoa(flags.count)
 		}
@@ -211,12 +211,12 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			return nil
 		}
 		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 		}
 
 		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 		if !ok {
-			return fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 		}
 		eventRows, err := extractEventsData(data_set)
 		if err != nil {
@@ -250,14 +250,14 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 				break
 			}
 			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("Page %v main dataset %v has no rows", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
 			}
 			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
 			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
-				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
+				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
 
 			newRows, err := extractEventsData(data_set)
@@ -395,7 +395,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 
 		if flags.count != -1 {
 			if flags.count > 1000 {
-				return errors.New("Counts higher than 1000 are not supported")
+				return errors.New("counts higher than 1000 are not supported")
 			}
 			tempVals.Limits = strconv.Itoa(flags.count)
 		}
@@ -424,12 +424,12 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			return nil
 		}
 		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 		}
 
 		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 		if !ok {
-			return fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 		}
 		recommendationRows, err := extractEventsData(data_set)
 		if err != nil {
@@ -463,14 +463,14 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 				break
 			}
 			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("Page %v main dataset %v has no rows", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
 			}
 			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
 			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
-				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
+				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
 
 			newRows, err := extractEventsData(data_set)
@@ -486,7 +486,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 		// extract blocker rows
 		blockerRows, err := getOptimizationBlockerData(tempVals)
 		if err != nil {
-			return fmt.Errorf("Failed to retrieve optimization_started blocker data: %v", err)
+			return fmt.Errorf("failed to retrieve optimization_started blocker data: %v", err)
 		}
 
 		// iterate through recommendations rows and append blocker data from optimization_started events, linking on optimizer ID + num
@@ -559,15 +559,15 @@ func getOptimizationBlockerData(tempVals recommendationsTemplateValues) (map[str
 
 	main_data_set := resp.Main()
 	if main_data_set == nil || len(main_data_set.Data) < 1 {
-		return nil, fmt.Errorf("No optimization_started results found for given input\n")
+		return nil, fmt.Errorf("no optimization_started results found for given input")
 	}
 	if len(main_data_set.Data[0]) < 1 {
-		return nil, fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+		return nil, fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 	}
 
 	data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 	if !ok {
-		return nil, fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+		return nil, fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 	}
 	startedBlockersData, err := extractStartedBlockersData(data_set)
 	if err != nil {
@@ -653,7 +653,7 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 		filterList = append(filterList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", flags.workloadName))
 	}
 	if len(filterList) < 1 {
-		return []string{}, errors.New("Sanity check failed, optimizations query must at least filter on namespace or workload name, otherwise this query can be skipped")
+		return []string{}, errors.New("sanity check failed, optimizations query must at least filter on namespace or workload name, otherwise this query can be skipped")
 	}
 	if flags.clusterId != "" {
 		filterList = append(filterList, fmt.Sprintf("attributes(\"k8s.cluster.id\") = %q", flags.clusterId))
