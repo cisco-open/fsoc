@@ -94,13 +94,17 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 					} else if m.Max != "" {
 						dpmax, max_err := strconv.ParseFloat(m.Max, 64)
 
-						if max_err == nil {
+						if max_err != nil {
+							log.Warnf("Could not parse max value for %q.", entity.TypeName)
+						} else {
 							dp = rand.Float64() * dpmax
 						}
 					} else if m.Min != "" {
 						dpmin, min_err := strconv.ParseFloat(m.Min, 64)
 
-						if min_err == nil {
+						if min_err != nil {
+							log.Warnf("Could not parse min value for %q.", entity.TypeName)
+						} else {
 							// For setting a floor value, taking the approach of starting at the minimum
 							// and using
 							dp = dpmin + (rand.Float64() * 50)
