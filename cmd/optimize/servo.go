@@ -117,7 +117,7 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 
 		if flags.count != -1 {
 			if flags.count > 1000 {
-				return errors.New("Counts higher than 1000 are not supported")
+				return errors.New("counts higher than 1000 are not supported")
 			}
 			tempVals.Limits = strconv.Itoa(flags.count)
 		}
@@ -146,12 +146,12 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 			return nil
 		}
 		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("Main dataset %v first row has no columns", main_data_set.Name)
+			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
 		}
 
 		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
 		if !ok {
-			return fmt.Errorf("Main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
+			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
 		}
 		logRows, err := extractLogsData(data_set)
 		if err != nil {
@@ -185,14 +185,14 @@ func getServoLogs(flags *servoLogsFlags) func(*cobra.Command, []string) error {
 				break
 			}
 			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("Page %v main dataset %v has no rows", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
 			}
 			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("Page %v main dataset %v first row has no columns", page, main_data_set.Name)
+				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
 			}
 			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
 			if !ok {
-				return fmt.Errorf("Page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
+				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
 			}
 
 			newRows, err := extractLogsData(data_set)

@@ -19,5 +19,5 @@ import (
 )
 
 func init() {
-	registerSubsystem(knowledge.NewSubCmd())
+	registerSubSystemWithConfig(knowledge.NewSubCmd(), &knowledge.GlobalConfig)
 }

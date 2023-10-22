@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 func TestRecursiveWalkThroughStruct(t *testing.T) {

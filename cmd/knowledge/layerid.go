@@ -17,7 +17,7 @@ package knowledge
 import (
 	"strings"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 )
 
 func getCorrectLayerID(layerType string, fqtn string) string {

@@ -23,6 +23,13 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
+// Config defines the subsystem configuration under fsoc
+type Config struct {
+	ApiVersion api.Version `mapstructure:"apiver,omitempty" fsoc-help:"API version to use for knowledge store commands. The default is \"v1\"."`
+}
+
+var GlobalConfig Config
+
 func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{
@@ -159,4 +166,12 @@ func parseObjectInfo(cmd *cobra.Command) (typeName string, objectID string, laye
 	}
 
 	return typeName, objectID, layerID, layerType, nil
+}
+
+func GetBaseUrl() string {
+	ver := GlobalConfig.ApiVersion.String()
+	if ver == "" {
+		ver = "v1"
+	}
+	return "knowledge-store/" + ver
 }
