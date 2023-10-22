@@ -50,18 +50,12 @@ type ServiceDef struct {
 	Image string `json:"image,omitempty"`
 }
 
-type IdGenerationDef struct {
-	GenerateRandomId        bool   `json:"generateRandomId"`
-	EnforceGlobalUniqueness bool   `json:"enforceGlobalUniqueness"`
-	IdGenerationMechanism   string `json:"idGenerationMechanism,omitempty"`
-}
-
 type KnowledgeDef struct {
-	Name             string                 `json:"name,omitempty"`
-	AllowedLayers    []string               `json:"allowedLayers,omitempty"`
-	IdGeneration     *IdGenerationDef       `json:"idGeneration,omitempty"`
-	SecureProperties []string               `json:"secureProperties,omitempty"`
-	JsonSchema       map[string]interface{} `json:"jsonSchema,omitempty"`
+	Name                  string                 `json:"name,omitempty"`
+	AllowedLayers         []string               `json:"allowedLayers,omitempty"`
+	IdentifyingProperties []string               `json:"identifyingProperties,omitempty"`
+	SecureProperties      []string               `json:"secureProperties,omitempty"`
+	JsonSchema            map[string]interface{} `json:"jsonSchema,omitempty"`
 }
 
 type SolutionDef struct {

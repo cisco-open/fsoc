@@ -24,7 +24,7 @@ import (
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
-	"github.com/cisco-open/fsoc/cmd/config"
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 )
 
@@ -412,18 +412,13 @@ func getKnowledgeComponent(name string) *KnowledgeDef {
 		},
 		"required": []string{"name"},
 	}
-	idGen := &IdGenerationDef{
-		EnforceGlobalUniqueness: true,
-		GenerateRandomId:        true,
-		IdGenerationMechanism:   "{{layer.id}}",
-	}
 
 	knowledgeComponent := &KnowledgeDef{
-		Name:             name,
-		AllowedLayers:    []string{"TENANT"},
-		IdGeneration:     idGen,
-		SecureProperties: []string{"$.secret"},
-		JsonSchema:       jsonSchema,
+		Name:                  name,
+		AllowedLayers:         []string{"TENANT"},
+		IdentifyingProperties: []string{"/name"},
+		SecureProperties:      []string{"$.secret"},
+		JsonSchema:            jsonSchema,
 	}
 
 	return knowledgeComponent

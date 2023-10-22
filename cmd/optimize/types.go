@@ -18,6 +18,7 @@ import "time"
 
 type OptimizerConfiguration struct {
 	Config           Config                `json:"config"`
+	IgnoredBlockers  IgnoredBlockers       `json:"ignoredBlockers"`
 	DesiredState     string                `json:"desiredState"`
 	OptimizerID      string                `json:"optimizerId"`
 	RestartTimestamp string                `json:"restartTimestamp"`
@@ -52,6 +53,45 @@ type Config struct {
 	Guardrails Guardrails `json:"guardrails"`
 	Slo        Slo        `json:"slo"`
 }
+
+type IgnoredBlockers struct {
+	Principal Principal `json:"principal,omitempty"`
+	Timestamp string    `json:"timestamp,omitempty"`
+	Blockers  Blockers  `json:"blockers,omitempty"`
+}
+
+type Principal struct {
+	Id   string `json:"id"`
+	Type string `json:"type"`
+}
+
+type Blockers struct {
+	Stateful                    *Blocker `json:"stateful,omitempty"`
+	NoTraffic                   *Blocker `json:"noTraffic,omitempty"`
+	ResourcesNotSpecified       *Blocker `json:"resourcesNotSpecified,omitempty"`
+	CPUNotSpecified             *Blocker `json:"cpuNotSpecified,omitempty"`
+	MemNotSpecified             *Blocker `json:"memNotSpecified,omitempty"`
+	CPUResourcesChange          *Blocker `json:"cpuResourcesChange,omitempty"`
+	MemoryResourcesChange       *Blocker `json:"memResourcesChange,omitempty"`
+	K8sMetricsDeficient         *Blocker `json:"k8sMetricsDeficient,omitempty"`
+	APMMetricsMissing           *Blocker `json:"apmMetricsMissing,omitempty"`
+	APMMetricsDeficient         *Blocker `json:"apmMetricsDeficient,omitempty"`
+	MultipleAPM                 *Blocker `json:"multipleAPM,omitempty"`
+	UnequalLoadDistribution     *Blocker `json:"unequalLoadDistribution,omitempty"`
+	NoScaling                   *Blocker `json:"noScaling,omitempty"`
+	InsufficientRelativeScaling *Blocker `json:"insufficientRelativeScaling,omitempty"`
+	InsufficientFixedScaling    *Blocker `json:"insufficientFixedScaling,omitempty"`
+	MTBFHigh                    *Blocker `json:"mtbfHigh,omitempty"`
+	ErrorRateHigh               *Blocker `json:"errorRateHigh,omitempty"`
+	NoOrchestrationAgent        *Blocker `json:"noOrchestrationAgent,omitempty"`
+}
+
+type Blocker struct {
+	Description string `json:"description"`
+	Impact      string `json:"impact"`
+	Overridable bool   `json:"-"` // do not write to json for orion
+}
+
 type Suspension struct {
 	Reason    string `json:"reason"`
 	Timestamp string `json:"timestamp"`

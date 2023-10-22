@@ -14,6 +14,10 @@
 
 package config
 
+import (
+	cfg "github.com/cisco-open/fsoc/config"
+)
+
 type AuthFieldConfig int8
 
 const (
@@ -25,7 +29,7 @@ type AuthFieldConfigRow map[string]AuthFieldConfig
 
 func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 	return map[string]AuthFieldConfigRow{
-		AuthMethodNone: {
+		cfg.AuthMethodNone: {
 			"client-ID":     ClearField,
 			"secret-file":   ClearField,
 			"token":         ClearField,
@@ -33,11 +37,11 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
-			AppdTid:         ClearField,
-			AppdPty:         ClearField,
-			AppdPid:         ClearField,
+			cfg.AppdTid:     ClearField,
+			cfg.AppdPty:     ClearField,
+			cfg.AppdPid:     ClearField,
 		},
-		AuthMethodOAuth: {
+		cfg.AuthMethodOAuth: {
 			"client-ID":     ClearField,
 			"secret-file":   ClearField,
 			"token":         ClearField,
@@ -45,11 +49,11 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
-			AppdTid:         ClearField,
-			AppdPty:         ClearField,
-			AppdPid:         ClearField,
+			cfg.AppdTid:     ClearField,
+			cfg.AppdPty:     ClearField,
+			cfg.AppdPid:     ClearField,
 		},
-		AuthMethodJWT: {
+		cfg.AuthMethodJWT: {
 			"client-ID":     ClearField,
 			"secret-file":   ClearField,
 			"token":         AllowField,
@@ -57,11 +61,11 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          AllowField,
-			AppdTid:         ClearField,
-			AppdPty:         ClearField,
-			AppdPid:         ClearField,
+			cfg.AppdTid:     ClearField,
+			cfg.AppdPty:     ClearField,
+			cfg.AppdPid:     ClearField,
 		},
-		AuthMethodServicePrincipal: {
+		cfg.AuthMethodServicePrincipal: {
 			"client-ID":     ClearField,
 			"secret-file":   AllowField,
 			"token":         ClearField,
@@ -69,11 +73,11 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
-			AppdTid:         ClearField,
-			AppdPty:         ClearField,
-			AppdPid:         ClearField,
+			cfg.AppdTid:     ClearField,
+			cfg.AppdPty:     ClearField,
+			cfg.AppdPid:     ClearField,
 		},
-		AuthMethodAgentPrincipal: {
+		cfg.AuthMethodAgentPrincipal: {
 			"client-ID":     ClearField,
 			"secret-file":   AllowField,
 			"token":         ClearField,
@@ -81,11 +85,11 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
-			AppdTid:         ClearField,
-			AppdPty:         ClearField,
-			AppdPid:         ClearField,
+			cfg.AppdTid:     ClearField,
+			cfg.AppdPty:     ClearField,
+			cfg.AppdPid:     ClearField,
 		},
-		AuthMethodLocal: {
+		cfg.AuthMethodLocal: {
 			"client-ID":     ClearField,
 			"secret-file":   ClearField,
 			"token":         ClearField,
@@ -93,9 +97,9 @@ func getAuthFieldWritePermissions() map[string]AuthFieldConfigRow {
 			"url":           AllowField,
 			"refresh-token": ClearField,
 			"user":          ClearField,
-			AppdTid:         AllowField,
-			AppdPty:         AllowField,
-			AppdPid:         AllowField,
+			cfg.AppdTid:     AllowField,
+			cfg.AppdPty:     AllowField,
+			cfg.AppdPid:     AllowField,
 		},
 	}
 }
@@ -105,7 +109,7 @@ type authClearFields map[string][]string
 // returns a map which dictates which fields to remove when changing config settings
 func getAuthFieldClearConfig() map[string]authClearFields {
 	return map[string]authClearFields{
-		AuthMethodNone: {
+		cfg.AuthMethodNone: {
 			"client-ID":     {},
 			"secret-file":   {},
 			"token":         {},
@@ -113,11 +117,11 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {},
 			"refresh-token": {},
 			"user":          {},
-			AppdTid:         {},
-			AppdPty:         {},
-			AppdPid:         {},
+			cfg.AppdTid:     {},
+			cfg.AppdPty:     {},
+			cfg.AppdPid:     {},
 		},
-		AuthMethodOAuth: {
+		cfg.AuthMethodOAuth: {
 			"client-ID":     {}, //NA
 			"secret-file":   {}, //NA
 			"token":         {}, //NA
@@ -125,11 +129,11 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {"tenant", "user", "token", "refresh-token", "secret-file"},
 			"refresh-token": {}, //NA
 			"user":          {}, //NA
-			AppdTid:         {}, //NA
-			AppdPty:         {}, //NA
-			AppdPid:         {}, //NA
+			cfg.AppdTid:     {}, //NA
+			cfg.AppdPty:     {}, //NA
+			cfg.AppdPid:     {}, //NA
 		},
-		AuthMethodJWT: {
+		cfg.AuthMethodJWT: {
 			"client-ID":     {},
 			"secret-file":   {},
 			"token":         {},
@@ -137,11 +141,11 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {"token", "tenant", "user"},
 			"refresh-token": {},
 			"user":          {},
-			AppdTid:         {},
-			AppdPty:         {},
-			AppdPid:         {},
+			cfg.AppdTid:     {},
+			cfg.AppdPty:     {},
+			cfg.AppdPid:     {},
 		},
-		AuthMethodServicePrincipal: {
+		cfg.AuthMethodServicePrincipal: {
 			"client-ID":     {},
 			"secret-file":   {"url", "tenant", "user", "token", "refresh-token"},
 			"token":         {},
@@ -149,11 +153,11 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {"tenant", "user", "token", "refresh-token"},
 			"refresh-token": {},
 			"user":          {},
-			AppdTid:         {},
-			AppdPty:         {},
-			AppdPid:         {},
+			cfg.AppdTid:     {},
+			cfg.AppdPty:     {},
+			cfg.AppdPid:     {},
 		},
-		AuthMethodAgentPrincipal: {
+		cfg.AuthMethodAgentPrincipal: {
 			"client-ID":     {},
 			"secret-file":   {"url", "tenant", "user", "token", "refresh-token"},
 			"token":         {},
@@ -161,11 +165,11 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {"tenant", "user", "token", "refresh-token"},
 			"refresh-token": {},
 			"user":          {},
-			AppdTid:         {},
-			AppdPty:         {},
-			AppdPid:         {},
+			cfg.AppdTid:     {},
+			cfg.AppdPty:     {},
+			cfg.AppdPid:     {},
 		},
-		AuthMethodLocal: {
+		cfg.AuthMethodLocal: {
 			"client-ID":     {},
 			"secret-file":   {},
 			"token":         {},
@@ -173,9 +177,9 @@ func getAuthFieldClearConfig() map[string]authClearFields {
 			"url":           {},
 			"refresh-token": {},
 			"user":          {},
-			AppdTid:         {},
-			AppdPty:         {},
-			AppdPid:         {},
+			cfg.AppdTid:     {},
+			cfg.AppdPty:     {},
+			cfg.AppdPid:     {},
 		},
 	}
 }
