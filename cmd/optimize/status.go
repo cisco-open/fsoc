@@ -57,8 +57,8 @@ You may also specify a particular optimizer ID to fetch details for a single opt
 		RunE:             listStatus(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OPTIMIZERID: .id, WORKLOADNAME: .data.optimizer.target.k8sDeployment.workloadName, STATUS: .data.optimizerState, SUSPENDED: .data.suspended, STAGE: .data.optimizationState, AGENT: .data.agentState, TUNING: .data.tuningState",
-			output.DetailFieldsAnnotation: "OPTIMIZERID: .id, CONTAINER: .data.optimizer.target.k8sDeployment.containerName, WORKLOADNAME: .data.optimizer.target.k8sDeployment.workloadName, NAMESPACE: .data.optimizer.target.k8sDeployment.namespaceName, CLUSTER: .data.optimizer.target.k8sDeployment.clusterName, STATUS: .data.optimizerState, SUSPENDED: .data.suspended, SUSPENSIONS: .data.optimizer.suspensions, RESTARTEDAT: .data.optimizer.restartTimestamp, STAGE: .data.optimizationState, AGENT: .data.agentState, TUNING: .data.tuningState",
+			output.TableFieldsAnnotation:  "OPTIMIZERID: .id, WORKLOADNAME: .data.optimizer.target.k8sDeployment.workloadName, STATUS: .data.optimizerState, SUSPENDED: .data.suspended, STAGE: .data.optimizationState, AGENT: .data.agentState, TUNING: .data.tuningState, BLOCKERS: (.data.optimizer.ignoredBlockers? // \"false\" | select(. == \"false\") // \"true\")",
+			output.DetailFieldsAnnotation: "OPTIMIZERID: .id, CONTAINER: .data.optimizer.target.k8sDeployment.containerName, WORKLOADNAME: .data.optimizer.target.k8sDeployment.workloadName, NAMESPACE: .data.optimizer.target.k8sDeployment.namespaceName, CLUSTER: .data.optimizer.target.k8sDeployment.clusterName, STATUS: .data.optimizerState, SUSPENDED: .data.suspended, SUSPENSIONS: .data.optimizer.suspensions, RESTARTEDAT: .data.optimizer.restartTimestamp, STAGE: .data.optimizationState, AGENT: .data.agentState, TUNING: .data.tuningState, BLOCKERS: (.data.optimizer.ignoredBlockers?.blockers? // {} | keys)",
 		},
 	}
 	statusCmd.Flags().StringVarP(&flags.cluster, "cluster", "c", "", "Filter statuses by kubernetes cluster name")
