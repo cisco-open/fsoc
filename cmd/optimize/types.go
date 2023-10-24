@@ -67,23 +67,23 @@ type Principal struct {
 
 type Blockers struct {
 	Stateful                    *Blocker `json:"stateful,omitempty"`
-	NoTraffic                   *Blocker `json:"noTraffic,omitempty"`
-	ResourcesNotSpecified       *Blocker `json:"resourcesNotSpecified,omitempty"`
-	CPUNotSpecified             *Blocker `json:"cpuNotSpecified,omitempty"`
-	MemNotSpecified             *Blocker `json:"memNotSpecified,omitempty"`
-	CPUResourcesChange          *Blocker `json:"cpuResourcesChange,omitempty"`
-	MemoryResourcesChange       *Blocker `json:"memResourcesChange,omitempty"`
-	K8sMetricsDeficient         *Blocker `json:"k8sMetricsDeficient,omitempty"`
-	APMMetricsMissing           *Blocker `json:"apmMetricsMissing,omitempty"`
-	APMMetricsDeficient         *Blocker `json:"apmMetricsDeficient,omitempty"`
-	MultipleAPM                 *Blocker `json:"multipleAPM,omitempty"`
-	UnequalLoadDistribution     *Blocker `json:"unequalLoadDistribution,omitempty"`
-	NoScaling                   *Blocker `json:"noScaling,omitempty"`
-	InsufficientRelativeScaling *Blocker `json:"insufficientRelativeScaling,omitempty"`
-	InsufficientFixedScaling    *Blocker `json:"insufficientFixedScaling,omitempty"`
-	MTBFHigh                    *Blocker `json:"mtbfHigh,omitempty"`
-	ErrorRateHigh               *Blocker `json:"errorRateHigh,omitempty"`
-	NoOrchestrationAgent        *Blocker `json:"noOrchestrationAgent,omitempty"`
+	NoTraffic                   *Blocker `json:"no_traffic,omitempty"`
+	ResourcesNotSpecified       *Blocker `json:"resources_not_specified,omitempty"`
+	CPUNotSpecified             *Blocker `json:"cpu_not_specified,omitempty"`
+	MemNotSpecified             *Blocker `json:"mem_not_specified,omitempty"`
+	CPUResourcesChange          *Blocker `json:"cpu_resources_change,omitempty"`
+	MemoryResourcesChange       *Blocker `json:"mem_resources_change,omitempty"`
+	K8sMetricsDeficient         *Blocker `json:"k8s_metrics_deficient,omitempty"`
+	APMMetricsMissing           *Blocker `json:"apm_metrics_missing,omitempty"`
+	APMMetricsDeficient         *Blocker `json:"apm_metrics_deficient,omitempty"`
+	MultipleAPM                 *Blocker `json:"multiple_apm,omitempty"`
+	UnequalLoadDistribution     *Blocker `json:"unequal_load_distribution,omitempty"`
+	NoScaling                   *Blocker `json:"no_scaling,omitempty"`
+	InsufficientRelativeScaling *Blocker `json:"insufficient_relative_scaling,omitempty"`
+	InsufficientFixedScaling    *Blocker `json:"insufficient_fixed_scaling,omitempty"`
+	MTBFHigh                    *Blocker `json:"mtbf_high,omitempty"`
+	ErrorRateHigh               *Blocker `json:"error_rate_high,omitempty"`
+	NoOrchestrationAgent        *Blocker `json:"no_orchestration_agent,omitempty"`
 }
 
 type Blocker struct {
