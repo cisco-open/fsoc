@@ -400,7 +400,7 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				return fmt.Errorf("failed to create knowledge object for optimizer configuration: %w", err)
 			}
 		} else {
-			urlStr := fmt.Sprintf("knowledge-store/v1a/objects/%v:optimizer/%v", flags.solutionName, newOptimizerConfig.OptimizerID)
+			urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, newOptimizerConfig.OptimizerID)
 			if err = api.JSONPut(urlStr, newOptimizerConfig, &res, &api.Options{Headers: headers}); err != nil {
 				return fmt.Errorf("failed to update knowledge object with new optimizer configuration: %w", err)
 			}
