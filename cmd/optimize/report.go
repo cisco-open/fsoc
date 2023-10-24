@@ -111,9 +111,9 @@ func listReports(cmd *cobra.Command, args []string) error {
 	}
 	query = buff.String()
 
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 	if err != nil {
-		return fmt.Errorf("uql.ExecuteQuery: %w", err)
+		return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 	}
 
 	if resp.HasErrors() {
@@ -136,9 +136,9 @@ func listReports(cmd *cobra.Command, args []string) error {
 
 	_, next_ok := mainDataSet.Links["next"]
 	for page := 2; next_ok; page++ {
-		resp, err = uql.ContinueQuery(mainDataSet, "next")
+		resp, err = uql.ClientV1.ContinueQuery(mainDataSet, "next")
 		if err != nil {
-			return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+			return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
 		}
 
 		if resp.HasErrors() {

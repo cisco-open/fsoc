@@ -30,7 +30,7 @@ type ApiVersion string
 // constants for direct use
 const (
 	ApiVersion1 ApiVersion = ApiVersion("v1")
-	//ApiVersion1Beta ApiVersion = ApiVersion("v1beta")
+	//ApiVersion2Beta ApiVersion = ApiVersion("v2beta")
 
 	ApiVersionDefault ApiVersion = ApiVersion1
 )
@@ -40,7 +40,7 @@ const (
 
 var supportedApiVersions = []string{
 	string(ApiVersion1),
-	//string(ApiVersion1Beta),
+	//string(ApiVersion2Beta),
 }
 
 func (a *ApiVersion) ValidateAndSet(v any) error {

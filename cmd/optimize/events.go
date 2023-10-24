@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -47,14 +50,16 @@ func init() {
 }
 
 type eventsFlags struct {
-	clusterId    string
-	namespace    string
-	workloadName string
-	optimizerId  string
-	since        string
-	until        string
-	count        int
-	solutionName string
+	clusterId      string
+	namespace      string
+	workloadName   string
+	optimizerId    string
+	since          string
+	until          string
+	count          int
+	follow         bool
+	followInterval time.Duration
+	solutionName   string
 }
 
 type eventsCmdFlags struct {
@@ -108,8 +113,11 @@ func NewCmdEvents() *cobra.Command {
 
 	command.Flags().StringVarP(&flags.since, "since", "s", "", "Retrieve events contained in the time interval starting at a relative or exact time. (default: -1h)")
 	command.Flags().StringVarP(&flags.until, "until", "u", "", "Retrieve events contained in the time interval ending at a relative or exact time. (default: now)")
-
 	command.Flags().IntVarP(&flags.count, "count", "", -1, "Limit the number of events retrieved to the specified count")
+
+	command.Flags().BoolVarP(&flags.follow, "follow", "f", false, "Follow the events as they are produced")
+	command.Flags().DurationVarP(&flags.followInterval, "follow-interval", "t", time.Second*60, "Duration between requests to UQL when following events")
+	command.MarkFlagsMutuallyExclusive("follow", "count")
 
 	command.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the FMM types for reading")
 	if err := command.LocalFlags().MarkHidden("solution-name"); err != nil {
@@ -194,9 +202,9 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		query := buff.String()
 
 		// execute query, process results
-		resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+		resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 		if err != nil {
-			return fmt.Errorf("uql.ExecuteQuery: %w", err)
+			return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 		}
 		if resp.HasErrors() {
 			log.Error("Execution of events query encountered errors. Returned data may not be complete!")
@@ -233,10 +241,14 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			// instead of constraining to count
 			next_ok = false
 		}
+		if flags.follow {
+			// skip next cursor pagination on follow since the follow cursor contains the same data
+			next_ok = false
+		}
 		for page := 2; next_ok; page++ {
-			resp, err = uql.ContinueQuery(data_set, "next")
+			resp, err = uql.ClientV1.ContinueQuery(data_set, "next")
 			if err != nil {
-				return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+				return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
 			}
 			if resp.HasErrors() {
 				log.Errorf("Continuation of events query (page %v) encountered errors. Returned data may not be complete!", page)
@@ -273,8 +285,92 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			Total int         `json:"total"`
 		}{Items: eventRows, Total: len(eventRows)})
 
+		// handle follow
+		if flags.follow && data_set != nil {
+			// setup async channels
+			interrupt := make(chan os.Signal, 1)
+			signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+			followChan := make(chan *followEventResult, 1)
+			followChan <- &followEventResult{data_set: data_set}
+
+			for {
+				select {
+				case <-interrupt:
+					// exit requested
+					return nil
+				case followResult := <-followChan:
+					if followResult.err != nil {
+						return followResult.err
+					}
+					// queue up next follow interval sleep and print
+					// run in background to allow interrupts
+					go func() {
+						// Return immediately available results (additional pages) right away.
+						// Don't start waiting until follow cursor returns a response smaller than the max page size.
+						if followResult.cursorExhausted {
+							time.Sleep(flags.followInterval)
+						}
+						followChan <- followDatasetAndPrint(cmd, followResult.data_set)
+					}()
+				}
+			}
+		}
+
 		return nil
 	}
+}
+
+type followEventResult struct {
+	data_set        *uql.DataSet
+	err             error
+	cursorExhausted bool
+}
+
+func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEventResult {
+	resp, err := uql.ClientV1.ContinueQuery(data_set, "follow")
+	if err != nil {
+		return &followEventResult{err: fmt.Errorf("follow uql.ClientV1.ContinueQuery: %w", err)}
+	}
+	if resp.HasErrors() {
+		log.Error("Following of events query encountered errors. Returned data may not be complete!")
+		for _, e := range resp.Errors() {
+			log.Errorf("%s: %s", e.Title, e.Detail)
+		}
+	}
+	main_data_set := resp.Main()
+	if main_data_set == nil {
+		log.Error("Following of events query has nil main data. Returned data may not be complete!")
+		return &followEventResult{data_set: data_set}
+	}
+	if len(main_data_set.Data) < 1 {
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v has no rows", main_data_set.Name)}
+	}
+	if len(main_data_set.Data[0]) < 1 {
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row has no columns", main_data_set.Name)}
+	}
+	var ok bool
+	data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
+	if !ok {
+		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])}
+	}
+
+	result := &followEventResult{data_set: data_set}
+	newRows, err := extractEventsData(data_set)
+	if err != nil {
+		result.err = fmt.Errorf("follow extractEventsData: %w", err)
+		return result
+	}
+
+	newRowsCount := len(newRows)
+	if newRowsCount > 0 {
+		output.PrintCmdOutputCustom(cmd, struct {
+			Items []eventsRow `json:"items"`
+			Total int         `json:"total"`
+		}{Items: newRows, Total: newRowsCount}, &output.Table{OmitHeaders: true})
+	} else {
+		result.cursorExhausted = true
+	}
+	return result
 }
 
 type recommendationsCmdFlags struct {
@@ -407,9 +503,9 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 		query := buff.String()
 
 		// execute query, process results
-		resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+		resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 		if err != nil {
-			return fmt.Errorf("uql.ExecuteQuery: %w", err)
+			return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 		}
 		if resp.HasErrors() {
 			log.Error("Execution of recommendations query encountered errors. Returned data may not be complete!")
@@ -447,9 +543,9 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			next_ok = false
 		}
 		for page := 2; next_ok; page++ {
-			resp, err = uql.ContinueQuery(data_set, "next")
+			resp, err = uql.ClientV1.ContinueQuery(data_set, "next")
 			if err != nil {
-				return fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+				return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
 			}
 			if resp.HasErrors() {
 				log.Errorf("Continuation of recommendations query (page %v) encountered errors. Returned data may not be complete!", page)
@@ -666,9 +762,9 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 	}
 	query := buff.String()
 
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 	if err != nil {
-		return []string{}, fmt.Errorf("uql.ExecuteQuery: %w", err)
+		return []string{}, fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 	}
 	if resp.HasErrors() {
 		log.Error("Execution of optimization query encountered errors. Returned data may not be complete!")
@@ -695,9 +791,9 @@ func listOptimizations(flags *eventsFlags) ([]string, error) {
 
 	_, next_ok := mainDataSet.Links["next"]
 	for page := 2; next_ok; page++ {
-		resp, err = uql.ContinueQuery(mainDataSet, "next")
+		resp, err = uql.ClientV1.ContinueQuery(mainDataSet, "next")
 		if err != nil {
-			return results, fmt.Errorf("page %v uql.ContinueQuery: %w", page, err)
+			return results, fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
 		}
 
 		if resp.HasErrors() {
