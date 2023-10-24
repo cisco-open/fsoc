@@ -115,9 +115,10 @@ func PrintCmdStatus(cmd *cobra.Command, s string) {
 
 type Table struct {
 	// table output
-	Headers []string
-	Lines   [][]string
-	Detail  bool // true to print a single line as a name: value multi-line instead of table
+	Headers     []string
+	Lines       [][]string
+	Detail      bool // true to print a single line as a name: value multi-line instead of table
+	OmitHeaders bool // don't print the headers
 
 	// extract field columns in the same order as headers
 	LineBuilder func(v any) []string // use together with Headers and no Lines
@@ -216,14 +217,14 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	if table != nil && table.LineBuilder != nil {
 		lines, ok := buildLines(v, table.LineBuilder)
 		if ok {
-			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail}
+			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail, OmitHeaders: table.OmitHeaders}
 		}
 	}
 
 	// format table if a transform is provided or there is no custom table
 	if pr.fields != "" || table == nil || len(table.Headers) == 0 {
 		var err error
-		table, err = createTable(v, pr.fields) // replaces the table
+		table, err = createTable(v, pr.fields, table) // replaces the table
 		if err != nil {
 			log.Warnf("Failed to convert output data to a table: %v; reverting to YAML output", err)
 			if err := PrintYaml(pr.cmd, v); err != nil {
@@ -279,7 +280,9 @@ func printTable(cmd *cobra.Command, t *Table) {
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
 	tw.SetRowSeparator("")
-	tw.SetHeader(t.Headers)
+	if !t.OmitHeaders {
+		tw.SetHeader(t.Headers)
+	}
 	tw.AppendBulk(t.Lines)
 	tw.Render()
 }
@@ -305,8 +308,12 @@ func printDetail(cmd *cobra.Command, t *Table) {
 	// display first row as entries
 	for _, entry := range t.Lines {
 		for i := range t.Headers {
-			printf(cmd, "%[1]*[2]s: %[3]v\n", labelWidth, t.Headers[i], entry[i])
 			//TODO: add support for multi-line values, see Jira ticket FSOC-23
+			if t.OmitHeaders {
+				printf(cmd, "%v\n", entry[i])
+			} else {
+				printf(cmd, "%[1]*[2]s: %[3]v\n", labelWidth, t.Headers[i], entry[i])
+			}
 		}
 		println(cmd)
 	}
@@ -315,9 +322,14 @@ func printDetail(cmd *cobra.Command, t *Table) {
 // createTable automatically creates a table from the structure of the data.
 // For now, it relies on a fields specification being provided in the form of a JQ query.
 // The fields specification selects what fields should be output, with what names and in what order
-func createTable(v any, fields string) (*Table, error) {
-	// init empty custom table
-	table := Table{Headers: []string{}, Lines: [][]string{}}
+func createTable(v any, fields string, template *Table) (*Table, error) {
+	// init empty custom table, copying options, etc., if a template is provided
+	var table Table
+	if template != nil {
+		table = *template
+	}
+	table.Headers = []string{}
+	table.Lines = [][]string{}
 
 	// check for empty input to prevent panic logging and present an empty table using fields to derive the headers.
 	// only works on canonicalized input

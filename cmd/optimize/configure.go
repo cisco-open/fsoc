@@ -165,9 +165,9 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			}
 			query = buff.String()
 
-			resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+			resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 			if err != nil {
-				return fmt.Errorf("uql.ExecuteQuery: %w", err)
+				return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 			}
 			if resp.HasErrors() {
 				log.Error("Execution of report query encountered errors. Returned data may not be complete!")
@@ -590,9 +590,9 @@ func getProfilerReport(workloadId string) (map[string]any, error) {
 	}
 	query = buff.String()
 
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 	if err != nil {
-		return nil, fmt.Errorf("uql.ExecuteQuery: %w", err)
+		return nil, fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 	}
 	if resp.HasErrors() {
 		log.Error("Execution of report query encountered errors. Returned data may not be complete!")

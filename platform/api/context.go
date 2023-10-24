@@ -61,7 +61,8 @@ func (c *callContext) startSpinner(msg string) {
 	if c.spinner != nil {
 		if msg != "" {
 			c.spinner.Suffix = " " + msg + " in progress"
-			c.spinner.FinalMSG = statusChar[false] + " " + msg + "\n" // jic
+			//TODO: consider making leaving the message/status optional; or just drop it
+			//c.spinner.FinalMSG = statusChar[false] + " " + msg + "\n" // jic
 		} else {
 			c.spinner.Suffix = ""
 			c.spinner.FinalMSG = ""
@@ -72,6 +73,7 @@ func (c *callContext) startSpinner(msg string) {
 }
 
 func (c *callContext) stopSpinner(ok bool) {
+	c.stopSpinnerHide()
 	if c.spinner != nil {
 		_, msg, parsed := strings.Cut(c.spinner.FinalMSG, " ") // first blank after mark
 		if parsed {
