@@ -61,8 +61,8 @@ type Metric struct {
 	ContentType            string
 	Unit                   string
 	Type                   string
-	Resource               Resource `yaml:"resource,omitempty"`
-	Attributes             map[string]interface{}
+	Resource               Resource               `yaml:"resource,omitempty"`
+	Attributes             map[string]interface{} `yaml:"attributes,omitempty"`
 	DataPoints             []*DataPoint           `yaml:"datapoints,omitempty"`
 	Min                    string                 `yaml:"min,omitempty"`
 	Max                    string                 `yaml:"max,omitempty"`

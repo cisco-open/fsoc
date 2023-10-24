@@ -4,6 +4,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/apex/log"
@@ -61,7 +62,56 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 			if len(m.DataPoints) == 0 {
 				for i := 1; i < 6; i++ {
 					st := et.Add(time.Minute * -1)
-					m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*50)
+
+					// m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*50)
+
+					// 2023-10-04, Wayne Brown
+					// Adding in code to allow for min / max thresholds.
+					// Four cases to consider: min / max both set, min set, max set, and neither are set
+					dp := rand.Float64() * 50
+
+					if m.Min != "" && m.Max != "" {
+						dpmin, min_err := strconv.ParseFloat(m.Min, 64)
+						dpmax, max_err := strconv.ParseFloat(m.Max, 64)
+
+						if min_err != nil || max_err != nil {
+							if min_err != nil {
+								log.Warnf("Could not parse min value for %q.", entity.TypeName)
+							}
+							if max_err != nil {
+								log.Warnf("Could not parse max value for %q.", entity.TypeName)
+							}
+						} else {
+
+							// If max is less than min, swap them
+							if dpmin > dpmax {
+								dpmin, dpmax = dpmax, dpmin
+							}
+
+							dp = (rand.Float64() * (dpmax - dpmin)) + dpmin
+						}
+
+					} else if m.Max != "" {
+						dpmax, max_err := strconv.ParseFloat(m.Max, 64)
+
+						if max_err != nil {
+							log.Warnf("Could not parse max value for %q.", entity.TypeName)
+						} else {
+							dp = rand.Float64() * dpmax
+						}
+					} else if m.Min != "" {
+						dpmin, min_err := strconv.ParseFloat(m.Min, 64)
+
+						if min_err != nil {
+							log.Warnf("Could not parse min value for %q.", entity.TypeName)
+						} else {
+							// For setting a floor value, taking the approach of starting at the minimum
+							// and using
+							dp = dpmin + (rand.Float64() * 50)
+						}
+					}
+
+					m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
 					et = st
 				}
 			}
