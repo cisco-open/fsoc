@@ -364,7 +364,7 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEve
 	newRowsCount := len(newRows)
 	if newRowsCount > 0 {
 		output.PrintCmdOutputCustom(cmd, struct {
-			Items []eventsRow `json:"items"`
+			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
 		}{Items: newRows, Total: newRowsCount}, &output.Table{OmitHeaders: true})
 	} else {
@@ -642,7 +642,7 @@ func getOptimizationBlockerData(tempVals recommendationsTemplateValues) (map[str
 	query := buff.String()
 
 	// execute query, process results
-	resp, err := uql.ExecuteQuery(&uql.Query{Str: query}, uql.ApiVersion1)
+	resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 	if err != nil {
 		return nil, fmt.Errorf("uql.ExecuteQuery: %w", err)
 	}
