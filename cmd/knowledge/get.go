@@ -155,7 +155,7 @@ func getTypeUrl(fqtn string) string {
 }
 
 func getObjectUrl(fqtn, objId string) string {
-	return fmt.Sprintf("%v/objects/%s/%s", GetBaseUrl(), fqtn, objId)
+	return fmt.Sprintf("%v/objects/%s/%s", GetBaseUrl(), fqtn, url.QueryEscape(objId))
 }
 
 func getObjectListUrl(fqtn string) string {

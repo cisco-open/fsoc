@@ -90,6 +90,9 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 	// body will be JSONified if a body is given but no Content-Type is provided
 	// (if a content type is provided, we assume the body is in the desired format)
 	jsonify := body != nil && (headers == nil || headers["Content-Type"] == "")
+	// Due to issues with encoding the special characters used for ids generated with identifyingProperties, we
+	// need to create the fullPath for the request ourselves instead of calling uri.String()
+	var fullPath string
 
 	// prepare a body reader
 	var bodyReader io.Reader = nil
@@ -111,15 +114,24 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 
 	// create HTTP request
 	path, query, _ := strings.Cut(path, "?")
-	url, err := url.Parse(cfg.URL)
+	uri, err := url.Parse(cfg.URL)
 	if err != nil {
 		log.Fatalf("Failed to parse the url provided in context (%q): %v", cfg.URL, err)
 	}
-	url.Path = path
-	url.RawQuery = query
-	req, err := http.NewRequest(method, url.String(), bodyReader)
+	// Create the full path again ensuring that we aren't double escaping characters in the path
+	if query == "" {
+		joinedPath, err := url.JoinPath(uri.String(), path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a request for %q: %w", uri.String(), err)
+		}
+		fullPath = joinedPath
+	} else {
+		fullPath = fmt.Sprintf("%s/%s?%s", uri.String(), path, query)
+	}
+
+	req, err := http.NewRequest(method, fullPath, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a request for %q: %w", url.String(), err)
+		return nil, fmt.Errorf("failed to create a request for %q: %w", uri.String(), err)
 	}
 
 	// add headers that are not already provided
