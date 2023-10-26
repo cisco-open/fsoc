@@ -144,7 +144,7 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		installStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionInstallObjectQuery), requestHeaders)
 	}()
 	go func() {
-		solutionStatusChan <- getExtensibilitySolutionObject(fmt.Sprintf(getExtensibilitySolutionUrl(), solutionNameWithTag), requestHeaders)
+		solutionStatusChan <- getExtensibilitySolutionObject(getSolutionObjectUrl(solutionNameWithTag), requestHeaders)
 	}()
 	go func() {
 		successfulSolutionInstallStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), successfulSolutionInstallObjectQuery), requestHeaders)
@@ -270,8 +270,4 @@ func getSolutionReleaseUrl() string {
 
 func getSolutionInstallUrl() string {
 	return "knowledge-store/v1/objects/extensibility:solutionInstall%s"
-}
-
-func getExtensibilitySolutionUrl() string {
-	return "knowledge-store/v1/objects/extensibility:solution/%s"
 }

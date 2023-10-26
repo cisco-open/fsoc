@@ -15,13 +15,9 @@
 package solution
 
 import (
-	"fmt"
-
-	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
-	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var solutionUnsubscribeCmd = &cobra.Command{
@@ -50,37 +46,5 @@ func getUnsubscribeSolutionCmd() *cobra.Command {
 }
 
 func unsubscribeFromSolution(cmd *cobra.Command, args []string) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name")
-
-	isSystemSolution, err := isSystemSolution(solutionName)
-	if err != nil {
-		log.Fatalf("Failed to get solution status: %v", err)
-	}
-	if isSystemSolution {
-		log.Fatalf("Cannot unsubscribe tenant from solution %s because it is a system solution", solutionName)
-	} else {
-		manageSubscription(cmd, args, false)
-	}
-}
-
-func isSystemSolution(solutionName string) (bool, error) {
-	cfg := config.GetCurrentContext()
-	layerID := cfg.Tenant
-
-	var solData struct {
-		Data SolutionDef `json:"data"`
-	}
-
-	headers := map[string]string{
-		"layer-type": "TENANT",
-		"layer-id":   layerID,
-	}
-
-	getSolutionUrl := fmt.Sprintf(getSolutionListUrl()+"/%s", solutionName)
-	err := api.JSONGet(getSolutionUrl, &solData, &api.Options{Headers: headers})
-	if err != nil {
-		return false, fmt.Errorf("failed to get solution info: %v", err)
-	}
-
-	return solData.Data.IsSystem, nil
+	manageSubscription(cmd, args, false)
 }

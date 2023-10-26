@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -41,6 +42,7 @@ var FlagCurlifyRequests bool
 type Options struct {
 	Headers         map[string]string
 	ResponseHeaders map[string][]string // headers as returned by the call
+	ExpectedErrors  []int               // log expected error status codes as Info rather than Error
 }
 
 // JSONGet performs a GET request and parses the response as JSON
@@ -274,7 +276,11 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	// handle 303 in case of updating object that changes the ID
 	if resp.StatusCode/100 != 2 && resp.StatusCode != 303 {
 		callCtx.stopSpinner(false) // if still running
-		log.WithFields(log.Fields{"status": resp.StatusCode}).Error("Platform API call failed")
+		if options.ExpectedErrors != nil && slices.Contains(options.ExpectedErrors, resp.StatusCode) {
+			log.WithFields(log.Fields{"status": resp.StatusCode}).Info("Platform API call failed with expected error")
+		} else {
+			log.WithFields(log.Fields{"status": resp.StatusCode}).Error("Platform API call failed")
+		}
 		return parseIntoError(resp, respBytes)
 	}
 
