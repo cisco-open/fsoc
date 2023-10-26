@@ -114,7 +114,7 @@ func locateSolutionUrl(name string, tag string) string {
 	// first, try to find the solution using native isolation
 	url := getSolutionObjectUrl(name + "." + tag)
 	var data any
-	err := api.JSONGet(url, &data, &api.Options{Headers: getHeaders()})
+	err := api.JSONGet(url, &data, &api.Options{Headers: getHeaders(), ExpectedErrors: []int{404}})
 	if err == nil {
 		return url
 	}

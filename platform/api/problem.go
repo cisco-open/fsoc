@@ -54,5 +54,26 @@ func (p *Problem) UnmarshalJSON(bs []byte) (err error) {
 }
 
 func (p Problem) Error() string {
-	return fmt.Sprintf("%s: %s", p.Title, p.Detail)
+	s := p.Title
+	if s == "" && p.Type != "" {
+		s = p.Type // instead of the more specific Title
+	}
+	if p.Detail != "" {
+		if s != "" {
+			s += ": " + p.Detail
+		} else {
+			s = p.Detail
+		}
+	}
+	if p.Status != 0 {
+		if s != "" {
+			s += fmt.Sprintf(" (status %d)", p.Status)
+		} else {
+			s = fmt.Sprintf("status %d", p.Status)
+		}
+	}
+	if s == "" {
+		s = "no error info provided"
+	}
+	return s
 }
