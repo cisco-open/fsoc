@@ -70,7 +70,7 @@ func (entity *FmmEntity) GetTypeName() string {
 
 type FmmEvent struct {
 	*FmmTypeDef
-	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
+	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
 }
 
 type FmmResourceMapping struct {
