@@ -76,7 +76,6 @@ func getSolutionList(cmd *cobra.Command, args []string) {
 	} else if unsubscribed {
 		filters = []string{"filter=" + url.QueryEscape("data.isSubscribed ne true")}
 	}
-	println(solutionBaseURL)
 	cmdkit.FetchAndPrint(cmd, solutionBaseURL, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true, Filters: filters})
 }
 
