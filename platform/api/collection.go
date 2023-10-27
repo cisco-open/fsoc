@@ -53,7 +53,13 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 			return err
 		}
 
-		out.Items = append(out.Items, page.Items...)
+		// handle case where out.Items is uninitialized (nil) and page.Items is an initalized but empty slice
+		// append results in a nil slice instead of an empty slice in this case
+		if out.Items == nil && page.Items != nil {
+			out.Items = page.Items
+		} else {
+			out.Items = append(out.Items, page.Items...)
+		}
 
 		// break if no more pages (no response headers, no links or no next link)
 		if subOptions.ResponseHeaders == nil {
