@@ -57,7 +57,7 @@ type FmmAssociationTypesTypeDef struct {
 
 type FmmEntity struct {
 	*FmmTypeDef
-	AttributeDefinitions  *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
+	AttributeDefinitions  *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
 	LifecyleConfiguration *FmmLifecycleConfigTypeDef      `json:"lifecycleConfiguration"`
 	MetricTypes           []string                        `json:"metricTypes,omitempty"`
 	EventTypes            []string                        `json:"eventTypes,omitempty"`
@@ -70,7 +70,7 @@ func (entity *FmmEntity) GetTypeName() string {
 
 type FmmEvent struct {
 	*FmmTypeDef
-	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
+	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"` // required always, do not omitempty
 }
 
 type FmmResourceMapping struct {
@@ -108,7 +108,7 @@ type FmmMetric struct {
 	IsMonotonic            bool                            `json:"isMonotonic"`
 	Type                   FmmMetricType                   `json:"type"`
 	Unit                   string                          `json:"unit"`
-	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"`
+	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
 	IngestGranularities    []int                           `json:"ingestGranularities,omitempty"`
 }
 
