@@ -104,6 +104,10 @@ func listReports(cmd *cobra.Command, args []string) error {
 	}
 	tempVals.WorkloadFilters = strings.Join(filtersList, " && ")
 
+	if strings.HasPrefix(tempVals.WorkloadId, "k8s:deployment:") {
+		tempVals.WorkloadId = strings.Split(tempVals.WorkloadId, ":")[2]
+	}
+
 	var query string
 	var buff bytes.Buffer
 	if err := reportTemplate.Execute(&buff, tempVals); err != nil {
