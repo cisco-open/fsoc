@@ -115,10 +115,11 @@ func PrintCmdStatus(cmd *cobra.Command, s string) {
 
 type Table struct {
 	// table output
-	Headers     []string
-	Lines       [][]string
-	Detail      bool // true to print a single line as a name: value multi-line instead of table
-	OmitHeaders bool // don't print the headers
+	Headers             []string
+	Lines               [][]string
+	Detail              bool // true to print a single line as a name: value multi-line instead of table
+	OmitHeaders         bool // don't print the headers
+	DisableAutoWrapText bool // call tablewriter.Table.SetAutoWrapText(false) to try and keep output on a single line as much as possible
 
 	// extract field columns in the same order as headers
 	LineBuilder func(v any) []string // use together with Headers and no Lines
@@ -217,7 +218,7 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	if table != nil && table.LineBuilder != nil {
 		lines, ok := buildLines(v, table.LineBuilder)
 		if ok {
-			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail, OmitHeaders: table.OmitHeaders}
+			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail, OmitHeaders: table.OmitHeaders, DisableAutoWrapText: table.DisableAutoWrapText}
 		}
 	}
 
@@ -276,6 +277,9 @@ func printTable(cmd *cobra.Command, t *Table) {
 		return
 	}
 	tw := tablewriter.NewWriter(GetOutWriter(cmd))
+	if t.DisableAutoWrapText {
+		tw.SetAutoWrapText(false)
+	}
 	tw.SetBorder(false)
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
