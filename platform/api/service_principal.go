@@ -174,6 +174,19 @@ func agentOrServicePrincipalLogin(ctx *callContext, principalType string, creden
 	log.Info("Login returned a valid token")
 	ctx.cfg.Token = token.AccessToken
 
+	// extract user (client ID) from token
+	userID, err := extractUser(token.AccessToken)
+	if err != nil {
+		log.Warnf("Could not extract client ID from the bearer token: %v. Continuing without client ID", err)
+		userID = ""
+		// fall through and continue without a user ID
+	} else {
+		log.WithFields(log.Fields{"clientId": userID}).Info("Extracted principal's client ID")
+	}
+	if userID != "" {
+		ctx.cfg.User = userID
+	}
+
 	return nil
 }
 
