@@ -51,11 +51,6 @@ type modelRef struct {
 	Model    string `json:"$model"`
 }
 
-type uqlService interface {
-	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
-	Continue(link *Link) (parsedResponse, error)
-}
-
 // Default clients that can be used as `uql.Client` from other packages
 // - Client should be used to go with the default API version (possibly overridden in fsoc config)
 // - ClientV1 should be used when `v1` is required
