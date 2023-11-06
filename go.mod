@@ -8,7 +8,7 @@ require (
 	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.9.1
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moul/http2curl v1.0.0
@@ -17,7 +17,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/relvacode/iso8601 v1.3.0
 	github.com/spf13/afero v1.10.0
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
