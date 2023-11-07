@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/uql"
@@ -71,6 +72,7 @@ type eventsCmdFlags struct {
 type EventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
+	EntityInfo      string
 	Summary         string
 }
 
@@ -95,7 +97,7 @@ func NewCmdEvents() *cobra.Command {
 		RunE:             listEvents(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp, Summary: .Summary",
+			output.TableFieldsAnnotation:  "EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp | split(\":\")[0:2] | join(\":\"), \"OPT/STG/EXP\": .EntityInfo, Summary: .Summary",
 			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp, Attributes: .EventAttributes",
 		},
 	}
@@ -154,7 +156,6 @@ ORDER events.asc()
 
 func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		tableSettings := &output.Table{}
 		// setup query
 		tempVals := eventsTemplateValues{
 			Since: flags.since,
@@ -176,13 +177,13 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 		if flags.optimizerId != "" {
 			filterList = append(filterList, fmt.Sprintf("attributes(optimize.optimization.optimizer_id) = %q", flags.optimizerId))
-			tableSettings.DisableAutoWrapText = true
 		} else {
 			cmd.Annotations[output.TableFieldsAnnotation] = fmt.Sprintf(
 				"OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], %v",
 				cmd.Annotations[output.TableFieldsAnnotation],
 			)
 		}
+
 		if flags.namespace != "" || flags.workloadName != "" {
 			optimizerIds, err := listOptimizations(&flags.eventsFlags)
 			if err != nil {
@@ -289,6 +290,8 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			_, next_ok = data_set.Links["next"]
 		}
 
+		tableSettings := &output.Table{DisableAutoWrapText: true, Alignment: tablewriter.ALIGN_LEFT}
+		tableSettings.DisableAutoWrapText = true
 		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
@@ -720,15 +723,62 @@ func extractEventsData(dataset *uql.DataSet) ([]EventsRow, error) {
 	for _, row := range *resp_data {
 		attributes := row[0].(uql.ComplexData)
 		attributesMap, _ := sliceToMap(attributes.Data)
+		attributesMap["appd.event.type"], _ = strings.CutPrefix(attributesMap["appd.event.type"].(string), "optimize:")
 		timestamp := row[1].(time.Time)
+		entityInfo, err := getEntityInfoForEvent(attributesMap)
+		if err != nil {
+			log.Warnf("unable to get entity info for event with timestamp %v: %s", timestamp, err)
+		}
 		summary, err := getSummaryForEvent(attributesMap)
 		if err != nil {
 			log.Warnf("unable to get summary for event with timestamp %v: %s", timestamp, err)
 		}
-		results = append(results, EventsRow{Timestamp: timestamp, EventAttributes: attributesMap, Summary: summary})
+		results = append(
+			results,
+			EventsRow{Timestamp: timestamp, EventAttributes: attributesMap, EntityInfo: entityInfo, Summary: summary},
+		)
 	}
 
 	return results, nil
+}
+
+var errMissingOptNum = errors.New("event attributes did not contain optimization number")
+
+func getEntityInfoForEvent(eventAttributes map[string]any) (result string, err error) {
+	optNum, ok := eventAttributes["optimize.optimization.num"]
+	if !ok {
+		return "", errMissingOptNum
+	}
+	result = fmt.Sprintf("%v ", tryAtoFtoI(optNum))
+
+	stgNum, ok := eventAttributes["optimize.stage.num"]
+	if !ok {
+		return
+	}
+	result = fmt.Sprintf("%v/ %v", result, tryAtoFtoI(stgNum))
+	stgType, ok := eventAttributes["optimize.stage.type"]
+	if ok {
+		result = fmt.Sprintf("%v (%v)", result, stgType)
+	}
+
+	expNum, ok := eventAttributes["optimize.experiment.num"]
+	if !ok {
+		return
+	}
+	result = fmt.Sprintf("%v / %v", result, tryAtoFtoI(expNum))
+
+	return
+}
+
+// tryAtoFtoI attempts to convert its input to string, parse the string as a float, and convert the float to an int.
+// If any type conversions fail, the original input is returned instead.
+func tryAtoFtoI(input any) any {
+	if _, ok := input.(string); ok {
+		if val, err := strconv.ParseFloat(input.(string), 64); err == nil {
+			input = int(val)
+		}
+	}
+	return input
 }
 
 var errUnidentifiableEvent = errors.New("could not determine type of event")
@@ -742,6 +792,8 @@ func (e *errUnrecognizedEvent) Error() string {
 	return fmt.Sprintf("unrecognized event type %s", e.detectedType)
 }
 
+// TODO
+// truncate datetimes
 func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 	// appd.event.type
 	event_type_any, ok := eventAttributes["appd.event.type"]
@@ -758,8 +810,7 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 	switch event_type {
 	case "optimization_baselined":
 		return fmt.Sprintf(
-			"No. %v, CPU %v, Memory %v, Cost %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
+			"CPU %v, Memory %v, Cost %v",
 			eventAttributes["optimize.baseline.settings.cpu"],
 			eventAttributes["optimize.baseline.settings.memory"],
 			eventAttributes["optimize.baseline.cost"],
@@ -772,40 +823,24 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 			}
 		}
 		return fmt.Sprintf(
-			"No. %v, Namespace: %v, Name: %v, Ignored Blockers %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
+			"Namespace: %v, Name: %v, Ignored Blockers %v",
 			eventAttributes["k8s.namespace.name"],
 			eventAttributes["k8s.workload.name"],
 			ignoredBlockerCount,
 		), nil
 	case "optimization_ended":
 		return fmt.Sprintf(
-			"No. %v, Status: %v, Detail: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
+			"Status: %v, Detail: %v",
 			eventAttributes["optimize.optimization.status.code"],
 			eventAttributes["optimize.optimization.status.detail"],
 		), nil
 	case "stage_started":
-		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Stage Type: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			eventAttributes["optimize.stage.type"],
-		), nil
+		fallthrough
 	case "stage_ended":
-		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Stage Type: %v, State: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			eventAttributes["optimize.stage.type"],
-			eventAttributes["optimize.stage.state"],
-		), nil
+		return fmt.Sprintf("State: %v", eventAttributes["optimize.stage.state"]), nil
 	case "experiment_started":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v, State: %v, Reason: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v, State: %v, Reason: %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 			eventAttributes["optimize.experiment.state"],
@@ -813,10 +848,7 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 		), nil
 	case "experiment_ended":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v, Score: %v, Reason: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v, Score: %v, Reason: %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 			eventAttributes["optimize.experiment.impact.opt_score"],
@@ -824,19 +856,13 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 		), nil
 	case "experiment_deployment_started":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 		), nil
 	case "experiment_deployment_completed":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v, Status: %v, Detail: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v, Status: %v, Detail: %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 			eventAttributes["optimize.experiment.deploy.status.code"],
@@ -844,19 +870,13 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 		), nil
 	case "experiment_measurement_started":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 		), nil
 	case "experiment_measurement_completed":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, CPU %v, Memory %v, Score: %v, Status: %v, Detail: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"CPU %v, Memory %v, Score: %v, Status: %v, Detail: %v",
 			eventAttributes["optimize.experiment.settings.cpu"],
 			eventAttributes["optimize.experiment.settings.memory"],
 			eventAttributes["optimize.experiment.impact.opt_score"],
@@ -865,9 +885,7 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 		), nil
 	case "experiment_described":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Main(CPU %v, Memory %v), Tuning(CPU %v Memory %v Cost %v)",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
+			"Main(CPU %v, Memory %v), Tuning(CPU %v Memory %v Cost %v)",
 			eventAttributes["optimize.description.main.settings.cpu"],
 			eventAttributes["optimize.description.main.settings.memory"],
 			eventAttributes["optimize.description.tuning.settings.cpu"],
@@ -875,31 +893,12 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 			eventAttributes["optimize.description.tuning.cost"],
 		), nil
 	case "recommendation_identified":
-		return fmt.Sprintf(
-			"Opt No. %v, Rec No. %v, Type %v, CPU %v, Memory %v, Score %v, Cost %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.recommendation.num"]),
-			eventAttributes["optimize.recommendation.type"],
-			eventAttributes["optimize.recommendation.settings.cpu"],
-			eventAttributes["optimize.recommendation.settings.memory"],
-			eventAttributes["optimize.recommendation.impact.opt_score"],
-			eventAttributes["optimize.recommendation.cost"],
-		), nil
+		fallthrough
 	case "recommendation_verified":
-		return fmt.Sprintf(
-			"Opt No. %v, Rec No. %v, Type %v, CPU %v, Memory %v, Score %v, Cost %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.recommendation.num"]),
-			eventAttributes["optimize.recommendation.type"],
-			eventAttributes["optimize.recommendation.settings.cpu"],
-			eventAttributes["optimize.recommendation.settings.memory"],
-			eventAttributes["optimize.recommendation.impact.opt_score"],
-			eventAttributes["optimize.recommendation.cost"],
-		), nil
+		fallthrough
 	case "recommendation_invalidated":
 		return fmt.Sprintf(
-			"Opt No. %v, Rec No. %v, Type %v, CPU %v, Memory %v, Score %v, Cost %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
+			"Rec No. %v, Type %v, CPU %v, Memory %v, Score %v, Cost %v",
 			tryAtoFtoI(eventAttributes["optimize.recommendation.num"]),
 			eventAttributes["optimize.recommendation.type"],
 			eventAttributes["optimize.recommendation.settings.cpu"],
@@ -908,27 +907,16 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 			eventAttributes["optimize.recommendation.cost"],
 		), nil
 	case "optimization_progress":
-		return fmt.Sprintf(
-			"No. %v, Progress: %v%%, Hours Remaining: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			eventAttributes["optimize.progress.percent"],
-			eventAttributes["optimize.progress.hours_remaining"],
-		), nil
+		fallthrough
 	case "stage_progress":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Type %v, Progress: %v%%, Hours Remaining: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			eventAttributes["optimize.stage.type"],
+			"Progress: %v%%, Hours Remaining: %v",
 			eventAttributes["optimize.progress.percent"],
 			eventAttributes["optimize.progress.hours_remaining"],
 		), nil
 	case "experiment_progress":
 		return fmt.Sprintf(
-			"Opt No. %v, Stage No. %v, Exp No. %v, State: %v, Progress: %v%%, Hours Remaining: %v",
-			tryAtoFtoI(eventAttributes["optimize.optimization.num"]),
-			tryAtoFtoI(eventAttributes["optimize.stage.num"]),
-			tryAtoFtoI(eventAttributes["optimize.experiment.num"]),
+			"State: %v, Progress: %v%%, Hours Remaining: %v",
 			eventAttributes["optimize.experiment.state"],
 			eventAttributes["optimize.progress.percent"],
 			eventAttributes["optimize.progress.hours_remaining"],
@@ -936,17 +924,6 @@ func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 	default:
 		return "", &errUnrecognizedEvent{event_type}
 	}
-}
-
-// tryAtoFtoI attempts to convert its input to string, parse the string as a float, and convert the float to an int.
-// If any type conversions fail, the original input is returned instead.
-func tryAtoFtoI(input any) any {
-	if _, ok := input.(string); ok {
-		if val, err := strconv.ParseFloat(input.(string), 64); err == nil {
-			input = int(val)
-		}
-	}
-	return input
 }
 
 type optimizationTemplateValues struct {

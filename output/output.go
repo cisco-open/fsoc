@@ -119,7 +119,8 @@ type Table struct {
 	Lines               [][]string
 	Detail              bool // true to print a single line as a name: value multi-line instead of table
 	OmitHeaders         bool // don't print the headers
-	DisableAutoWrapText bool // call tablewriter.Table.SetAutoWrapText(false) to try and keep output on a single line as much as possible
+	DisableAutoWrapText bool // try to keep each row on a single line as much as possible
+	Alignment           int  // override the automatic alignment
 
 	// extract field columns in the same order as headers
 	LineBuilder func(v any) []string // use together with Headers and no Lines
@@ -280,6 +281,9 @@ func printTable(cmd *cobra.Command, t *Table) {
 	if t.DisableAutoWrapText {
 		tw.SetAutoWrapText(false)
 	}
+	if t.Alignment != tablewriter.ALIGN_DEFAULT {
+		tw.SetAlignment(t.Alignment)
+	}
 	tw.SetBorder(false)
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
@@ -411,16 +415,19 @@ func makeFieldOrderIndex(fieldsCommaList string) []int {
 			fields[i] = strings.TrimSpace(fields[i])
 		}
 
-		// create an alphabetized version of the list
+		// create an alphabetized version of the list (note jq doesn't include quotes when sorting)
 		alphabetizedFields := make([]string, len(fields))
 		copy(alphabetizedFields, fields)
+		for index, field := range alphabetizedFields {
+			alphabetizedFields[index], _ = strings.CutPrefix(field, "\"")
+		}
 		sort.Strings(alphabetizedFields) //by default jq will alphabetize strings
 
 		// create order index, defining what's the desired position for each field (from alphabetized order)
 		order = make([]int, len(fields))
 		for i, s := range alphabetizedFields {
 			for i2, s2 := range fields {
-				if s == s2 {
+				if s == s2 || "\""+s == s2 {
 					order[i] = i2 // now we have recorded where we have to move the ith alphebtized field to
 					break
 				}
