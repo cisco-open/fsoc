@@ -103,6 +103,7 @@ func listReports(cmd *cobra.Command, args []string) error {
 		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", workloadName))
 	}
 	tempVals.WorkloadFilters = strings.Join(filtersList, " && ")
+	tempVals.WorkloadId, _ = strings.CutPrefix(tempVals.WorkloadId, "k8s:deployment:")
 
 	var query string
 	var buff bytes.Buffer
