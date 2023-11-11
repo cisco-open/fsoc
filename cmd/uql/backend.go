@@ -24,6 +24,11 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
+type uqlService interface {
+	Execute(query *Query, apiVersion ApiVersion) (parsedResponse, error)
+	Continue(link *Link) (parsedResponse, error)
+}
+
 type defaultBackend struct {
 	apiOptions *api.Options
 }
