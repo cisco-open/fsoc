@@ -115,10 +115,12 @@ func PrintCmdStatus(cmd *cobra.Command, s string) {
 
 type Table struct {
 	// table output
-	Headers     []string
-	Lines       [][]string
-	Detail      bool // true to print a single line as a name: value multi-line instead of table
-	OmitHeaders bool // don't print the headers
+	Headers             []string
+	Lines               [][]string
+	Detail              bool // true to print a single line as a name: value multi-line instead of table
+	OmitHeaders         bool // don't print the headers
+	DisableAutoWrapText bool // try to keep each row on a single line as much as possible
+	Alignment           int  // override the automatic alignment
 
 	// extract field columns in the same order as headers
 	LineBuilder func(v any) []string // use together with Headers and no Lines
@@ -217,7 +219,7 @@ func printCmdOutputCustom(pr printRequest, v any, table *Table) {
 	if table != nil && table.LineBuilder != nil {
 		lines, ok := buildLines(v, table.LineBuilder)
 		if ok {
-			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail, OmitHeaders: table.OmitHeaders}
+			table = &Table{Headers: table.Headers, Lines: lines, Detail: table.Detail, OmitHeaders: table.OmitHeaders, DisableAutoWrapText: table.DisableAutoWrapText}
 		}
 	}
 
@@ -276,6 +278,12 @@ func printTable(cmd *cobra.Command, t *Table) {
 		return
 	}
 	tw := tablewriter.NewWriter(GetOutWriter(cmd))
+	if t.DisableAutoWrapText {
+		tw.SetAutoWrapText(false)
+	}
+	if t.Alignment != tablewriter.ALIGN_DEFAULT {
+		tw.SetAlignment(t.Alignment)
+	}
 	tw.SetBorder(false)
 	tw.SetCenterSeparator("")
 	tw.SetColumnSeparator("")
@@ -407,16 +415,19 @@ func makeFieldOrderIndex(fieldsCommaList string) []int {
 			fields[i] = strings.TrimSpace(fields[i])
 		}
 
-		// create an alphabetized version of the list
+		// create an alphabetized version of the list (note jq doesn't include quotes when sorting)
 		alphabetizedFields := make([]string, len(fields))
 		copy(alphabetizedFields, fields)
+		for index, field := range alphabetizedFields {
+			alphabetizedFields[index], _ = strings.CutPrefix(field, "\"")
+		}
 		sort.Strings(alphabetizedFields) //by default jq will alphabetize strings
 
 		// create order index, defining what's the desired position for each field (from alphabetized order)
 		order = make([]int, len(fields))
 		for i, s := range alphabetizedFields {
 			for i2, s2 := range fields {
-				if s == s2 {
+				if s == s2 || "\""+s == s2 {
 					order[i] = i2 // now we have recorded where we have to move the ith alphebtized field to
 					break
 				}

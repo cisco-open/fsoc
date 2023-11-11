@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/uql"
@@ -71,6 +72,8 @@ type eventsCmdFlags struct {
 type EventsRow struct {
 	Timestamp       time.Time
 	EventAttributes map[string]any
+	EntityInfo      string
+	Summary         string
 }
 
 type recommendationRow struct {
@@ -94,7 +97,7 @@ func NewCmdEvents() *cobra.Command {
 		RunE:             listEvents(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp",
+			output.TableFieldsAnnotation:  "EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp | split(\":\")[0:2] | join(\":\"), \"OPT/STG/EXP\": .EntityInfo, Summary: .Summary",
 			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], EventType: .EventAttributes[\"appd.event.type\"], Timestamp: .Timestamp, Attributes: .EventAttributes",
 		},
 	}
@@ -174,7 +177,14 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 		if flags.optimizerId != "" {
 			filterList = append(filterList, fmt.Sprintf("attributes(optimize.optimization.optimizer_id) = %q", flags.optimizerId))
-		} else if flags.namespace != "" || flags.workloadName != "" {
+		} else {
+			cmd.Annotations[output.TableFieldsAnnotation] = fmt.Sprintf(
+				"OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], %v",
+				cmd.Annotations[output.TableFieldsAnnotation],
+			)
+		}
+
+		if flags.namespace != "" || flags.workloadName != "" {
 			optimizerIds, err := listOptimizations(&flags.eventsFlags)
 			if err != nil {
 				return fmt.Errorf("listOptimizations: %w", err)
@@ -280,10 +290,12 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			_, next_ok = data_set.Links["next"]
 		}
 
-		output.PrintCmdOutput(cmd, struct {
+		tableSettings := &output.Table{DisableAutoWrapText: true, Alignment: tablewriter.ALIGN_LEFT}
+		tableSettings.DisableAutoWrapText = true
+		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
-		}{Items: eventRows, Total: len(eventRows)})
+		}{Items: eventRows, Total: len(eventRows)}, tableSettings)
 
 		// handle follow
 		if flags.follow && data_set != nil {
@@ -310,7 +322,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 						if followResult.cursorExhausted {
 							time.Sleep(flags.followInterval)
 						}
-						followChan <- followDatasetAndPrint(cmd, followResult.data_set)
+						followChan <- followDatasetAndPrint(cmd, followResult.data_set, tableSettings)
 					}()
 				}
 			}
@@ -326,7 +338,7 @@ type followEventResult struct {
 	cursorExhausted bool
 }
 
-func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEventResult {
+func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet, tableSettings *output.Table) *followEventResult {
 	resp, err := uql.ClientV1.ContinueQuery(data_set, "follow")
 	if err != nil {
 		return &followEventResult{err: fmt.Errorf("follow uql.ClientV1.ContinueQuery: %w", err)}
@@ -363,10 +375,12 @@ func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet) *followEve
 
 	newRowsCount := len(newRows)
 	if newRowsCount > 0 {
+		tSettCopy := *tableSettings
+		tSettCopy.OmitHeaders = true
 		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
-		}{Items: newRows, Total: newRowsCount}, &output.Table{OmitHeaders: true})
+		}{Items: newRows, Total: newRowsCount}, &tSettCopy)
 	} else {
 		result.cursorExhausted = true
 	}
@@ -709,11 +723,207 @@ func extractEventsData(dataset *uql.DataSet) ([]EventsRow, error) {
 	for _, row := range *resp_data {
 		attributes := row[0].(uql.ComplexData)
 		attributesMap, _ := sliceToMap(attributes.Data)
+		attributesMap["appd.event.type"], _ = strings.CutPrefix(attributesMap["appd.event.type"].(string), "optimize:")
 		timestamp := row[1].(time.Time)
-		results = append(results, EventsRow{Timestamp: timestamp, EventAttributes: attributesMap})
+		entityInfo, err := getEntityInfoForEvent(attributesMap)
+		if err != nil {
+			log.Warnf("unable to get entity info for event with timestamp %v: %s", timestamp, err)
+		}
+		summary, err := getSummaryForEvent(attributesMap)
+		if err != nil {
+			log.Warnf("unable to get summary for event with timestamp %v: %s", timestamp, err)
+		}
+		results = append(
+			results,
+			EventsRow{Timestamp: timestamp, EventAttributes: attributesMap, EntityInfo: entityInfo, Summary: summary},
+		)
 	}
 
 	return results, nil
+}
+
+var errMissingOptNum = errors.New("event attributes did not contain optimization number")
+
+func getEntityInfoForEvent(eventAttributes map[string]any) (result string, err error) {
+	optNum, ok := eventAttributes["optimize.optimization.num"]
+	if !ok {
+		return "", errMissingOptNum
+	}
+	result = fmt.Sprintf("%v ", tryAtoFtoI(optNum))
+
+	stgNum, ok := eventAttributes["optimize.stage.num"]
+	if !ok {
+		return
+	}
+	result = fmt.Sprintf("%v/ %v", result, tryAtoFtoI(stgNum))
+	stgType, ok := eventAttributes["optimize.stage.type"]
+	if ok {
+		result = fmt.Sprintf("%v (%v)", result, stgType)
+	}
+
+	expNum, ok := eventAttributes["optimize.experiment.num"]
+	if !ok {
+		return
+	}
+	result = fmt.Sprintf("%v / %v", result, tryAtoFtoI(expNum))
+
+	return
+}
+
+// tryAtoFtoI attempts to convert its input to string, parse the string as a float, and convert the float to an int.
+// If any type conversions fail, the original input is returned instead.
+func tryAtoFtoI(input any) any {
+	if _, ok := input.(string); ok {
+		if val, err := strconv.ParseFloat(input.(string), 64); err == nil {
+			input = int(val)
+		}
+	}
+	return input
+}
+
+var errUnidentifiableEvent = errors.New("could not determine type of event")
+var errEventNotString = errors.New("event type value was not string type")
+
+type errUnrecognizedEvent struct {
+	detectedType string
+}
+
+func (e *errUnrecognizedEvent) Error() string {
+	return fmt.Sprintf("unrecognized event type %s", e.detectedType)
+}
+
+// TODO
+// truncate datetimes
+func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
+	// appd.event.type
+	event_type_any, ok := eventAttributes["appd.event.type"]
+	if !ok {
+		return "", errUnidentifiableEvent
+	}
+	event_type, ok := event_type_any.(string)
+	if !ok {
+		return "", errEventNotString
+	}
+	if strings.Contains(event_type, ":") {
+		event_type = strings.Split(event_type, ":")[1]
+	}
+	switch event_type {
+	case "optimization_baselined":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v, Cost %v",
+			eventAttributes["optimize.baseline.settings.cpu"],
+			eventAttributes["optimize.baseline.settings.memory"],
+			eventAttributes["optimize.baseline.cost"],
+		), nil
+	case "optimization_started":
+		ignoredBlockerCount := 0
+		for key := range eventAttributes {
+			if strings.HasPrefix(key, "optimize.ignored_blockers") && strings.HasSuffix(key, "impact") {
+				ignoredBlockerCount++
+			}
+		}
+		return fmt.Sprintf(
+			"Namespace: %v, Name: %v, Ignored Blockers %v",
+			eventAttributes["k8s.namespace.name"],
+			eventAttributes["k8s.workload.name"],
+			ignoredBlockerCount,
+		), nil
+	case "optimization_ended":
+		return fmt.Sprintf(
+			"Status: %v, Detail: %v",
+			eventAttributes["optimize.optimization.status.code"],
+			eventAttributes["optimize.optimization.status.detail"],
+		), nil
+	case "stage_started":
+		fallthrough
+	case "stage_ended":
+		return fmt.Sprintf("State: %v", eventAttributes["optimize.stage.state"]), nil
+	case "experiment_started":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v, State: %v, Reason: %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+			eventAttributes["optimize.experiment.state"],
+			eventAttributes["optimize.experiment.reason"],
+		), nil
+	case "experiment_ended":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v, Score: %v, Reason: %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+			eventAttributes["optimize.experiment.impact.opt_score"],
+			eventAttributes["optimize.experiment.reason"],
+		), nil
+	case "experiment_deployment_started":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+		), nil
+	case "experiment_deployment_completed":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v, Status: %v, Detail: %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+			eventAttributes["optimize.experiment.deploy.status.code"],
+			eventAttributes["optimize.experiment.deploy.status.detail"],
+		), nil
+	case "experiment_measurement_started":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+		), nil
+	case "experiment_measurement_completed":
+		return fmt.Sprintf(
+			"CPU %v, Memory %v, Score: %v, Status: %v, Detail: %v",
+			eventAttributes["optimize.experiment.settings.cpu"],
+			eventAttributes["optimize.experiment.settings.memory"],
+			eventAttributes["optimize.experiment.impact.opt_score"],
+			eventAttributes["optimize.experiment.measure.status.code"],
+			eventAttributes["optimize.experiment.measure.status.detail"],
+		), nil
+	case "experiment_described":
+		return fmt.Sprintf(
+			"Main(CPU %v, Memory %v), Tuning(CPU %v Memory %v Cost %v)",
+			eventAttributes["optimize.description.main.settings.cpu"],
+			eventAttributes["optimize.description.main.settings.memory"],
+			eventAttributes["optimize.description.tuning.settings.cpu"],
+			eventAttributes["optimize.description.tuning.settings.memory"],
+			eventAttributes["optimize.description.tuning.cost"],
+		), nil
+	case "recommendation_identified":
+		fallthrough
+	case "recommendation_verified":
+		fallthrough
+	case "recommendation_invalidated":
+		return fmt.Sprintf(
+			"Rec No. %v, Type %v, CPU %v, Memory %v, Score %v, Cost %v",
+			tryAtoFtoI(eventAttributes["optimize.recommendation.num"]),
+			eventAttributes["optimize.recommendation.type"],
+			eventAttributes["optimize.recommendation.settings.cpu"],
+			eventAttributes["optimize.recommendation.settings.memory"],
+			eventAttributes["optimize.recommendation.impact.opt_score"],
+			eventAttributes["optimize.recommendation.cost"],
+		), nil
+	case "optimization_progress":
+		fallthrough
+	case "stage_progress":
+		return fmt.Sprintf(
+			"Progress: %v%%, Hours Remaining: %v",
+			eventAttributes["optimize.progress.percent"],
+			eventAttributes["optimize.progress.hours_remaining"],
+		), nil
+	case "experiment_progress":
+		return fmt.Sprintf(
+			"State: %v, Progress: %v%%, Hours Remaining: %v",
+			eventAttributes["optimize.experiment.state"],
+			eventAttributes["optimize.progress.percent"],
+			eventAttributes["optimize.progress.hours_remaining"],
+		), nil
+	default:
+		return "", &errUnrecognizedEvent{event_type}
+	}
 }
 
 type optimizationTemplateValues struct {
