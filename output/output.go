@@ -41,6 +41,26 @@ const (
 	JsonIndent = "    "
 )
 
+const (
+	ALIGN_DEFAULT = tablewriter.ALIGN_DEFAULT
+	ALIGN_CENTER  = tablewriter.ALIGN_CENTER
+	ALIGN_RIGHT   = tablewriter.ALIGN_RIGHT
+	ALIGN_LEFT    = tablewriter.ALIGN_LEFT
+)
+
+type Table struct {
+	// table output
+	Headers             []string
+	Lines               [][]string
+	Detail              bool // true to print a single line as a name: value multi-line instead of table
+	OmitHeaders         bool // don't print the headers
+	DisableAutoWrapText bool // try to keep each row on a single line as much as possible
+	Alignment           int  // override the automatic alignment for all fields
+
+	// extract field columns in the same order as headers
+	LineBuilder func(v any) []string // use together with Headers and no Lines
+}
+
 type printRequest struct {
 	cmd         *cobra.Command
 	format      string
@@ -111,19 +131,6 @@ func PrintYaml(cmd *cobra.Command, v any) error {
 // for example, to confirm that the operation was completed
 func PrintCmdStatus(cmd *cobra.Command, s string) {
 	print(cmd, s)
-}
-
-type Table struct {
-	// table output
-	Headers             []string
-	Lines               [][]string
-	Detail              bool // true to print a single line as a name: value multi-line instead of table
-	OmitHeaders         bool // don't print the headers
-	DisableAutoWrapText bool // try to keep each row on a single line as much as possible
-	Alignment           int  // override the automatic alignment
-
-	// extract field columns in the same order as headers
-	LineBuilder func(v any) []string // use together with Headers and no Lines
 }
 
 // PrintCmdOutput displays the output of a command in the user-selected output format. If

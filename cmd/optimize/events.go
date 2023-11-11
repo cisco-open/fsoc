@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/apex/log"
-	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/uql"
@@ -290,7 +289,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			_, next_ok = data_set.Links["next"]
 		}
 
-		tableSettings := &output.Table{DisableAutoWrapText: true, Alignment: tablewriter.ALIGN_LEFT}
+		tableSettings := &output.Table{DisableAutoWrapText: true, Alignment: output.ALIGN_LEFT}
 		tableSettings.DisableAutoWrapText = true
 		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`
