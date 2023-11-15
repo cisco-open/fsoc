@@ -80,6 +80,7 @@ type recommendationRow struct {
 	BlockersAttributes map[string]any
 	BlockersPresent    string
 	Blockers           []string
+	Change             string
 }
 
 func NewCmdEvents() *cobra.Command {
@@ -401,8 +402,8 @@ func NewCmdRecommendations() *cobra.Command {
 		RunE:             listRecommendations(&flags),
 		TraverseChildren: true,
 		Annotations: map[string]string{
-			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .BlockersPresent, Timestamp: .Timestamp",
-			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Blockers: .Blockers, BlockersAttributes: .BlockersAttributes, Attributes: .EventAttributes, Timestamp: .Timestamp",
+			output.TableFieldsAnnotation:  "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Change: .Change, Blockers: .BlockersPresent, Timestamp: .Timestamp",
+			output.DetailFieldsAnnotation: "OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], State: .EventAttributes[\"optimize.recommendation.state\"], CPUcores: .EventAttributes[\"optimize.recommendation.settings.cpu\"], MemoryGiB: .EventAttributes[\"optimize.recommendation.settings.memory\"], Change: .Change, CostRatio: .EventAttributes[\"optimize.recommendation.impact.cost_ratio\"], ErrorRatio: .EventAttributes[\"optimize.recommendation.impact.error_ratio\"], LatencyRatio: .EventAttributes[\"optimize.recommendation.impact.latency_ratio\"], Blockers: .Blockers, Timestamp: .Timestamp",
 		},
 	}
 
@@ -613,6 +614,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 			// merge recommendation and blocker data
 			if startedRow, ok := blockerRows[uniqueKey]; !ok {
 				log.Warnf("No optimization_started event found for recommendation with optimizer_id: %v and num: %v", optimizerId, optimizationNum)
+				recommendationWithBlockers.BlockersPresent = "unknown"
 			} else {
 				for attr, val := range startedRow.(map[string]any) {
 					recommendationWithBlockers.BlockersAttributes[attr] = val
@@ -632,6 +634,37 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 
 			if len(recommendationWithBlockers.Blockers) > 0 {
 				recommendationWithBlockers.BlockersPresent = "true"
+			}
+
+			// calculate change percent resource savings
+			costRatioAny, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_ratio"]
+			costRatioStr, strOk := costRatioAny.(string)
+			if ok && strOk && len(costRatioStr) > 0 {
+				if costRatioFloat, err := strconv.ParseFloat(costRatioStr, 64); err == nil {
+					changePercent := costRatioFloat*100 - 100
+					if changePercent > 0 {
+						recommendationWithBlockers.Change = fmt.Sprintf("+%.2f%%", changePercent)
+					} else {
+						recommendationWithBlockers.Change = fmt.Sprintf("%.2f%%", changePercent)
+					}
+				} else {
+					recommendationWithBlockers.Change = fmt.Sprintf("ratio %v", costRatioStr)
+				}
+			}
+
+			// add cost savings in dollars (or other relevant currency) if present
+			if costSavings, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_savings.value"]; ok {
+				currency, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_savings.currency"]
+				if !ok || currency == "USD" {
+					currency = "$"
+				}
+				period, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_savings.currency"]
+				if !ok {
+					period = "month"
+				}
+				recommendationWithBlockers.Change = fmt.Sprintf(
+					"%v (-%v%v/%v)", recommendationWithBlockers.Change, costSavings, currency, period,
+				)
 			}
 
 			recommendationRowsWithBlockers = append(recommendationRowsWithBlockers, recommendationWithBlockers)
@@ -791,8 +824,6 @@ func (e *errUnrecognizedEvent) Error() string {
 	return fmt.Sprintf("unrecognized event type %s", e.detectedType)
 }
 
-// TODO
-// truncate datetimes
 func getSummaryForEvent(eventAttributes map[string]any) (string, error) {
 	// appd.event.type
 	event_type_any, ok := eventAttributes["appd.event.type"]
