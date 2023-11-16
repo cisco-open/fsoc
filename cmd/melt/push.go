@@ -1,6 +1,7 @@
 package melt
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -32,6 +33,7 @@ var meltPushCmd = &cobra.Command{
 }
 
 func init() {
+	meltPushCmd.Flags().Bool("dump", false, "Display protobuf payloads")
 	meltCmd.AddCommand(meltPushCmd)
 }
 
@@ -127,32 +129,47 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 }
 
 func exportMeltStraight(cmd *cobra.Command, fsoData *melt.FsocData) {
-	output.PrintCmdStatus(cmd, "Generating new MELT telemetry... \n")
 	exportMelt(cmd, *fsoData)
 }
 
 func exportMelt(cmd *cobra.Command, fsoData melt.FsocData) {
-	// invoke the exporter
-	exp := &melt.Exporter{}
+	// prepare a dump function with closure
+	dump, _ := cmd.Flags().GetBool("dump")
+	var dumpFunc func(s string)
+	if dump {
+		dumpFunc = func(s string) {
+			output.PrintCmdStatus(cmd, s)
+		}
+	}
 
-	output.PrintCmdStatus(cmd, "\nExporting metrics... \n")
+	// invoke the exporter
+	exp := &melt.Exporter{DumpFunc: dumpFunc}
+
+	if !dump {
+		output.PrintCmdStatus(cmd, "Generating new MELT telemetry\n")
+	}
+
+	printSection(cmd, "Metrics", dump)
 	err := exp.ExportMetrics(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting metrics: %s", err)
 	}
 
-	output.PrintCmdStatus(cmd, "\nExporting logs... \n")
+	printSection(cmd, "Logs", dump)
 	err = exp.ExportLogs(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting logs: %s", err)
 	}
 
-	output.PrintCmdStatus(cmd, "\nExporting spans... \n")
+	printSection(cmd, "Spans", dump)
 	err = exp.ExportSpans(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting spans: %s", err)
 	}
 
+	if !dump {
+		output.PrintCmdStatus(cmd, "\nMELT data sent (see log for traceresponse ID)\n")
+	}
 }
 
 func loadDataFile(fileName string) (*melt.FsocData, error) {
@@ -173,4 +190,16 @@ func loadDataFile(fileName string) (*melt.FsocData, error) {
 	}
 
 	return fsoData, nil
+}
+
+func printSection(cmd *cobra.Command, section string, dump bool) {
+	var s string
+	if dump {
+		// format the section as a comment, separate from dump
+		s = fmt.Sprintf("\n# %s\n", section)
+	} else {
+		// format the section name as progress
+		s = fmt.Sprintf("  Sending %s...\n", section)
+	}
+	output.PrintCmdStatus(cmd, s)
 }
