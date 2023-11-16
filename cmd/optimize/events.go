@@ -658,7 +658,7 @@ func listRecommendations(flags *recommendationsCmdFlags) func(*cobra.Command, []
 				if !ok || currency == "USD" {
 					currency = "$"
 				}
-				period, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_savings.currency"]
+				period, ok := recommendationWithBlockers.EventAttributes["optimize.recommendation.impact.cost_savings.period"]
 				if !ok {
 					period = "month"
 				}
