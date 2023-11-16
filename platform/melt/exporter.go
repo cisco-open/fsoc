@@ -14,6 +14,7 @@ import (
 	metrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resource "go.opentelemetry.io/proto/otlp/resource/v1"
 	spans "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -384,6 +385,7 @@ func (exp *Exporter) createOtelSpan(t *Span) *spans.Span {
 }
 
 func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error {
+
 	options := api.Options{
 		Headers: map[string]string{
 			"Content-Type": "application/x-protobuf",
@@ -395,12 +397,13 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal MELT data: %w", err)
 	}
-
+	log.Infof("Sending MELT data: %s", prototext.Format(m))
 	err = api.HTTPPost("data/v1/"+path, data, nil, &options)
 	if err != nil {
 		return err
 	}
 
+	log.Infof("Successfully sent MELT data, got trace response: %s", options.ResponseHeaders["Traceresponse"])
 	return nil
 }
 
