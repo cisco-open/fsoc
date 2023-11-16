@@ -33,7 +33,9 @@ const (
 )
 
 // Exporter -  exporter for entities, metrics and logs
-type Exporter struct{}
+type Exporter struct {
+	DumpFunc func(text string)
+}
 
 // ExportMetrics - export metrics
 func (exp *Exporter) ExportMetrics(entities []*Entity) error {
@@ -393,17 +395,33 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 		},
 	}
 
+	// marshal into protobuf
 	data, err := proto.Marshal(m)
 	if err != nil {
 		return fmt.Errorf("failed to marshal MELT data: %w", err)
 	}
-	log.Infof("Sending MELT data: %s", prototext.Format(m))
+
+	// dump data if requested
+	if exp.DumpFunc != nil {
+		exp.DumpFunc(prototext.Format(m))
+	}
+
+	// send data
 	err = api.HTTPPost("data/v1/"+path, data, nil, &options)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Successfully sent MELT data, got trace response: %s", options.ResponseHeaders["Traceresponse"])
+	// log traceresponse
+	tr := ""
+	if trh, ok := options.ResponseHeaders["Traceresponse"]; ok {
+		tr = trh[0] // first value only
+	}
+	log.WithFields(log.Fields{
+		"path":           path,
+		"trace_response": tr,
+	}).Info("Sent MELT data")
+
 	return nil
 }
 
