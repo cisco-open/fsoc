@@ -18,7 +18,7 @@ import (
 )
 
 var meltPushCmd = &cobra.Command{
-	Use:   "push DATAFILE",
+	Use:   "push [DATAFILE]",
 	Short: "Generates OTLP telemetry based on fsoc telemetry data model .yaml",
 	Long: `
 This command generates OTLP payload based on a fsoc telemetry data models and sends the data to the FSO Platform Ingestion services.
@@ -27,9 +27,13 @@ To properly use the command you will need to create a fsoc profile using an agen
 fsoc config set --profile=<agent-principal-profile> auth=agent-principal secret-file=<agent-principal.yaml>
 
 Then you will use the agent principal profile as part of the command:
-fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile> `,
+fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile>
+
+Or use input from STDIN:
+cat <fsocdatamodel>.yaml | fsoc melt push --profile <agent-principal-profile>
+`,
 	TraverseChildren: true,
-	Args:             cobra.ExactArgs(1),
+	Args:             cobra.MaximumNArgs(1),
 	Run:              meltSend,
 }
 
@@ -44,7 +48,11 @@ func meltSend(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 		log.Fatalf("This command requires a profile with \"agent-principal\" auth method, found %q instead", ctx.AuthMethod)
 	}
-	dataFileName := args[0]
+	// Make this tolerate empty arg list, in which case it should use stdin
+	var dataFileName string
+	if len(args) > 0 {
+		dataFileName = args[0]
+	}
 	sendDataFromFile(cmd, dataFileName)
 }
 
@@ -175,15 +183,23 @@ func exportMelt(cmd *cobra.Command, fsoData melt.FsocData) {
 
 func loadDataFile(fileName string) (*melt.FsocData, error) {
 	var fsoData *melt.FsocData
+	var dataFile *os.File
 
-	dataFile, err := os.Open(fileName)
-	if err != nil {
-		log.Fatalf("Can't open the file named %q: %v", fileName, err)
+	if fileName == "" {
+		output.PrintCmdStatus(nil, "Reading from STDIN\n")
+		dataFile = os.Stdin
+	} else {
+		dataFile, err := os.Open(fileName)
+		if err != nil {
+			log.Fatalf("Can't open the file named %q: %v", fileName, err)
+		}
+		defer dataFile.Close()
 	}
 
-	defer dataFile.Close()
-
-	dataBytes, _ := io.ReadAll(dataFile)
+	dataBytes, err := io.ReadAll(dataFile)
+	if err != nil {
+		log.Fatalf("Can't read the file %q: %v", fileName, err)
+	}
 
 	err = yaml.Unmarshal(dataBytes, &fsoData)
 	if err != nil {
