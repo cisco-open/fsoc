@@ -1,6 +1,7 @@
 package melt
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -17,7 +18,9 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"gopkg.in/yaml.v3"
 
+	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
@@ -32,9 +35,19 @@ const (
 	keyAppdEventType              = "appd.event.type"
 )
 
+const (
+	DumpFormatHuman = "human"
+	DumpFormatText  = "text"
+	DumpFormatJson  = "json"
+	DumpFormatYaml  = "yaml"
+	DumpFormatHex   = "hex"
+)
+
 // Exporter -  exporter for entities, metrics and logs
 type Exporter struct {
-	DumpFunc func(text string)
+	DumpFunc   func(text string)
+	DumpFormat string
+	DryRun     bool
 }
 
 // ExportMetrics - export metrics
@@ -403,24 +416,29 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 
 	// dump data if requested
 	if exp.DumpFunc != nil {
-		exp.DumpFunc(prototext.Format(m))
+		dumpPayload(m, exp.DumpFormat, exp.DumpFunc)
 	}
 
 	// send data
-	err = api.HTTPPost("data/v1/"+path, data, nil, &options)
-	if err != nil {
-		return err
-	}
+	if !exp.DryRun {
+		apiPath := "data/v1/" + path
+		// post to API
+		err = api.HTTPPost(apiPath, data, nil, &options)
+		if err != nil {
+			return err
+		}
 
-	// log traceresponse
-	tr := ""
-	if trh, ok := options.ResponseHeaders["Traceresponse"]; ok {
-		tr = trh[0] // first value only
+		// log traceresponse
+		tr := ""
+		if trh, ok := options.ResponseHeaders["Traceresponse"]; ok {
+			tr = trh[0] // first value only
+		}
+		log.WithFields(log.Fields{
+			"kind":           path,
+			"path":           apiPath,
+			"trace_response": tr,
+		}).Info("Sent MELT data")
 	}
-	log.WithFields(log.Fields{
-		"path":           path,
-		"trace_response": tr,
-	}).Info("Sent MELT data")
 
 	return nil
 }
@@ -476,4 +494,39 @@ func getInstrumentationScope() *common.InstrumentationScope {
 		Name:    agentName,
 		Version: agentVersion,
 	}
+}
+
+func dumpPayload(m proto.Message, format string, writer func(string)) {
+	var s string
+	var b []byte
+	var err error
+
+	switch format {
+	case DumpFormatHuman:
+		s = prototext.Format(m)
+	case DumpFormatText:
+		b, err = prototext.Marshal(m)
+	case DumpFormatJson:
+		b, err = json.MarshalIndent(m, "", output.JsonIndent)
+	case DumpFormatYaml:
+		b, err = yaml.Marshal(m)
+	case DumpFormatHex:
+		b, err = proto.Marshal(m)
+		if err == nil {
+			s = hex.Dump(b)
+			b = nil
+		}
+	}
+
+	// abort if marshalling failed
+	if err != nil {
+		log.Fatalf("Unable to marshal MELT data to %s format: %v", format, err)
+	}
+
+	// convert bytes to string
+	if s == "" && b != nil {
+		s = string(b) + "\n"
+	}
+
+	writer(s)
 }

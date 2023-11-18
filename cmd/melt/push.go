@@ -1,6 +1,7 @@
 package melt
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -18,7 +19,7 @@ import (
 )
 
 var meltPushCmd = &cobra.Command{
-	Use:   "push DATAFILE",
+	Use:   "push [DATAFILE]",
 	Short: "Generates OTLP telemetry based on fsoc telemetry data model .yaml",
 	Long: `
 This command generates OTLP payload based on a fsoc telemetry data models and sends the data to the FSO Platform Ingestion services.
@@ -27,15 +28,43 @@ To properly use the command you will need to create a fsoc profile using an agen
 fsoc config set --profile=<agent-principal-profile> auth=agent-principal secret-file=<agent-principal.yaml>
 
 Then you will use the agent principal profile as part of the command:
-fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile> `,
+fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile>
+
+Or use input from STDIN:
+cat <fsocdatamodel>.yaml | fsoc melt push --profile <agent-principal-profile>
+`,
 	TraverseChildren: true,
-	Args:             cobra.ExactArgs(1),
-	Run:              meltSend,
+	Args:             cobra.MaximumNArgs(1),
+	RunE:             meltSendWithUsageCheck,
 }
 
+const (
+	OutputFormatAuto  = "auto"
+	OutputFormatHuman = melt.DumpFormatHuman
+	OutputFormatText  = melt.DumpFormatText
+	OutputFormatJson  = melt.DumpFormatJson
+	OutputFormatYaml  = melt.DumpFormatYaml
+	OutputFormatHex   = melt.DumpFormatHex
+)
+
 func init() {
+	meltPushCmd.Flags().Bool("dry-run", false, "Process data but don't send it to the ingestion API")
 	meltPushCmd.Flags().Bool("dump", false, "Display MELT data protobuf payloads")
+	meltPushCmd.Flags().StringP("output", "o", "auto", "output format for dump (auto, human, json, yaml, text, hex)")
+
 	meltCmd.AddCommand(meltPushCmd)
+}
+
+func meltSendWithUsageCheck(cmd *cobra.Command, args []string) error {
+	// check flag dependency
+	dump, _ := cmd.Flags().GetBool("dump")
+	if !dump && cmd.Flags().Changed("output") {
+		return errors.New("--output format is allowed only when --dump is specified as well")
+	}
+
+	// process command
+	meltSend(cmd, args)
+	return nil
 }
 
 func meltSend(cmd *cobra.Command, args []string) {
@@ -44,7 +73,13 @@ func meltSend(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 		log.Fatalf("This command requires a profile with \"agent-principal\" auth method, found %q instead", ctx.AuthMethod)
 	}
-	dataFileName := args[0]
+	// Make this tolerate empty arg list, in which case it should use stdin
+	var dataFileName string
+	if len(args) > 0 {
+		dataFileName = args[0]
+	} else {
+		output.PrintCmdStatus(cmd, "Reading MELT data from STDIN\n")
+	}
 	sendDataFromFile(cmd, dataFileName)
 }
 
@@ -134,35 +169,47 @@ func exportMeltStraight(cmd *cobra.Command, fsoData *melt.FsocData) {
 }
 
 func exportMelt(cmd *cobra.Command, fsoData melt.FsocData) {
-	// prepare a dump function with closure
+	// construct the exporter with options from the command line
+	exp := &melt.Exporter{}
+	if dryRun, _ := cmd.Flags().GetBool("dry-run"); dryRun {
+		exp.DryRun = true
+	}
 	dump, _ := cmd.Flags().GetBool("dump")
-	var dumpFunc func(s string)
 	if dump {
-		dumpFunc = func(s string) {
+		// prepare a dump function with closure
+		exp.DumpFunc = func(s string) {
 			output.PrintCmdStatus(cmd, s)
 		}
 	}
-
-	// invoke the exporter
-	exp := &melt.Exporter{DumpFunc: dumpFunc}
-
-	if !dump {
-		output.PrintCmdStatus(cmd, "Generating new MELT telemetry\n")
+	format, _ := cmd.Flags().GetString("output")
+	if format == "" || format == OutputFormatAuto {
+		format = OutputFormatHuman
+	}
+	if dump {
+		exp.DumpFormat = format // set format only if dump is enabled
+	} else {
+		format = "" // clear format specifier if not dumping, ignoring format specifier
 	}
 
-	printSection(cmd, "Metrics", dump)
+	// --- Export data in sections (metrics, logs, spans)
+
+	if !dump {
+		output.PrintCmdStatus(cmd, formatStatusMsg("Generating new MELT telemetry", format))
+	}
+
+	output.PrintCmdStatus(cmd, formatSection("Metrics", format))
 	err := exp.ExportMetrics(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting metrics: %s", err)
 	}
 
-	printSection(cmd, "Logs", dump)
+	output.PrintCmdStatus(cmd, formatSection("Logs", format))
 	err = exp.ExportLogs(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting logs: %s", err)
 	}
 
-	printSection(cmd, "Spans", dump)
+	output.PrintCmdStatus(cmd, formatSection("Spans", format))
 	err = exp.ExportSpans(fsoData.Melt)
 	if err != nil {
 		log.Fatalf("Error exporting spans: %s", err)
@@ -175,15 +222,23 @@ func exportMelt(cmd *cobra.Command, fsoData melt.FsocData) {
 
 func loadDataFile(fileName string) (*melt.FsocData, error) {
 	var fsoData *melt.FsocData
+	var dataFile *os.File
 
-	dataFile, err := os.Open(fileName)
-	if err != nil {
-		log.Fatalf("Can't open the file named %q: %v", fileName, err)
+	if fileName == "" {
+		dataFile = os.Stdin
+	} else {
+		var err error
+		dataFile, err = os.Open(fileName)
+		if err != nil {
+			log.Fatalf("Can't open the file named %q: %v", fileName, err)
+		}
+		defer dataFile.Close()
 	}
 
-	defer dataFile.Close()
-
-	dataBytes, _ := io.ReadAll(dataFile)
+	dataBytes, err := io.ReadAll(dataFile)
+	if err != nil {
+		log.Fatalf("Can't read the file %q: %v", fileName, err)
+	}
 
 	err = yaml.Unmarshal(dataBytes, &fsoData)
 	if err != nil {
@@ -193,14 +248,24 @@ func loadDataFile(fileName string) (*melt.FsocData, error) {
 	return fsoData, nil
 }
 
-func printSection(cmd *cobra.Command, section string, dump bool) {
-	var s string
-	if dump {
-		// format the section as a comment, separate from dump
-		s = fmt.Sprintf("\n# %s\n", section)
-	} else {
-		// format the section name as progress
-		s = fmt.Sprintf("  Sending %s...\n", section)
+func formatSection(section string, format string) string {
+	switch format {
+	case OutputFormatHuman, OutputFormatYaml, OutputFormatHex:
+		return fmt.Sprintf("\n# %s\n", section)
+	case OutputFormatText, OutputFormatJson:
+		return "" // suppress section names for machine-readable formats without comments
+	default: // incl. when no format given, i.e., not dumping outputs
+		return fmt.Sprintf("  Sending %s...\n", section)
 	}
-	output.PrintCmdStatus(cmd, s)
+}
+
+func formatStatusMsg(msg string, format string) string {
+	switch format {
+	case OutputFormatHuman, OutputFormatYaml, OutputFormatHex:
+		return fmt.Sprintf("# %s\n", msg)
+	case OutputFormatText, OutputFormatJson:
+		return "" // suppress status for machine-readable formats without comments
+	default: // incl. when no format given, i.e., not dumping outputs
+		return msg + "\n"
+	}
 }
