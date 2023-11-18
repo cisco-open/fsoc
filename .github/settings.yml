@@ -7,7 +7,7 @@ repository:
   name: fsoc
 
   # A short description of the repository that will show up on GitHub
-  description: FSO Control CLI Utility
+  description: Cisco Observability Platform Control CLI Utility
 
   # Either `true` to make the repository private, or `false` to make it public.
   private: false

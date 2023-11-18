@@ -496,7 +496,7 @@ func canonicalizeData(v any) any {
 		// }
 	}
 
-	// if the map already has the standard FSO API structure, use it
+	// if the map already has the standard Cisco API collections structure, use it
 	if _, ok := data["items"]; ok {
 		return data
 	}

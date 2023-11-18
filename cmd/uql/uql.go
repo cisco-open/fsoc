@@ -47,10 +47,10 @@ const (
 var uqlCmd = &cobra.Command{
 	Use:   "uql",
 	Short: "Perform UQL query",
-	Long: `Perform UQL query of MELT data for a tenant. 
+	Long: `Perform a Unified Query Language query of MELT data for a tenant. 
 
 See https://developer.cisco.com/docs/fso/#!data-query-using-unified-query-language
-for more information on the UQL query language for FSO.
+for more information on the unified query language for the Cisco Observability Platform.
 
 Parsed response data are displayed in a table by default.
 Available output formats: ` + availableFormats + `.

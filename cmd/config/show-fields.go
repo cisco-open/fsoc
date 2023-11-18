@@ -52,16 +52,16 @@ Examples:
 Settings:`
 
 var fieldHelp = map[string]string{
-	"auth":        `Authentication method, required. Must be one of "` + strings.Join(GetAuthMethodsStringList(), `", "`) + `".`,
+	"auth":        `authentication method, required. Must be one of "` + strings.Join(GetAuthMethodsStringList(), `", "`) + `".`,
 	"url":         `URL to the tenant, scheme and host/port only; required. For example, https://mytenant.observe.appdynamics.com`,
-	"tenant":      `Tenant ID that is required only for auth methods that cannot automatically obtain it. Not needed for the "oauth", "service-principal" and "local" auth methods.`,
-	"secret-file": `File containing login credentials for "service-principal" and "agent-principal" auth methods. The file must remain available, as fsoc saves only the file's path.`,
-	"envtype":     `FSO environment type, optional. Used only for special development/test FSO environments. If specified, can be "dev" or "prod".`,
-	"token":       `Authentication token needed only for the "token" auth method.`,
-	cfg.AppdTid:   `Value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
-	cfg.AppdPty:   `Value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
-	cfg.AppdPid:   `Value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
-	"server":      `Synonym for the "url" setting. Deprecated.`,
+	"tenant":      `tenant ID that is required only for auth methods that cannot automatically obtain it. Not needed for the "oauth", "service-principal" and "local" auth methods.`,
+	"secret-file": `file containing login credentials for "service-principal" and "agent-principal" auth methods. The file must remain available, as fsoc saves only the file's path.`,
+	"envtype":     `platform environment type, optional. Used only for special development/test environments. If specified, can be "dev" or "prod".`,
+	"token":       `authentication token needed only for the "token" auth method.`,
+	cfg.AppdTid:   `value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
+	cfg.AppdPty:   `value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
+	cfg.AppdPid:   `value of ` + cfg.AppdPid + ` to use with the "local" auth method.`,
+	"server":      `synonym for the "url" setting. Deprecated.`,
 }
 
 func configShowFields(cmd *cobra.Command, args []string) {

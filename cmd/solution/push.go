@@ -22,7 +22,7 @@ var solutionPushCmd = &cobra.Command{
 	Use:   "push",
 	Args:  cobra.ExactArgs(0),
 	Short: "Deploy your solution",
-	Long: `This command allows the current tenant specified in the profile to deploy a solution to the FSO Platform.
+	Long: `This command allows the current tenant specified in the profile to deploy a solution to the platform.
 The solution manifest for the solution must be in the current directory.
 
 Important details on solution tags:
