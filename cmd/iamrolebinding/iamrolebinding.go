@@ -32,7 +32,7 @@ var iamRbCmd = &cobra.Command{
 Principals can be user principals, service principals or agent principals. For user principals, use the email
 address of the user; for service and agent principal, use the principal's ID (client ID).
 
-Roles are usually prefixed with the domain, e.g., "iam:observer". Standard FSO roles include "iam:observer", 
+Roles are usually prefixed with the domain, e.g., "iam:observer". Standard roles include "iam:observer", 
 "iam:tenantAdmin" and "iam:configManager". Solutions often define their own roles that can be bound to principals
 in order to access solution's functionality.
 

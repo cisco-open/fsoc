@@ -23,13 +23,13 @@ import (
 	"github.com/cisco-open/fsoc/config"
 )
 
-// loginCmd represents the login command
+// solutionCmd represents the login command
 var solutionCmd = &cobra.Command{
 	Use:   "solution",
-	Short: "Perform solution lifecycle operations",
-	Long: `Perform solution lifecycle operations with the FSO Platform.
+	Short: "Perform solution operations",
+	Long: `Perform solution lifecycle and control operations.
 
-For more information on FSO solutions, see https://developer.cisco.com/docs/fso/#!create-a-solution-introduction`,
+For more information on platform solutions, see https://developer.cisco.com/docs/fso/#!create-a-solution-introduction`,
 	Example:          `  fsoc solution list`,
 	TraverseChildren: true,
 }

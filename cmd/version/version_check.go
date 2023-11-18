@@ -33,12 +33,12 @@ func GetLatestVersion() (string, error) {
 }
 
 func CheckForUpdate() *semver.Version {
-	log.Infof("Checking for newer version of FSOC")
+	log.Infof("Checking for newer version of fsoc")
 	newestVersion, err := GetLatestVersion()
 	if err == nil {
 		log.WithField("latest_github_version", newestVersion).Info("Latest fsoc version available")
 	} else {
-		log.Warnf("Failed to get latest FSOC version number from github: %v", err)
+		log.Warnf("Failed to get latest fsoc version number from github: %v", err)
 	}
 	newestVersionSemVar, err := semver.NewVersion(newestVersion)
 	if err != nil {

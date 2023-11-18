@@ -21,8 +21,8 @@ import (
 // meltCmd represents the login command
 var meltCmd = &cobra.Command{
 	Use:              "melt",
-	Short:            "Generates fsoc telemetry data models and sends OTLP payloads to the FSO ingestion services",
-	Long:             "This command generate fsoc telemetry data models and sends the data to the FSO Platform Ingestion services. \nIt helps developers to generate mock telemetry data to test their solution's domain models.",
+	Short:            "Generates fsoc telemetry data models and sends OTLP payloads to the platform ingestion services",
+	Long:             "This command generate fsoc telemetry data models and sends the data to the platform ingestion services. \nIt helps developers to generate mock telemetry data to test their solution's domain models.",
 	Args:             cobra.ExactArgs(0),
 	TraverseChildren: true,
 }

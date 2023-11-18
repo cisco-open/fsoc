@@ -193,7 +193,7 @@ func getCurlCommandOfRequest(req *http.Request) (string, error) {
 }
 
 func httpRequest(method string, path string, body any, out any, options *Options) error {
-	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling FSO platform API")
+	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling the observability platform API")
 
 	callCtx := newCallContext()
 	cfg := callCtx.cfg               // quick access

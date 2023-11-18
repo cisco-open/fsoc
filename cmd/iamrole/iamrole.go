@@ -27,7 +27,7 @@ var iamRoleCmd = &cobra.Command{
 	Short: "Manage IAM roles",
 	Long: `Manage roles, as part of identity and access management (IAM)
 
-Roles are usually prefixed with the domain, e.g., "iam:observer". Standard FSO roles include "iam:observer", 
+Roles are usually prefixed with the domain, e.g., "iam:observer". Standard roles include "iam:observer", 
 "iam:tenantAdmin" and "iam:configManager". Solutions often define their own roles that can be bound to principals
 in order to access solution's functionality.
 

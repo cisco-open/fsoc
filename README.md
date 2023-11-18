@@ -1,4 +1,4 @@
-# fsoc - Cisco FSO Platform Developer's Control Tool
+# fsoc - Cisco Observability Platform Developer's Control Tool
 
 [![Release](https://img.shields.io/github/release/cisco-open/fsoc.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest)
 [![stability-alpha](https://img.shields.io/badge/stability-alpha-f4d03f.svg?style=for-the-badge)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#alpha)
@@ -7,16 +7,16 @@
 [![Github All Releases](https://img.shields.io/github/downloads/cisco-open/fsoc/total.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest) 
 
 
-The Cisco Full Stack Observability (FSO) Platform  provides core capabilities for developers to build observability solutions to gain visibility and actionable insights across their technology and business stack. The platform leverages OpenTelemetry collections to collect MELT* telemetry and then transforms the raw data into flexible and scalable objects that can be correlated and queried.
+The Cisco Observability Platform provides core capabilities for developers to build observability solutions to gain visibility and actionable insights across their technology and business stack. The platform leverages OpenTelemetry collections to collect MELT* telemetry and then transforms the raw data into flexible and scalable objects that can be correlated and queried.
 
 *MELT: Metrics, Events, Logs and Traces
 
-The FSO control tool, `fsoc`, provides a command line interface to help developers manage their solutions 
-lifecycle and interact with the core services and solutions in the FSO platform.
+The pltform control tool, `fsoc`, provides a command line interface to help developers manage their solutions 
+lifecycle and interact with the core services and solutions in the platform.
 
 ## Documentation
 
-The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [FSO Platform Documentation](https://developer.cisco.com/docs/fso/). 
+The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [Platform Documentation](https://developer.cisco.com/docs/fso/). 
 
 As `fsoc` is still evolving quickly, the DevNet documentation may sometimes not include information about the latest released version of `fsoc`. The `fsoc help` command is always the best way to get the correct help for the version of fsoc you have. Most commands provide sample command lines you can try.
 

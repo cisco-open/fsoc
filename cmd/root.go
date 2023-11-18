@@ -55,19 +55,23 @@ var updateChannel chan *semver.Version
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
 var rootCmd = &cobra.Command{
 	Use:   "fsoc",
-	Short: "fsoc - Cisco FSO Platform Control Tool",
-	Long: `fsoc is an open source utility that serves as an entry point for developers on the Cisco
-Full Stack Observability (FSO) Platform (https://developer.cisco.com/docs/fso/).
+	Short: "fsoc - Cisco Observability Platform Control Tool",
+	Long: `fsoc is an open source utility that serves as an entry point for developers on the Cisco Observability
+Platform (https://developer.cisco.com/docs/fso/).
 
-It allows developers to interact with the product environments--developer, test and production--in a
+It allows developers to interact with the product environments--development, test and production--in a
 uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
 
-You can use --config and --profile to select authentication credentials to use. You can also use
+You can use the --config and --profile flags to select authentication credentials to use. You can also use
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
 If a profile is not specified otherwise, the current profile from the config file is used.
 
 fsoc checks once a day if a newer version is available on github and warns if not running the latest stable version.
-You can use --no-version-check or the FSOC_NO_VERSION_CHECK=1 environment variable to suppress the check.
+You can use the --no-version-check flag or the FSOC_NO_VERSION_CHECK=1 environment variable to suppress the check.
+
+fsoc logs its execution details into a log file. By default, fsoc shows only warning- and error-level log messages on 
+the output. You can use the --verbose flag to show all log messages and/or the --log flag to set a desired location
+for saving the log file.
 
 Examples:
   fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
@@ -103,10 +107,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgProfile, "profile", "", "access profile (default is current or \"default\")")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable detailed output")
-	rootCmd.PersistentFlags().Bool("curl", false, "Log curl equivalent for platform API calls (implies --verbose)")
-	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "determines the location of the fsoc log file")
-	rootCmd.PersistentFlags().Bool("no-version-check", false, "Skip the daily check for new versions of fsoc")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable detailed output")
+	rootCmd.PersistentFlags().Bool("curl", false, "log curl equivalent for platform API calls (implies --verbose)")
+	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "set a location and name for the fsoc log file")
+	rootCmd.PersistentFlags().Bool("no-version-check", false, "skip the daily check for new versions of fsoc")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
