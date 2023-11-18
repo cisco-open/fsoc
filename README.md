@@ -11,12 +11,12 @@ The Cisco Observability Platform provides core capabilities for developers to bu
 
 *MELT: Metrics, Events, Logs and Traces
 
-The pltform control tool, `fsoc`, provides a command line interface to help developers manage their solutions 
+The platform control tool, `fsoc`, provides a command line interface to help developers manage their solutions 
 lifecycle and interact with the core services and solutions in the platform.
 
 ## Documentation
 
-The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [Platform Documentation](https://developer.cisco.com/docs/fso/). 
+The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [platform documentation](https://developer.cisco.com/docs/fso/). 
 
 As `fsoc` is still evolving quickly, the DevNet documentation may sometimes not include information about the latest released version of `fsoc`. The `fsoc help` command is always the best way to get the correct help for the version of fsoc you have. Most commands provide sample command lines you can try.
 
