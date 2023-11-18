@@ -31,11 +31,10 @@ import (
 )
 
 type servoLogsFlags struct {
-	optimizerId  string
-	since        string
-	until        string
-	count        int
-	solutionName string
+	minimalFlags
+	since string
+	until string
+	count int
 }
 
 func init() {
@@ -67,6 +66,8 @@ func NewCmdServoLogs() *cobra.Command {
 	if err := servoLogsCmd.LocalFlags().MarkHidden("solution-name"); err != nil {
 		log.Warnf("Failed to set servo-logs solution-name flag hidden: %v", err)
 	}
+
+	registerOptimizerCompletion(servoLogsCmd, optimizerFlagOptimizerId)
 
 	return servoLogsCmd
 }

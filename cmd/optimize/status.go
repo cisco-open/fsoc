@@ -23,17 +23,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmdkit"
-	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 )
-
-type statusFlags struct {
-	cluster      string
-	namespace    string
-	workloadName string
-	optimizerId  string
-	solutionName string
-}
 
 func init() {
 	// TODO move this logic to optimize root when implementing unit tests
@@ -41,13 +32,13 @@ func init() {
 }
 
 func NewCmdStatus() *cobra.Command {
-	flags := statusFlags{}
+	flags := commonFlags{}
 	statusCmd := &cobra.Command{
 		Use:   "status",
 		Short: "List onboarded optimizer configuration and status",
 		Long: `
 List optimization status and configuration
-	
+
 If no flags are provided, all onboarded optimizations will be listed
 You can optionally filter optimizations by cluster, namespace and/or workload name
 You may also specify a particular optimizer ID to fetch details for a single optimization (recommended with -o detail or -o yaml)
@@ -61,9 +52,9 @@ You may also specify a particular optimizer ID to fetch details for a single opt
 			output.DetailFieldsAnnotation: "OPTIMIZERID: .id, CONTAINER: .data.optimizer.target.k8sDeployment.containerName, WORKLOADNAME: .data.optimizer.target.k8sDeployment.workloadName, NAMESPACE: .data.optimizer.target.k8sDeployment.namespaceName, CLUSTER: .data.optimizer.target.k8sDeployment.clusterName, STATUS: .data.optimizerState, SUSPENDED: .data.suspended, SUSPENSIONS: .data.optimizer.suspensions, RESTARTEDAT: .data.optimizer.restartTimestamp, STAGE: .data.optimizationState, AGENT: .data.agentState, TUNING: .data.tuningState, BLOCKERS: (.data.optimizer.ignoredBlockers?.blockers? // {} | keys)",
 		},
 	}
-	statusCmd.Flags().StringVarP(&flags.cluster, "cluster", "c", "", "Filter statuses by kubernetes cluster name")
-	statusCmd.Flags().StringVarP(&flags.namespace, "namespace", "n", "", "Filter statuses by kubernetes namespace")
-	statusCmd.Flags().StringVarP(&flags.workloadName, "workload-name", "w", "", "Filter statuses by name of kubernetes workload")
+	statusCmd.Flags().StringVarP(&flags.Cluster, "cluster", "c", "", "Filter statuses by kubernetes cluster name")
+	statusCmd.Flags().StringVarP(&flags.Namespace, "namespace", "n", "", "Filter statuses by kubernetes namespace")
+	statusCmd.Flags().StringVarP(&flags.WorkloadName, "workload-name", "w", "", "Filter statuses by name of kubernetes workload")
 
 	statusCmd.Flags().StringVarP(&flags.optimizerId, "optimizer-id", "i", "", "Retrieve status for a specific optimizer by its ID (best used with -o detail)")
 	statusCmd.MarkFlagsMutuallyExclusive("optimizer-id", "cluster")
@@ -75,38 +66,55 @@ You may also specify a particular optimizer ID to fetch details for a single opt
 		log.Warnf("Failed to set statusCmd solution-name flag hidden: %v", err)
 	}
 
+	registerOptimizerCompletion(statusCmd, optimizerFlagCluster)
+	registerOptimizerCompletion(statusCmd, optimizerFlagNamespace)
+	registerOptimizerCompletion(statusCmd, optimizerFlagOptimizerId)
+	registerOptimizerCompletion(statusCmd, optimizerFlagWorkloadName)
+
 	return statusCmd
 }
 
-func listStatus(flags *statusFlags) func(cmd *cobra.Command, args []string) error {
+func listStatus(flags *commonFlags) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		objStoreUrl := fmt.Sprintf("knowledge-store/v1/objects/%v:status", flags.solutionName)
-		headers := map[string]string{
-			"layer-type": "TENANT",
-			"layer-id":   config.GetCurrentContext().Tenant,
-		}
+		objStoreUrl := getKnowledgeURL(cmd, "status", "data.optimizer")
 
-		filterSegments := make([]string, 0, 4)
-		if flags.cluster != "" {
-			filterSegments = append(filterSegments, fmt.Sprintf("data.optimizer.target.k8sDeployment.clusterName eq %q", flags.cluster))
-		}
-		if flags.namespace != "" {
-			filterSegments = append(filterSegments, fmt.Sprintf("data.optimizer.target.k8sDeployment.namespaceName eq %q", flags.namespace))
-		}
-		if flags.workloadName != "" {
-			filterSegments = append(filterSegments, fmt.Sprintf("data.optimizer.target.k8sDeployment.workloadName eq %q", flags.workloadName))
-		}
-		if flags.optimizerId != "" {
-			filterSegments = append(filterSegments, fmt.Sprintf("id eq %q", flags.optimizerId))
-		}
-
-		filterCriteria := strings.Join(filterSegments, " and ")
-		if filterCriteria != "" {
-			query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
-			objStoreUrl = objStoreUrl + "?" + query
-		}
-
+		headers := getOrionTenantHeaders()
 		cmdkit.FetchAndPrint(cmd, objStoreUrl, &cmdkit.FetchAndPrintOptions{Headers: headers, IsCollection: true})
 		return nil
 	}
+}
+
+func getKnowledgeURL(cmd *cobra.Command, objName string, objectPathPrefix string) string {
+	solutionName := cmd.Flag("solution-name").Value.String()
+	objStoreUrl := fmt.Sprintf("knowledge-store/v1/objects/%v:%s", solutionName, objName)
+
+	filterSegments := make([]string, 0, 4)
+	flags := cmd.Flags()
+	if flags != nil {
+		var val string
+		val, _ = flags.GetString("optimizer-id")
+		if val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("id eq %q", val))
+		}
+		val, _ = flags.GetString("cluster")
+		if val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.clusterName eq %q", objectPathPrefix, val))
+		}
+		val, _ = flags.GetString("namespace")
+		if val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.namespaceName eq %q", objectPathPrefix, val))
+		}
+		val, _ = flags.GetString("workload-name")
+		if val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.workloadName eq %q", objectPathPrefix, val))
+		}
+	}
+
+	filterCriteria := strings.Join(filterSegments, " and ")
+	if filterCriteria != "" {
+		query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
+		objStoreUrl = objStoreUrl + "?" + query
+	}
+
+	return objStoreUrl
 }
