@@ -56,7 +56,7 @@ Note that each authentication method requires a slightly different set of values
 
   # Set service or agent principal credentials (secret file must remain accessible)
   fsoc config set auth=service-principal secret-file=my-service-principal.json
-  fsoc config set auth=agent-principal secret-file=agent-helm-values.yaml
+  fsoc config set auth=agent-principal secret-file=collectors-values.yaml
   fsoc config set auth=agent-principal secret-file=client-values.json tenant=123456 url=https://mytenant.observe.appdynamics.com
 
   # Set local access
