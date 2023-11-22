@@ -16,7 +16,7 @@ lifecycle and interact with the core services and solutions in the platform.
 
 ## Documentation
 
-The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!developer-tools/platform-cli) is published in Cisco's DevNet as part of the [platform documentation](https://developer.cisco.com/docs/fso/). 
+The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!overview/overview) is published in Cisco's DevNet as part of the [platform documentation](https://developer.cisco.com/docs/fso/). 
 
 As `fsoc` is still evolving quickly, the DevNet documentation may sometimes not include information about the latest released version of `fsoc`. The `fsoc help` command is always the best way to get the correct help for the version of fsoc you have. Most commands provide sample command lines you can try.
 
