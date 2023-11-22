@@ -120,6 +120,8 @@ fsoc login  # test access
 
 NOTE: The login command will pop up a browser to perform the log in and then continue executing the command. Subsequent invocations of fsoc will use cached credentials. 
 
+Use `fsoc help config set` to see examples of different authentication methods and the [`fsoc` config page](https://developer.cisco.com/docs/fso/#!install-and-configure-fsoc/configure-access) in the platform docs for more details on how to configure profiles for the different authentication types that `fsoc` supports in addition to OAuth (e.g., service principal, agent principal, local).
+
 ## Assistance and Suggestions
 
 We are working to provide channels for help, suggestions, etc., for this project. In the meantime, if you have suggestions or want to report a problem, please use Github issues.
