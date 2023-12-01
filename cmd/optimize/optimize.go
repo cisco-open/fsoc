@@ -22,7 +22,7 @@ import (
 var optimizeCmd = &cobra.Command{
 	Use:   "optimize",
 	Short: "Perform optimize interactions",
-	Long: `Interact with optimize components. Currently only workload profile reports are available 
+	Long: `Interact with optimize components. Currently only workload profile reports are available
 via the report subcommand.`,
 	Example:          `  fsoc optimize report "frontend"`,
 	TraverseChildren: true,

@@ -28,19 +28,10 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
-// flags common to all commands in this file (TODO could probably extend this to other commands)
-type managementFlags struct {
-	cluster      string
-	namespace    string
-	workloadName string
-	optimizerId  string
-	solutionName string
-}
-
-func (flags *managementFlags) addCommonFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&flags.cluster, "cluster", "c", "", "Manage optimization for a workload with this cluster name")
-	cmd.Flags().StringVarP(&flags.namespace, "namespace", "n", "", "Manage optimization for a workload with this kubernetes namespace")
-	cmd.Flags().StringVarP(&flags.workloadName, "workload-name", "w", "", "Manage optimization for a workload with this name in its kubernetes manifest")
+func (flags *commonFlags) addCommonFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&flags.Cluster, "cluster", "c", "", "Manage optimization for a workload with this cluster name")
+	cmd.Flags().StringVarP(&flags.Namespace, "namespace", "n", "", "Manage optimization for a workload with this kubernetes namespace")
+	cmd.Flags().StringVarP(&flags.WorkloadName, "workload-name", "w", "", "Manage optimization for a workload with this name in its kubernetes manifest")
 	cmd.MarkFlagsRequiredTogether("cluster", "namespace", "workload-name")
 
 	cmd.Flags().StringVarP(&flags.optimizerId, "optimizer-id", "i", "", "Manage a specific optimizer by its ID")
@@ -52,9 +43,15 @@ func (flags *managementFlags) addCommonFlags(cmd *cobra.Command) {
 	if err := cmd.LocalFlags().MarkHidden("solution-name"); err != nil {
 		log.Warnf("Failed to set solution-name flag hidden: %v", err)
 	}
+
+	registerOptimizerCompletion(cmd, optimizerFlagCluster)
+	registerOptimizerCompletion(cmd, optimizerFlagNamespace)
+	registerOptimizerCompletion(cmd, optimizerFlagOptimizerId)
+	registerOptimizerCompletion(cmd, optimizerFlagWorkloadName)
+
 }
 
-func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, error) {
+func (flags *commonFlags) getOptimizerConfig() (OptimizerConfiguration, error) {
 	optimizerConfig := OptimizerConfiguration{}
 	headers := getOrionTenantHeaders()
 	if flags.optimizerId != "" {
@@ -67,14 +64,14 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 		}
 
 		optimizerConfig = response.Data
-	} else if flags.cluster != "" {
+	} else if flags.Cluster != "" {
 		var configPage configJsonStorePage
 		// NOTE orion objects only store the last portion of the workloadId. Only support k8sDeployment currently
 		queryStr := url.QueryEscape(fmt.Sprintf(
 			"data.target.k8sDeployment.clusterName eq %q"+
 				" and data.target.k8sDeployment.namespaceName eq %q"+
 				" and data.target.k8sDeployment.workloadName eq %q",
-			flags.cluster, flags.namespace, flags.workloadName))
+			flags.Cluster, flags.Namespace, flags.WorkloadName))
 		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer?filter=%v", flags.solutionName, queryStr)
 
 		err := api.JSONGet(urlStr, &configPage, &api.Options{Headers: headers})
@@ -93,7 +90,7 @@ func (flags *managementFlags) getOptimizerConfig() (OptimizerConfiguration, erro
 	return optimizerConfig, nil
 }
 
-func (flags *managementFlags) updateOptimizerConfiguration(config OptimizerConfiguration) error {
+func (flags *commonFlags) updateOptimizerConfiguration(config OptimizerConfiguration) error {
 	var res any
 	urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, config.OptimizerID)
 	if err := api.JSONPut(urlStr, config, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
@@ -103,7 +100,7 @@ func (flags *managementFlags) updateOptimizerConfiguration(config OptimizerConfi
 }
 
 type startFlags struct {
-	managementFlags
+	commonFlags
 	restart bool
 }
 
@@ -158,7 +155,7 @@ func startOptimizer(flags *startFlags) func(cmd *cobra.Command, args []string) e
 }
 
 func NewCmdStop() *cobra.Command {
-	flags := managementFlags{}
+	flags := commonFlags{}
 	command := &cobra.Command{
 		Use:   "stop",
 		Short: "Stop an optimizer",
@@ -172,7 +169,7 @@ func NewCmdStop() *cobra.Command {
 	return command
 }
 
-func stopOptimizer(flags *managementFlags) func(cmd *cobra.Command, args []string) error {
+func stopOptimizer(flags *commonFlags) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		config, err := flags.getOptimizerConfig()
 		if err != nil {
@@ -193,7 +190,7 @@ func stopOptimizer(flags *managementFlags) func(cmd *cobra.Command, args []strin
 }
 
 type suspendFlags struct {
-	managementFlags
+	commonFlags
 	suspensionId string
 	reason       string
 }
@@ -204,7 +201,7 @@ func NewCmdSuspend() *cobra.Command {
 		Use:   "suspend",
 		Short: "Suspend an optimization",
 		Long: `
-Raise a flag on the optimizer configuration to halt optimization activity. 
+Raise a flag on the optimizer configuration to halt optimization activity.
 
 Unlike stop, suspension is meant to be temporary and will allow optimization to resume at a given step instead of
 discarding the run. Suspensions are also additive; Multiple suspensions can be active at any given time and
@@ -295,38 +292,38 @@ func unsuspendOptimizer(flags *suspendFlags) func(*cobra.Command, []string) erro
 }
 
 func NewCmdDelete() *cobra.Command {
-	var (
-		optimizerId  string
-		solutionName string
-	)
+	flags := minimalFlags{}
 	command := &cobra.Command{
 		Use:              "delete",
 		Short:            "Offboard the given optimizer from optimizing its target workload. Removes config and frees up resources",
 		Example:          `  fsoc optimize delete --optimizer-id namespace-name-00000000-0000-0000-0000-000000000000`,
 		Args:             cobra.NoArgs,
-		RunE:             deleteOptimizer(&optimizerId, &solutionName),
+		RunE:             deleteOptimizer(&flags),
 		TraverseChildren: true,
 	}
-	command.Flags().StringVarP(&optimizerId, "optimizer-id", "i", "", "ID of the optimizer to be offboarded")
+	command.Flags().StringVarP(&flags.optimizerId, "optimizer-id", "i", "", "ID of the optimizer to be offboarded")
 	if err := command.MarkFlagRequired("optimizer-id"); err != nil {
 		log.Warnf("Failed to set delete flag optimizer-id required: %v", err)
 	}
 
-	command.Flags().StringVarP(&solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
+	command.Flags().StringVarP(&flags.solutionName, "solution-name", "", "optimize", "Intended for developer usage, overrides the name of the solution defining the Orion types for reading/writing")
 	if err := command.LocalFlags().MarkHidden("solution-name"); err != nil {
 		log.Warnf("Failed to set NewCmdDelete solution-name flag hidden: %v", err)
 	}
+
+	registerOptimizerCompletion(command, optimizerFlagOptimizerId)
+
 	return command
 }
 
-func deleteOptimizer(optimizerId *string, solutionName *string) func(*cobra.Command, []string) error {
+func deleteOptimizer(flags *minimalFlags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		var res any
-		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", *solutionName, *optimizerId)
+		urlStr := fmt.Sprintf("knowledge-store/v1/objects/%v:optimizer/%v", flags.solutionName, flags.optimizerId)
 		if err := api.JSONDelete(urlStr, &res, &api.Options{Headers: getOrionTenantHeaders()}); err != nil {
 			return fmt.Errorf("JSONDelete: %w", err)
 		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer %q offboarded\n", *optimizerId))
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Optimizer %q offboarded\n", flags.optimizerId))
 		return nil
 	}
 }

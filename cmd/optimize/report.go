@@ -89,6 +89,11 @@ func init() {
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "workload-name")
 
 	reportCmd.Flags().BoolVarP(&eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
+
+	registerReportCompletion(reportCmd, profilerReportFlagCluster)
+	registerReportCompletion(reportCmd, profilerReportFlagNamespace)
+	registerReportCompletion(reportCmd, profilerReportFlagWorkloadName)
+
 }
 
 func listReports(cmd *cobra.Command, args []string) error {

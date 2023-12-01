@@ -39,17 +39,13 @@ import (
 )
 
 type configureFlags struct {
-	Cluster              string
-	Namespace            string
-	WorkloadName         string
-	optimizerId          string
+	commonFlags
 	workloadId           string
 	filePath             string
 	create               bool
 	start                bool
 	overrideSoftBlockers bool
 	overrideHardBlockers bool
-	solutionName         string
 }
 
 var errOptimizerConfigNotFound = errors.New("optimizer config not found")
@@ -113,6 +109,12 @@ and push the configuration to the knowledge store. You may optionally override t
 	if err := configureCmd.LocalFlags().MarkHidden("override-hard-blockers"); err != nil {
 		log.Warnf("Failed to set override-hard-blockers flag hidden: %v", err)
 	}
+
+	registerOptimizerCompletion(configureCmd, optimizerFlagOptimizerId)
+	registerReportCompletion(configureCmd, profilerReportFlagCluster)
+	registerReportCompletion(configureCmd, profilerReportFlagNamespace)
+	// registerReportCompletion(configureCmd, profilerReportFlagWorkloadId)
+	registerReportCompletion(configureCmd, profilerReportFlagWorkloadName)
 
 	return configureCmd
 }
@@ -388,10 +390,8 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 		}
 
 		// write new config to ORION
-		headers := map[string]string{
-			"layer-type": "TENANT",
-			"layer-id":   config.GetCurrentContext().Tenant,
-		}
+		headers := getOrionTenantHeaders()
+
 		var res any
 
 		if flags.create {
@@ -527,10 +527,7 @@ func adaptivePrecisionRound(value float64, maxPrecision int) float64 {
 
 func getOptimizerConfig(optimizerId string, workloadId string, solutionName string) (OptimizerConfiguration, error) {
 	var optimizerConfig OptimizerConfiguration
-	headers := map[string]string{
-		"layer-type": "TENANT",
-		"layer-id":   config.GetCurrentContext().Tenant,
-	}
+	headers := getOrionTenantHeaders()
 
 	if optimizerId != "" {
 		var response configJsonStoreItem

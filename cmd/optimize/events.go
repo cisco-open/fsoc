@@ -127,6 +127,10 @@ func NewCmdEvents() *cobra.Command {
 		log.Warnf("Failed to set events solution-name flag hidden: %v", err)
 	}
 
+	registerOptimizerCompletion(command, optimizerFlagNamespace)
+	registerOptimizerCompletion(command, optimizerFlagOptimizerId)
+	registerOptimizerCompletion(command, optimizerFlagWorkloadName)
+
 	return command
 }
 
@@ -426,6 +430,10 @@ func NewCmdRecommendations() *cobra.Command {
 	if err := command.LocalFlags().MarkHidden("solution-name"); err != nil {
 		log.Warnf("Failed to set recommendations solution-name flag hidden: %v", err)
 	}
+
+	registerOptimizerCompletion(command, optimizerFlagNamespace)
+	registerOptimizerCompletion(command, optimizerFlagOptimizerId)
+	registerOptimizerCompletion(command, optimizerFlagWorkloadName)
 
 	return command
 }

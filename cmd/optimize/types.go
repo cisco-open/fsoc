@@ -14,7 +14,21 @@
 
 package optimize
 
-import "time"
+import (
+	"time"
+)
+
+type minimalFlags struct {
+	optimizerId  string
+	solutionName string
+}
+
+type commonFlags struct {
+	minimalFlags
+	Cluster      string
+	Namespace    string
+	WorkloadName string
+}
 
 type OptimizerConfiguration struct {
 	Config           Config                `json:"config"`
@@ -25,6 +39,76 @@ type OptimizerConfiguration struct {
 	Suspensions      map[string]Suspension `json:"suspensions"`
 	Target           Target                `json:"target"`
 }
+
+// Enum for flags completion for OptimizerConfiguration
+type optimizerFlag string
+
+const (
+	optimizerFlagCluster      optimizerFlag = "cluster"
+	optimizerFlagNamespace    optimizerFlag = "namespace"
+	optimizerFlagOptimizerId  optimizerFlag = "optimizer-id"
+	optimizerFlagWorkloadName optimizerFlag = "workload-name"
+)
+
+func (o optimizerFlag) String() string {
+	return string(o)
+}
+
+func (o optimizerFlag) ValueFromObject(optCfg *OptimizerConfiguration) string {
+	switch o {
+	case optimizerFlagCluster:
+		return optCfg.Target.K8SDeployment.ClusterName
+	case optimizerFlagNamespace:
+		return optCfg.Target.K8SDeployment.NamespaceName
+	case optimizerFlagOptimizerId:
+		return optCfg.OptimizerID
+	case optimizerFlagWorkloadName:
+		return optCfg.Target.K8SDeployment.WorkloadName
+	default:
+		return ""
+	}
+}
+
+// Enum for flags completion for Profiler Report
+type profilerReportFlag string
+
+const (
+	profilerReportFlagCluster      profilerReportFlag = "cluster"
+	profilerReportFlagNamespace    profilerReportFlag = "namespace"
+	profilerReportFlagWorkloadName profilerReportFlag = "workload-name"
+)
+
+func (p profilerReportFlag) String() string {
+	return string(p)
+}
+
+func (p profilerReportFlag) ReportAttribute() string {
+
+	switch p {
+	case profilerReportFlagCluster:
+		return "resource_metadata.cluster_name"
+	case profilerReportFlagNamespace:
+		return "resource_metadata.namespace_name"
+	case profilerReportFlagWorkloadName:
+		return "resource_metadata.workload_name"
+	default:
+		return "" // TODO: return error
+	}
+}
+func (p profilerReportFlag) K8sAttribute() string {
+
+	switch p {
+	case profilerReportFlagCluster:
+		return "k8s.cluster.name"
+	case profilerReportFlagNamespace:
+		return "k8s.namespace.name"
+	case profilerReportFlagWorkloadName:
+		return "k8s.workload.name"
+	default:
+		return "" // TODO: return error
+	}
+}
+
 type CPU struct {
 	Max    float64 `json:"max"`
 	Min    float64 `json:"min"`
