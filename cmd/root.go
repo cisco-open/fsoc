@@ -73,6 +73,8 @@ fsoc logs its execution details into a log file. By default, fsoc shows only war
 the output. You can use the --verbose flag to show all log messages and/or the --log flag to set a desired location
 for saving the log file.
 
+Additional user docs for fsoc are available at https://developer.cisco.com/docs/fso/#!overview/overview.
+
 Examples:
   fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
   fsoc login
