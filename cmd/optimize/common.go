@@ -16,7 +16,11 @@ package optimize
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
 )
@@ -81,4 +85,35 @@ func checkHardBlockers(b *Blockers) bool {
 		}
 	}
 	return false
+}
+
+func getKnowledgeURL(cmd *cobra.Command, objName string, objectPathPrefix string) string {
+	solutionName := cmd.Flag("solution-name").Value.String()
+	objStoreUrl := fmt.Sprintf("knowledge-store/v1/objects/%v:%s", solutionName, objName)
+
+	filterSegments := make([]string, 0, 4)
+	flags := cmd.Flags()
+	if flags != nil {
+		var val string
+		if val, _ = flags.GetString("optimizer-id"); val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("id eq %q", val))
+		}
+		if val, _ = flags.GetString("cluster"); val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.clusterName eq %q", objectPathPrefix, val))
+		}
+		if val, _ = flags.GetString("namespace"); val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.namespaceName eq %q", objectPathPrefix, val))
+		}
+		if val, _ = flags.GetString("workload-name"); val != "" {
+			filterSegments = append(filterSegments, fmt.Sprintf("%s.target.k8sDeployment.workloadName eq %q", objectPathPrefix, val))
+		}
+	}
+
+	filterCriteria := strings.Join(filterSegments, " and ")
+	if filterCriteria != "" {
+		query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
+		objStoreUrl = objStoreUrl + "?" + query
+	}
+
+	return objStoreUrl
 }

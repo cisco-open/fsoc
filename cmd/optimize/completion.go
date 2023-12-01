@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/cmd/uql"
@@ -12,21 +13,27 @@ import (
 )
 
 func registerReportCompletion(command *cobra.Command, flag profilerReportFlag) {
-	_ = command.RegisterFlagCompletionFunc(
+	err := command.RegisterFlagCompletionFunc(
 		flag.String(),
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			config.SetActiveProfile(cmd, args, false)
 			return completeFlagFromMelt(flag, cmd, args, toComplete)
 		})
+	if err != nil {
+		log.Warnf("Failed to register completion for flag %s: %v", flag.String(), err)
+	}
 }
 
 func registerOptimizerCompletion(command *cobra.Command, flag optimizerFlag) {
-	_ = command.RegisterFlagCompletionFunc(
+	err := command.RegisterFlagCompletionFunc(
 		flag.String(),
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			config.SetActiveProfile(cmd, args, false)
 			return completeFlagFromKS(flag, cmd, args, toComplete)
 		})
+	if err != nil {
+		log.Warnf("Failed to register completion for flag %s: %v", flag.String(), err)
+	}
 }
 
 func completeFlagFromKS(flag optimizerFlag, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
