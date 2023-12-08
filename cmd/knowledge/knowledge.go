@@ -43,9 +43,11 @@ for more information on the Knowledge Store. `,
 		Example: `# Get knowledge object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
 # Get object
-  fsoc knowledge get --type=<fully-qualified-type-name> --object=<objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER
-# Get object
-  fsoc knowledge create --type=<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<respective-layer-id>] `,
+  fsoc knowledge get --type=<fully-qualified-type-name> --object-id <objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER
+# Create object
+  fsoc knowledge create --type=<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<respective-layer-id>]
+# Delete object
+  fsoc knowledge delete --type=<fully-qualified-typename> --object-id=<object-id> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER`,
 		TraverseChildren: true,
 	}
 
