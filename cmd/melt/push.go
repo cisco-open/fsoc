@@ -149,6 +149,18 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 						}
 					}
 
+					// 2023-12-06, Wayne Brown
+					// If value is specified, use that instead
+					if m.Value != "" {
+						dpvalue, value_err := strconv.ParseFloat(m.Value, 64)
+
+						if value_err != nil {
+							log.Warnf("Could not parse value for %q.", entity.TypeName)
+						} else {
+							dp = dpvalue
+						}
+					}
+
 					m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
 					et = st
 				}

@@ -66,6 +66,7 @@ type Metric struct {
 	DataPoints             []*DataPoint           `yaml:"datapoints,omitempty"`
 	Min                    string                 `yaml:"min,omitempty"`
 	Max                    string                 `yaml:"max,omitempty"`
+	Value                  string                 `yaml:"value,omitempty"`
 	IsMonotonic            bool                   `yaml:"ismonotonic,omitempty"`
 	AggregationTemporality AggregationTemporality `yaml:"aggregationtemporality,omitempty"`
 }
