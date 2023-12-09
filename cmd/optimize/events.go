@@ -31,7 +31,6 @@ var defaultEvents = []string{
 	"experiment_deployment_completed",
 	"experiment_measurement_started",
 	"experiment_measurement_completed",
-	"experiment_described",
 	"recommendation_identified",
 	"recommendation_verified",
 	"recommendation_invalidated",
