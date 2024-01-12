@@ -174,6 +174,15 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 		tempVals.Events = strings.Join(fullyQualifiedEvents, ",\n		")
 
+		tableSettings := &output.Table{
+			DisableAutoWrapText: true,
+			Alignment:           output.ALIGN_LEFT,
+			ColumnMinWidths: [][]int{
+				{0, 32},
+				{1, 16},
+				{2, 40},
+			},
+		}
 		filterList := make([]string, 0, 2)
 		if flags.clusterId != "" {
 			filterList = append(filterList, fmt.Sprintf("attributes(k8s.cluster.id) = %q", flags.clusterId))
@@ -181,10 +190,15 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		if flags.optimizerId != "" {
 			filterList = append(filterList, fmt.Sprintf("attributes(optimize.optimization.optimizer_id) = %q", flags.optimizerId))
 		} else {
+			// add output column for OptimizerId if not passed explicitly
 			cmd.Annotations[output.TableFieldsAnnotation] = fmt.Sprintf(
 				"OptimizerId: .EventAttributes[\"optimize.optimization.optimizer_id\"], %v",
 				cmd.Annotations[output.TableFieldsAnnotation],
 			)
+			for idx := range tableSettings.ColumnMinWidths {
+				tableSettings.ColumnMinWidths[idx][0] = tableSettings.ColumnMinWidths[idx][0] + 1
+			}
+			tableSettings.ColumnMinWidths = append([][]int{{0, 58}}, tableSettings.ColumnMinWidths...)
 		}
 
 		if flags.namespace != "" || flags.workloadName != "" {
@@ -293,7 +307,6 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			_, next_ok = data_set.Links["next"]
 		}
 
-		tableSettings := &output.Table{DisableAutoWrapText: true, Alignment: output.ALIGN_LEFT}
 		tableSettings.DisableAutoWrapText = true
 		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`

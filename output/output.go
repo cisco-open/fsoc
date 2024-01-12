@@ -52,10 +52,11 @@ type Table struct {
 	// table output
 	Headers             []string
 	Lines               [][]string
-	Detail              bool // true to print a single line as a name: value multi-line instead of table
-	OmitHeaders         bool // don't print the headers
-	DisableAutoWrapText bool // try to keep each row on a single line as much as possible
-	Alignment           int  // override the automatic alignment for all fields
+	Detail              bool    // true to print a single line as a name: value multi-line instead of table
+	OmitHeaders         bool    // don't print the headers
+	DisableAutoWrapText bool    // try to keep each row on a single line as much as possible
+	Alignment           int     // override the automatic alignment for all fields
+	ColumnMinWidths     [][]int // List of tuples (column index, min width) to apply via tw.SetColMinWidth
 
 	// extract field columns in the same order as headers
 	LineBuilder func(v any) []string // use together with Headers and no Lines
@@ -299,6 +300,9 @@ func printTable(cmd *cobra.Command, t *Table) {
 		tw.SetHeader(t.Headers)
 	}
 	tw.AppendBulk(t.Lines)
+	for _, tup := range t.ColumnMinWidths {
+		tw.SetColMinWidth(tup[0], tup[1])
+	}
 	tw.Render()
 }
 
