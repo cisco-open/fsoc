@@ -41,9 +41,9 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 		subOptions = *options // shallow copy
 	}
 
-	var page CollectionResult[T]
-	var pageNo int
+	var pageNo, pageItemsCount, pageTotalCount int
 	for pageNo = 0; true; pageNo += 1 {
+		var page CollectionResult[T]
 		// request collection
 		err := httpRequest("GET", path, nil, &page, &subOptions)
 		if err != nil {
@@ -88,12 +88,14 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 		}
 		nextUrl.RawQuery = nextQuery
 		path = nextUrl.String()
+		pageItemsCount = len(page.Items)
+		pageTotalCount = page.Total
 	}
-	log.Infof("Collection page #%v at %q returned %v items (last page)", pageNo+1, path, len(page.Items))
+	log.Infof("Collection page #%v at %q returned %v items (last page)", pageNo+1, path, pageItemsCount)
 
 	out.Total = len(out.Items)
-	if out.Total != page.Total {
-		log.Warnf("Collection at %q returned %v items vs. expected %v items", path, out.Total, page.Total)
+	if out.Total != pageTotalCount {
+		log.Warnf("Collection at %q returned %v items vs. expected %v items", path, out.Total, pageTotalCount)
 	}
 
 	return nil
