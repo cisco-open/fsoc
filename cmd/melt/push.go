@@ -33,6 +33,7 @@ fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile>
 Or use input from STDIN:
 cat <fsocdatamodel>.yaml | fsoc melt push --profile <agent-principal-profile>
 `,
+	Aliases:          []string{"send"},
 	TraverseChildren: true,
 	Args:             cobra.MaximumNArgs(1),
 	RunE:             meltSendWithUsageCheck,
