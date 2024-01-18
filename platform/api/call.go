@@ -324,9 +324,9 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	return nil
 }
 
-// parseError creates an error from HTTP response data
-// method creates either an error with wrapped response body
-// or a Problem struct in case the response is of type "application/problem+json"
+// parseError creates an HttpStatusError error from HTTP response data
+// This method creates either a simple error with the status code and response body
+// or a wrapped Problem struct in case the response is of type "application/problem+json"
 func parseIntoError(resp *http.Response, respBytes []byte) error {
 	// try various strategies for humanizing the error output, from the most
 	// specific to the generic
@@ -336,22 +336,26 @@ func parseIntoError(resp *http.Response, respBytes []byte) error {
 	var problem Problem
 	err := json.Unmarshal(respBytes, &problem)
 	if err == nil {
-		// set status from http response only if not included in the response body
+		// set status from http response only if a status is not included in the response body
 		if problem.Status == 0 {
 			problem.Status = resp.StatusCode
 		}
-		return problem
+		return &HttpStatusError{Message: http.StatusText(resp.StatusCode), StatusCode: resp.StatusCode, WrappedErr: &problem}
 	}
 
 	// attempt to parse response as a generic JSON object
 	var errobj any
 	err = json.Unmarshal(respBytes, &errobj)
 	if err == nil {
-		return fmt.Errorf("error response: %+v", errobj)
+		return &HttpStatusError{Message: fmt.Sprintf("status %d, error response: %+v", resp.StatusCode, errobj), StatusCode: resp.StatusCode}
 	}
 
-	// fallback to string
-	return fmt.Errorf("error response: %v", bytes.NewBuffer(respBytes).String())
+	// fallback to code + response text data; if no text is provided, use the standard status text instead
+	text := bytes.NewBuffer(respBytes).String()
+	if text == "" {
+		text = http.StatusText(resp.StatusCode)
+	}
+	return &HttpStatusError{Message: fmt.Sprintf("status: %d %v", resp.StatusCode, text), StatusCode: resp.StatusCode}
 }
 
 // urlDisplayPath returns the URL path in a display-friendly form (may be abbreviated)

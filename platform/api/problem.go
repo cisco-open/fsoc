@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 )
 
 // Problem type is a json object returned for content-type application/problem+json according to the RFC-7807
@@ -67,9 +68,9 @@ func (p Problem) Error() string {
 	}
 	if p.Status != 0 {
 		if s != "" {
-			s += fmt.Sprintf(" (status %d)", p.Status)
+			s += fmt.Sprintf(" (status %d %v)", p.Status, http.StatusText(p.Status))
 		} else {
-			s = fmt.Sprintf("status %d", p.Status)
+			s = fmt.Sprintf("status %d %v", p.Status, http.StatusText(p.Status))
 		}
 	}
 	if s == "" {

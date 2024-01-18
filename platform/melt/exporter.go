@@ -3,7 +3,9 @@ package melt
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/apex/log"
@@ -20,6 +22,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"gopkg.in/yaml.v3"
 
+	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
@@ -425,6 +428,7 @@ func (exp *Exporter) exportHTTP(path string, m protoreflect.ProtoMessage) error 
 		// post to API
 		err = api.HTTPPost(apiPath, data, nil, &options)
 		if err != nil {
+			hintAboutPermissions(err)
 			return err
 		}
 
@@ -529,4 +533,21 @@ func dumpPayload(m proto.Message, format string, writer func(string)) {
 	}
 
 	writer(s)
+}
+
+func hintAboutPermissions(err error) {
+	// provide a detailed hint if it is a permissions error and using a profile that is not an agent principal
+	var statusError *api.HttpStatusError
+	if errors.As(err, &statusError) && statusError.StatusCode == http.StatusForbidden {
+		// provide more info if not using an agent principal auth type in the profile
+		ctx := config.GetCurrentContext()
+		if ctx.AuthMethod != config.AuthMethodAgentPrincipal {
+			log.Warnf(`Hint: this command requires a profile with ingestion permissions. `+
+				`Usually, this would be a profile that uses the "agent-principal" auth method; `+
+				`the selected profile uses %q instead. In general, any principal with `+
+				`ingestion permissions can be used, regardless of the auth type; `+
+				`these permissions can be assigned by adding the "iam:agent" role to a principal using the "fsoc iam-role-binding" command.`,
+				ctx.AuthMethod)
+		}
+	}
 }
