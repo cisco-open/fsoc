@@ -34,17 +34,17 @@ func newGetObjectCmd() *cobra.Command {
 		Aliases: []string{"g"},
 		Long:    `Fetch a knowledge object from the Knowledge Store using set of properties which can uniquely identify it.`,
 		Example: `
-  # Get knowledge object [SERVICE principal]
-  fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-id=extensibility --layer-type=SOLUTION
+  # Get knowledge object at different layers
+  fsoc knowledge get --type=extensibility:solution --object-id=agent --layer-type=TENANT
+  fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-type=SOLUTION --layer-id=extensibility 
+  fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-type=LOCALUSER
 
-  # Get object [USER principal]
-  fsoc knowledge get --type extensibility:solution --object-id extensibility --layer-type LOCALUSER
-
-  # Get list of solution layer knowledge objects that are system solutions
-  fsoc knowledge get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
+  # Get object with a composite ID (note the quotes to escape shell special characters!)
+  fsoc knowledge get --type=mySolution:collectorState --object-id="/context=metrics;/connectionName=myConnection" --layer-type TENANT
 
   # Get list of objects filtering by a data field
-  fsoc knowledge get --type preferences:theme --layer-type TENANT --filter "data.backgroundColor eq \"green\""
+  fsoc knowledge get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
+  fsoc knowledge get --type=preferences:theme --layer-type=TENANT --filter="data.backgroundColor eq \"green\""
   `,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
