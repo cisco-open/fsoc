@@ -34,20 +34,32 @@ func NewSubCmd() *cobra.Command {
 	// objStoreCmd represents the knowledge command
 	knowledgeStoreCmd := &cobra.Command{
 		Use:     "knowledge",
-		Aliases: []string{"obj", "objs", "objstore", "ks"},
-		Short:   "Perform Knowledge Store interactions.",
+		Aliases: []string{"ks", "obj", "objs", "objstore"},
+		Short:   "Perform Knowledge Store operations",
 		Long: `
+Perform Knowledge Store operations. "ks" is a convenient alias to the "knowledge" command.
 
-Perform Knowledge Store interactions. See https://developer.cisco.com/docs/fso/#!use-the-knowledge-store-introduction
-for more information on the Knowledge Store. `,
-		Example: `# Get knowledge object type
+See https://developer.cisco.com/docs/fso/#!knowledge-store-introduction/introduction for more information on the Knowledge Store.
+
+All operations require the type to be specified as a fully-qualified type name (FQTN). FQTN follows the format solutionName:typeName (e.g., extensibility:solution).
+
+All data operations also require specifying the layer type and layer ID. fsoc attempts to provide a default layer ID whenever possible (e.g., the tenant ID for TENANT and user ID for LOCALUSER).
+
+Object IDs often need to be quoted in order to avoid special character interpretation in your shell. They do not need to be URL-escaped (see examples in the "knowledge get" command).
+
+To see the exact API call that fsoc makes, use the --curl flag with the desired command.
+`,
+		Example: `  # Get knowledge object type
   fsoc knowledge get-type --type=<fully-qualified-type-name>
-# Get object
-  fsoc knowledge get --type=<fully-qualified-type-name> --object-id <objectId> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER
-# Create object
-  fsoc knowledge create --type=<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<respective-layer-id>]
-# Delete object
-  fsoc knowledge delete --type=<fully-qualified-typename> --object-id=<object-id> --layer-id=<layerId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER`,
+
+  # Get object
+  fsoc knowledge get --type=<fully-qualified-type-name> --object-id <objectId> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<layerId>]
+
+  # Create object
+  fsoc knowledge create --type=<fully-qualified-typename> --object-file=<fully-qualified-path> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<layer-id>]
+
+  # Delete object
+  fsoc knowledge delete --type=<fully-qualified-typename> --object-id=<object-id> --layer-type=SOLUTION|ACCOUNT|GLOBALUSER|TENANT|LOCALUSER [--layer-id=<layer-id>]`,
 		TraverseChildren: true,
 	}
 
