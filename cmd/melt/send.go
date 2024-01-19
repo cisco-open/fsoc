@@ -13,14 +13,13 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/melt"
 )
 
-var meltPushCmd = &cobra.Command{
-	Use:   "push [DATAFILE]",
-	Short: "Generates OTLP telemetry based on fsoc telemetry data model .yaml",
+var meltSendCmd = &cobra.Command{
+	Use:   "send [DATAFILE]",
+	Short: "Generate and send OTLP telemetry data based on provided fsoc telemetry model data",
 	Long: `
 This command generates OTLP payload based on a fsoc telemetry data models and sends the data to the platform ingestion services.
 
@@ -28,12 +27,12 @@ To properly use the command you will need to create a fsoc profile using an agen
 fsoc config set --profile=<agent-principal-profile> auth=agent-principal secret-file=<agent-principal.yaml>
 
 Then you will use the agent principal profile as part of the command:
-fsoc melt push <fsocdatamodel>.yaml --profile <agent-principal-profile>
+fsoc melt send <fsocdatamodel>.yaml --profile <agent-principal-profile>
 
 Or use input from STDIN:
-cat <fsocdatamodel>.yaml | fsoc melt push --profile <agent-principal-profile>
+cat <fsocdatamodel>.yaml | fsoc melt send --profile <agent-principal-profile>
 `,
-	Aliases:          []string{"send"},
+	Aliases:          []string{"push"}, // "push" is kept for backward compatibility, not deprecated but not canonical
 	TraverseChildren: true,
 	Args:             cobra.MaximumNArgs(1),
 	RunE:             meltSendWithUsageCheck,
@@ -49,11 +48,11 @@ const (
 )
 
 func init() {
-	meltPushCmd.Flags().Bool("dry-run", false, "Process data but don't send it to the ingestion API")
-	meltPushCmd.Flags().Bool("dump", false, "Display MELT data protobuf payloads")
-	meltPushCmd.Flags().StringP("output", "o", "auto", "output format for dump (auto, human, json, yaml, text, hex)")
+	meltSendCmd.Flags().Bool("dry-run", false, "Process data but don't send it to the ingestion API")
+	meltSendCmd.Flags().Bool("dump", false, "Display MELT data protobuf payloads")
+	meltSendCmd.Flags().StringP("output", "o", "auto", "output format for dump (auto, human, json, yaml, text, hex)")
 
-	meltCmd.AddCommand(meltPushCmd)
+	meltCmd.AddCommand(meltSendCmd)
 }
 
 func meltSendWithUsageCheck(cmd *cobra.Command, args []string) error {
@@ -69,11 +68,6 @@ func meltSendWithUsageCheck(cmd *cobra.Command, args []string) error {
 }
 
 func meltSend(cmd *cobra.Command, args []string) {
-	ctx := config.GetCurrentContext()
-	if ctx.AuthMethod != config.AuthMethodAgentPrincipal {
-		_ = cmd.Help()
-		log.Fatalf("This command requires a profile with \"agent-principal\" auth method, found %q instead", ctx.AuthMethod)
-	}
 	// Make this tolerate empty arg list, in which case it should use stdin
 	var dataFileName string
 	if len(args) > 0 {
