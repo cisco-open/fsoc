@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/apex/log"
@@ -198,23 +199,23 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 }
 
 func isAllowedPath(path string, info os.FileInfo) bool {
-	fileInclude := []string{".json", ".md"}
-	excludePath := []string{".git"}
-	allow := false
+	// blacklist files by adding them here.
+	excludeFiles := []string{".DS_Store"}
+	// blacklist paths by adding them here.
+	excludePaths := []string{".git"}
+	allow := true
 
 	if info.IsDir() {
-		for _, exclP := range excludePath {
+		// check for blacklisted dirs
+		for _, exclP := range excludePaths {
 			if strings.Contains(path, exclP) {
-				return allow
+				allow = false
 			}
 		}
-		allow = true
 	} else {
-		ext := filepath.Ext(path)
-		for _, inclExt := range fileInclude {
-			if ext == inclExt {
-				allow = true
-			}
+		// check for blacklisted files
+		if slices.Contains(excludeFiles, filepath.Base(path)) {
+			allow = false
 		}
 	}
 
