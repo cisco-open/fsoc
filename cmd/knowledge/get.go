@@ -39,8 +39,8 @@ func newGetObjectCmd() *cobra.Command {
   fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-type=SOLUTION --layer-id=extensibility 
   fsoc knowledge get --type=extensibility:solution --object-id=extensibility --layer-type=LOCALUSER
 
-  # Get object with a composite ID (note the quotes to escape shell special characters!)
-  fsoc knowledge get --type=mySolution:collectorState --object-id="/context=metrics;/connectionName=myConnection" --layer-type TENANT
+  # Get object with a composite ID (note the quotes to escape shell special characters)
+  fsoc knowledge get --type=fso:module --object-id="fso:/moduleId=optimize;/enriches=cco" --layer-type=SOLUTION --layer-id=fso
 
   # Get list of objects filtering by a data field
   fsoc knowledge get --type=extensibility:solution --layer-type=TENANT --filter="data.isSystem eq true"
