@@ -14,7 +14,7 @@ require (
 	github.com/moul/http2curl v1.0.0
 	github.com/muesli/termenv v0.15.2
 	github.com/peterhellberg/link v1.2.0
-	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/relvacode/iso8601 v1.3.0
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
@@ -24,7 +24,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/proto/otlp v1.1.0
 	go.pinniped.dev v0.28.0
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/oauth2 v0.16.0
 	golang.org/x/term v0.16.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -46,8 +46,8 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240102182953-50ed04b92917 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
 	google.golang.org/grpc v1.60.1 // indirect
 )
 
@@ -66,7 +66,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/moby/term v0.5.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
