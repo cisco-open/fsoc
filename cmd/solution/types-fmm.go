@@ -40,8 +40,12 @@ type FmmAttributeTypeDef struct {
 	Description string `json:"description,omitempty"`
 }
 
+type FmmRequiredAttributeDefinitionsTypeDef struct {
+	Required []string `json:"required"`
+	*FmmAttributeDefinitionsTypeDef
+}
+
 type FmmAttributeDefinitionsTypeDef struct {
-	Required   []string                        `json:"required"`
 	Optimized  []string                        `json:"optimized"`
 	Attributes map[string]*FmmAttributeTypeDef `json:"attributes"`
 }
@@ -57,11 +61,11 @@ type FmmAssociationTypesTypeDef struct {
 
 type FmmEntity struct {
 	*FmmTypeDef
-	AttributeDefinitions  *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
-	LifecyleConfiguration *FmmLifecycleConfigTypeDef      `json:"lifecycleConfiguration"`
-	MetricTypes           []string                        `json:"metricTypes,omitempty"`
-	EventTypes            []string                        `json:"eventTypes,omitempty"`
-	AssociationTypes      *FmmAssociationTypesTypeDef     `json:"associationTypes,omitempty"`
+	AttributeDefinitions  *FmmRequiredAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
+	LifecyleConfiguration *FmmLifecycleConfigTypeDef              `json:"lifecycleConfiguration"`
+	MetricTypes           []string                                `json:"metricTypes,omitempty"`
+	EventTypes            []string                                `json:"eventTypes,omitempty"`
+	AssociationTypes      *FmmAssociationTypesTypeDef             `json:"associationTypes,omitempty"`
 }
 
 func (entity *FmmEntity) GetTypeName() string {
