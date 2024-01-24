@@ -181,26 +181,31 @@ func getEntityComponent(entityName string, namespaceName string) *FmmEntity {
 	}
 
 	requiredArray := append(emptyStringArray, "name")
+
 	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
-		Required:   requiredArray,
 		Optimized:  emptyStringArray,
 		Attributes: emptyAttributeArray,
+	}
+	requiredAttributesDefinition := &FmmRequiredAttributeDefinitionsTypeDef{
+		Required:                       requiredArray,
+		FmmAttributeDefinitionsTypeDef: attributesDefinition,
 	}
 
 	entityComponentDef := &FmmEntity{
 		FmmTypeDef:            fmmTypeDef,
 		LifecyleConfiguration: lifecycleConfig,
-		AttributeDefinitions:  attributesDefinition,
+		AttributeDefinitions:  requiredAttributesDefinition,
 	}
 
 	return entityComponentDef
 }
 
 func getEventComponent(eventName string, namespaceName string) *FmmEvent {
-	emptyStringArray := make([]string, 0)
-	emptyAttributeArray := make(map[string]*FmmAttributeTypeDef, 1)
+	optimizedAttributes := make([]string, 1)
+	attributeArray := make(map[string]*FmmAttributeTypeDef, 1)
 
-	emptyAttributeArray["name"] = &FmmAttributeTypeDef{
+	optimizedAttributes[0] = "name"
+	attributeArray["name"] = &FmmAttributeTypeDef{
 		Type:        "string",
 		Description: fmt.Sprintf("The name of the %s", eventName),
 	}
@@ -218,8 +223,8 @@ func getEventComponent(eventName string, namespaceName string) *FmmEvent {
 	}
 
 	attributesDefinition := &FmmAttributeDefinitionsTypeDef{
-		Optimized:  emptyStringArray,
-		Attributes: emptyAttributeArray,
+		Optimized:  optimizedAttributes,
+		Attributes: attributeArray,
 	}
 
 	eventComponentDef := &FmmEvent{
