@@ -85,7 +85,7 @@ func getSolutionStatusCmd() *cobra.Command {
 		String("status-type", "", "The status type that you want to see.  This can be one of [upload, install, all] and will default to all if not specified")
 
 	solutionStatusCmd.Flags().
-		String("tag", "stable", "The tag associated with the solution for which you would like to view the status for.  Defaults to 'stable' unless otherwise specified")
+		String("tag", "", "The tag associated with the solution for which you would like to view the status for")
 
 	return solutionStatusCmd
 }
@@ -120,17 +120,10 @@ func getExtensibilitySolutionObject(url string, headers map[string]string) Exten
 
 }
 
-func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, solutionReleaseObjectQuery string, successfulSolutionInstallObjectQuery string, solutionName string, requestHeaders map[string]string, cmd *cobra.Command) {
+func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, solutionReleaseObjectQuery string, successfulSolutionInstallObjectQuery string, solutionID string, requestHeaders map[string]string, cmd *cobra.Command) {
 	// finalize solution name (incl. the solution object name which includes the tag value)
-	var solutionNameWithTag string
 	var solutionInstallationMessagePrefix string
-	solutionTag, _ := cmd.Flags().GetString("tag")
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
-	if solutionTag != "stable" {
-		solutionNameWithTag = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
-	} else {
-		solutionNameWithTag = solutionName
-	}
 
 	uploadStatusChan := make(chan StatusItem)
 	installStatusChan := make(chan StatusItem)
@@ -144,7 +137,7 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		installStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionInstallObjectQuery), requestHeaders)
 	}()
 	go func() {
-		solutionStatusChan <- getExtensibilitySolutionObject(getSolutionObjectUrl(solutionNameWithTag), requestHeaders)
+		solutionStatusChan <- getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
 	}()
 	go func() {
 		successfulSolutionInstallStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), successfulSolutionInstallObjectQuery), requestHeaders)
@@ -167,7 +160,7 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		solutionInstallationMessagePrefix = "Current Solution"
 	}
 	headers := []string{"Solution Name"}
-	values := []string{solutionName}
+	values := []string{solutionID}
 
 	appendValue := func(header, value string) {
 		headers = append(headers, header)
@@ -216,37 +209,41 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 
 func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	var solutionVersionFilter string
-	var solutionNameFilter string
-	var solutionTagFilter string
+	var solutionIDFilter string
 	var solutionInstallSuccessfulFilter string
 	var solutionInstallObjectFilter string
 	var solutionReleaseObjectFilter string
 	var lastSuccesfulInstallFilter string
+	var solutionID string
 	cfg := config.GetCurrentContext()
 
 	layerType := "TENANT"
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
+	solutionTag, _ := cmd.Flags().GetString("tag")
 
 	headers := map[string]string{
 		"layer-type": layerType,
 		"layer-id":   cfg.Tenant,
 	}
+	if solutionTag == "dev" || solutionTag == "stable" || solutionTag == "" {
+		solutionID = solutionName
+	} else {
+		solutionID = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
+	}
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
 	statusTypeToFetch, _ := cmd.Flags().GetString("status-type")
-	solutionTag, _ := cmd.Flags().GetString("tag")
 	solutionInstallSuccessfulFilter = `data.isSuccessful eq "true"`
 	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
-	solutionNameFilter = fmt.Sprintf(`data.solutionName eq "%s"`, solutionName)
-	solutionTagFilter = fmt.Sprintf(`data.tag eq "%s"`, solutionTag)
-	log.Infof(`value of solution tag filter: %s`, solutionTagFilter)
+	solutionIDFilter = fmt.Sprintf(`data.solutionID eq "%s"`, solutionID)
+	log.Infof(`value of solutionID filter: %s`, solutionIDFilter)
 
 	if solutionVersion != "" {
-		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s and %s`, solutionNameFilter, solutionVersionFilter, solutionTagFilter)
+		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s`, solutionVersionFilter, solutionIDFilter)
 	} else {
-		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s`, solutionNameFilter, solutionTagFilter)
+		solutionInstallObjectFilter = solutionIDFilter
 	}
 
-	lastSuccesfulInstallFilter = fmt.Sprintf(`%s and %s and %s`, solutionNameFilter, solutionTagFilter, solutionInstallSuccessfulFilter)
+	lastSuccesfulInstallFilter = fmt.Sprintf(`%s and %s`, solutionIDFilter, solutionInstallSuccessfulFilter)
 	solutionReleaseObjectFilter = solutionInstallObjectFilter
 
 	solutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionInstallObjectFilter))
@@ -255,7 +252,7 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 
 	log.Infof(`solution name and version query: %s`, solutionInstallObjectQuery)
 
-	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionName, headers, cmd)
+	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionID, headers, cmd)
 
 	return nil
 }

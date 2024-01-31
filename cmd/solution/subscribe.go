@@ -107,7 +107,7 @@ func manageSubscription(cmd *cobra.Command, args []string, isSubscribed bool) {
 
 func locateSolutionUrl(name string, tag string) string {
 	// handle stable tag where solution ID == solution name
-	if tag == "" || tag == "stable" {
+	if tag == "" || tag == "stable" || tag == "dev" {
 		return getSolutionObjectUrl(name)
 	}
 
