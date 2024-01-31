@@ -279,6 +279,9 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 func getSolutionValidationErrorsString(total int, errors Errors) string {
 	var message = fmt.Sprintf("\n%d errors detected while validating solution\n", total)
 	for _, err := range errors.Items {
+		if err.Source == `manifest.json` && err.Error == `instance is not allowed to have the additional property "solutionType"` {
+			err.Error = fmt.Sprintf("%s%s", err.Error, "Please upgrade to manifestVersion 1.1.0 to use the solutionType field in your manifest.json")
+		}
 		message += fmt.Sprintf("- Error Content: %+v\n", err)
 	}
 	message += "\n"
