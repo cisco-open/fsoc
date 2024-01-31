@@ -8,14 +8,14 @@ require (
 	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
 	github.com/charmbracelet/lipgloss v0.9.1
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/moul/http2curl v1.0.0
 	github.com/muesli/termenv v0.15.2
 	github.com/peterhellberg/link v1.2.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	github.com/relvacode/iso8601 v1.3.0
+	github.com/relvacode/iso8601 v1.4.0
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
