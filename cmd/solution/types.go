@@ -29,6 +29,7 @@ type Manifest struct {
 	ManifestVersion string         `json:"manifestVersion,omitempty"`
 	Name            string         `json:"name,omitempty"`
 	SolutionVersion string         `json:"solutionVersion,omitempty"`
+	SolutionType    string         `json:"solutionType,omitempty"`
 	Dependencies    []string       `json:"dependencies"`
 	Description     string         `json:"description,omitempty"`
 	Contact         string         `json:"contact,omitempty"`
