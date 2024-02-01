@@ -36,7 +36,7 @@ var solutionInitCmd = &cobra.Command{
 It creates a subdirectory named <solution-name> in the current directory and populates
 it with a solution manifest and objects for it. Once the solution is created,
 the "solution extend" command can be used to add objects to it.`,
-	Example:          `  fsoc solution init mysolution`,
+	Example: `  fsoc solution init mysolution`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return generateSolutionPackage(cmd, args)
 	},
