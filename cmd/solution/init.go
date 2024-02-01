@@ -36,10 +36,8 @@ var solutionInitCmd = &cobra.Command{
 It creates a subdirectory named <solution-name> in the current directory and populates
 it with a solution manifest and objects for it. Once the solution is created,
 the "solution extend" command can be used to add objects to it.`,
-	Example: `  fsoc solution init mysolution`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return generateSolutionPackage(cmd, args)
-	},
+	Example:          `  fsoc solution init mysolution`,
+	Run:              generateSolutionPackage,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
@@ -62,13 +60,13 @@ func getInitSolutionCmd() *cobra.Command {
 	return solutionInitCmd
 }
 
-func generateSolutionPackage(cmd *cobra.Command, args []string) error {
+func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionName = strings.ToLower(solutionName)
 	solutionType, err := cmd.Flags().GetString("solution-type")
 
 	if err != nil {
-		return fmt.Errorf("error trying to get %q flag value: %w", "filter", err)
+		log.Fatalf(err.Error())
 	}
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution directory structure for %q... \n", solutionName))
@@ -109,9 +107,6 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) error {
 
 	output.PrintCmdStatus(cmd, "Adding the manifest.json \n")
 	createSolutionManifestFile(solutionName, manifest)
-
-	return nil
-
 }
 
 func createInitialSolutionManifest(solutionName string, solutionType string) *Manifest {
