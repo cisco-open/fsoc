@@ -49,7 +49,7 @@ func getCreateObjectCmd() *cobra.Command {
 	_ = objStoreInsertCmd.RegisterFlagCompletionFunc("type", typeCompletionFunc)
 
 	objStoreInsertCmd.Flags().
-	Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
+		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
 	objStoreInsertCmd.Flags().
 		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data")
@@ -70,8 +70,8 @@ func getCreateObjectCmd() *cobra.Command {
 func insertObject(cmd *cobra.Command, args []string) {
 	objType, _ := cmd.Flags().GetString("type")
 
-	var includeTagsString string = "false";
-	includeTagsFlag := cmd.Flags().GetBool("include-tags")
+	var includeTagsString string = "false"
+	includeTagsFlag, _ := cmd.Flags().GetBool("include-tags")
 
 	if includeTagsFlag {
 		includeTagsString = "true"

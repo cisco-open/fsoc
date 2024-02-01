@@ -65,7 +65,7 @@ func newGetObjectCmd() *cobra.Command {
 	getCmd.PersistentFlags().String("layer-id", "", "Layer ID of the related knowledge object to fetch")
 
 	getCmd.Flags().
-	Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
+		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
@@ -127,8 +127,8 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 		return err
 	}
 
-	var includeTagsString string = "false";
-	includeTagsFlag := cmd.Flags().GetBool("include-tags")
+	var includeTagsString string = "false"
+	includeTagsFlag, _ := cmd.Flags().GetBool("include-tags")
 
 	if includeTagsFlag {
 		includeTagsString = "true"
