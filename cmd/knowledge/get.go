@@ -127,6 +127,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	headers := map[string]string{
 		"layer-type": layerType,
 		"layer-id":   layerID,
+		"includeTags": "true",
 	}
 
 	// execute command and print output
