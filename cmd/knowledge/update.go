@@ -109,8 +109,9 @@ func updateObject(cmd *cobra.Command, args []string) {
 	}
 
 	headers := map[string]string{
-		"layer-type": layerType,
-		"layer-id":   layerID,
+		"layer-type":  layerType,
+		"layer-id":    layerID,
+		"includeTags": "true",
 	}
 
 	var res any

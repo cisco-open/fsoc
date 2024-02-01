@@ -54,12 +54,20 @@ func getInitSolutionCmd() *cobra.Command {
 		Bool("include-knowledge", true, "Add a knowledge type definition to this solution")
 	_ = solutionInitCmd.Flags().MarkDeprecated("include-knowledge", `please use the "solution extend" command instead.`)
 
+	solutionInitCmd.Flags().
+		String("solution-type", "component", "The type of the solution you are creating (should be one of component, module, or application).  Default value is component.")
+
 	return solutionInitCmd
 }
 
 func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionName = strings.ToLower(solutionName)
+	solutionType, err := cmd.Flags().GetString("solution-type")
+
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution directory structure for %q... \n", solutionName))
 
@@ -67,7 +75,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error())
 	}
 
-	manifest := createInitialSolutionManifest(solutionName)
+	manifest := createInitialSolutionManifest(solutionName, solutionType)
 
 	if cmd.Flags().Changed("include-service") {
 		output.PrintCmdStatus(cmd, "Adding the service-component.json \n")
@@ -99,14 +107,13 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 
 	output.PrintCmdStatus(cmd, "Adding the manifest.json \n")
 	createSolutionManifestFile(solutionName, manifest)
-
 }
 
-func createInitialSolutionManifest(solutionName string) *Manifest {
+func createInitialSolutionManifest(solutionName string, solutionType string) *Manifest {
 
 	emptyDeps := make([]string, 0)
 	manifest := &Manifest{
-		ManifestVersion: "1.0.0",
+		ManifestVersion: "1.1.0",
 		SolutionVersion: "1.0.0",
 		Dependencies:    emptyDeps,
 		Description:     "description of your solution",
@@ -116,6 +123,7 @@ func createInitialSolutionManifest(solutionName string) *Manifest {
 		Readme:          "the url for this solution's readme file",
 	}
 	manifest.Name = solutionName
+	manifest.SolutionType = solutionType
 
 	return manifest
 

@@ -114,9 +114,10 @@ func editObject(cmd *cobra.Command, args []string) {
 
 	// Send update to server, with etag
 	headersPut := map[string]string{
-		"layer-type": layerType,
-		"layer-id":   layerID,
-		"If-Match":   etag,
+		"layer-type":  layerType,
+		"layer-id":    layerID,
+		"If-Match":    etag,
+		"includeTags": "true",
 	}
 	var resPut any
 	err = api.JSONPut(url, editedData, &resPut, &api.Options{Headers: headersPut})

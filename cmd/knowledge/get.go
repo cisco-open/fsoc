@@ -69,6 +69,7 @@ func newGetObjectCmd() *cobra.Command {
 	_ = getCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	getCmd.PersistentFlags().String("filter", "", "Filter condition in SCIM filter format for getting knowledge objects")
+	getCmd.PersistentFlags().String("fields", "", "Specific fields to fetch when getting knowledge objects.  By default, all fields are returned unless otherwise specified.  Please specify fields as a csv string.")
 	_ = getCmd.MarkPersistentFlagRequired("type")
 	_ = getCmd.MarkPersistentFlagRequired("layer-type")
 
@@ -124,24 +125,47 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	}
 
 	headers := map[string]string{
-		"layer-type": layerType,
-		"layer-id":   layerID,
+		"layer-type":  layerType,
+		"layer-id":    layerID,
+		"includeTags": "true",
 	}
 
 	// execute command and print output
 	var objStoreUrl string
 	var isCollection bool = true
+	var filterSpecified bool = false
 	if objID != "" {
 		objStoreUrl = getObjectUrl(fqtn, objID)
+		if cmd.Flags().Changed("fields") {
+			fieldsToFetch, err := cmd.Flags().GetString("fields")
+			if err != nil {
+				return fmt.Errorf("error trying to get %q flag value: %w", "fields", err)
+			}
+			query := fmt.Sprintf("fields=%s", url.QueryEscape(fieldsToFetch))
+			objStoreUrl = fmt.Sprintf("%s?%s", objStoreUrl, query)
+		}
 		isCollection = false
 	} else {
 		if cmd.Flags().Changed("filter") {
+			filterSpecified = true
 			filterCriteria, err := cmd.Flags().GetString("filter")
 			if err != nil {
 				return fmt.Errorf("error trying to get %q flag value: %w", "filter", err)
 			}
-			query := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
-			fqtn = fqtn + "?" + query
+			filterQuery := fmt.Sprintf("filter=%s", url.QueryEscape(filterCriteria))
+			fqtn = fqtn + "?" + filterQuery
+		}
+		if cmd.Flags().Changed("fields") {
+			fieldsToFetch, err := cmd.Flags().GetString("fields")
+			if err != nil {
+				return fmt.Errorf("error trying to get %q flag value: %w", "fields", err)
+			}
+			fieldsQuery := fmt.Sprintf("fields=%s", url.QueryEscape(fieldsToFetch))
+			if filterSpecified {
+				fqtn = fqtn + "&" + fieldsQuery
+			} else {
+				fqtn = fqtn + "?" + fieldsQuery
+			}
 		}
 		objStoreUrl = getObjectListUrl(fqtn)
 	}
