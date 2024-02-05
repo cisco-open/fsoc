@@ -33,7 +33,7 @@ import (
 )
 
 var solutionForkCmd = &cobra.Command{
-	Use:     "fork <solution-name> <target-name>",
+	Use:     "fork [<solution-name>|--source-dir=<directory>] <target-name> [flags]",
 	Args:    cobra.MaximumNArgs(2),
 	Short:   "Fork a solution into the specified directory",
 	Long:    `This command downloads the specified solution into the current directory and changes its name to <target-name>`,
@@ -54,21 +54,32 @@ func GetSolutionForkCommand() *cobra.Command {
 	_ = solutionForkCmd.Flags().MarkDeprecated("source-name", "please use argument instead.")
 	solutionForkCmd.Flags().String("name", "", "name of the solution to copy it to")
 	_ = solutionForkCmd.Flags().MarkDeprecated("name", "please use argument instead.")
-	solutionForkCmd.Flags().String("tag", "stable", "tag related to the solution to fork and download")
+
+	solutionForkCmd.Flags().StringP("source-dir", "s", "", "directory with a solution to fork from disk")
+	solutionForkCmd.Flags().String("tag", "stable", "tag for the solution to download and fork")
+
 	return solutionForkCmd
 }
 
 func solutionForkCommand(cmd *cobra.Command, args []string) {
+	sourceDir, _ := cmd.Flags().GetString("source-dir")
 	solutionName, _ := cmd.Flags().GetString("source-name")
 	forkName, _ := cmd.Flags().GetString("name")
 	if len(args) == 2 {
+		if sourceDir != "" {
+			_ = cmd.Help()
+			log.Fatal("Cannot specify both source solution and source directory; use only one.")
+		}
 		solutionName, forkName = args[0], args[1]
+	} else if len(args) == 1 && sourceDir != "" {
+		forkName = args[0]
 	} else if len(args) != 0 {
 		_ = cmd.Help()
 		log.Fatal("Exactly 2 arguments required.")
 	}
-	if solutionName == "" || forkName == "" {
-		log.Fatalf("<solution-name> and <target-name> cannot be empty")
+	if (solutionName == "" && sourceDir == "") || forkName == "" {
+		_ = cmd.Help()
+		log.Fatalf("A source and target must be specified")
 	}
 	forkName = strings.ToLower(forkName)
 
@@ -89,6 +100,18 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("There is already a manifest file in this directory")
 	}
 
+	if sourceDir != "" {
+		err := forkFromDisk(cmd, sourceDir, fileSystem, forkName)
+		if err != nil {
+			log.Fatalf("Failed to fork solution from disk: %v", err)
+		}
+		message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
+		output.PrintCmdStatus(cmd, message)
+		return
+	}
+
+	// Download & fork from solution, using legacy fork
+
 	downloadSolutionZip(cmd, solutionName, forkName)
 	err = extractZip(fileSystemRoot, fileSystem, solutionName)
 	if err != nil {
@@ -104,7 +127,6 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 
 	message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
 	output.PrintCmdStatus(cmd, message)
-
 }
 
 func solutionNameFolderInvalid(fileSystem afero.Fs, forkName string) bool {
@@ -292,5 +314,25 @@ func ReplaceStringInFile(fileSystem afero.Fs, filePath string, searchValue strin
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func forkFromDisk(cmd *cobra.Command, sourceDir string, fileSystem afero.Fs, solutionName string) error {
+	// load solution from disk
+	solution, err := NewSolutionDirectoryContentsFromDisk(sourceDir)
+	if err != nil {
+		return fmt.Errorf("error loading solution from disk: %w", err)
+	}
+
+	// display solution contents
+	solution.Dump(cmd)
+
+	// replace solution name
+	//oldName := solution.Manifest.Name
+	solution.Manifest.Name = solutionName
+
+	// write new solution to disk
+	//err = solution.Write(fileSystem)
+
 	return nil
 }
