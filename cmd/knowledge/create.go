@@ -51,7 +51,7 @@ func getCreateObjectCmd() *cobra.Command {
 	objStoreInsertCmd.Flags().
 		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
-	objStoreInsertCmd.Flags().MarkHidden("include-tags")
+	_ = objStoreInsertCmd.Flags().MarkHidden("include-tags")
 
 	objStoreInsertCmd.Flags().
 		String("object-file", "", "The fully qualified path to the json file containing the knowledge object data")

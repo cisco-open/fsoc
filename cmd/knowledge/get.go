@@ -67,7 +67,7 @@ func newGetObjectCmd() *cobra.Command {
 	getCmd.Flags().
 		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
-	getCmd.Flags().MarkHidden("include-tags")
+	_ = getCmd.Flags().MarkHidden("include-tags")
 
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))

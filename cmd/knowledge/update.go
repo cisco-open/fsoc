@@ -74,7 +74,7 @@ func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
 		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
-	objStoreUpdateCmd.Flags().MarkHidden("include-tags")
+	_ = objStoreUpdateCmd.Flags().MarkHidden("include-tags")
 
 	objStoreUpdateCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")

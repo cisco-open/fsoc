@@ -48,6 +48,8 @@ func getSolutionZapCmd() *cobra.Command {
 	solutionZapCmd.Flags().
 		String("tag", "", "Tag associated with the solution to zap (required)")
 
+	_ = solutionZapCmd.MarkFlagRequired("tag")
+
 	solutionZapCmd.Flags().
 		Int("wait", -1, "Wait to terminate the command until the solution is install succesfully")
 
@@ -79,9 +81,9 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	solutionName = strings.ToLower(solutionName)
 
 	if !skipConfirmationMessage {
-		fmt.Print(fmt.Sprintf("Please type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s ", solutionName, solutionTag))
+		fmt.Printf("Please type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s ", solutionName, solutionTag)
 		fmt.Scanln(&confirmationAnswer)
-	
+
 		if confirmationAnswer != "YES" {
 			log.Fatal("Solution zap not confirmed, exiting command")
 		}

@@ -83,7 +83,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		} else {
 			solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
 		}
-		solutionVersion = solutionVersionFlag                                                       // TODO: extract from archive
+		solutionVersion = solutionVersionFlag // TODO: extract from archive
 		solutionDisplayText = fmt.Sprintf("solution archive %q", solutionBundlePath)
 		logFields = map[string]interface{}{
 			"zip_file":        solutionBundlePath,
