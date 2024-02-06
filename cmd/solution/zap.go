@@ -149,6 +149,10 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	uploadSolution(cmd, true)
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))
+
+	// remove the temporary blank solution created so that the zap command can be run again in the same directory without
+	// any hiccups
+	os.RemoveAll(solutionRootDirectory)
 }
 
 func (s StatusData) IsEmpty() bool {
