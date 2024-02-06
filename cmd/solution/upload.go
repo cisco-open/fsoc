@@ -62,6 +62,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
 	solutionVersionFlag, _ := cmd.Flags().GetString("solution-version")
+	solutionNameFromFlag, _ := cmd.Flags().GetString("solution-name")
 
 	// prepare tag-related flags (note: these will be replaced if isolation is attempted)
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
@@ -76,7 +77,12 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	if solutionAlreadyZipped {
 		solutionBundlePath = absolutizePath(solutionBundlePath)
 		solutionFileName := filepath.Base(solutionBundlePath)
-		solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
+		// handle case where we are passing the solution name as a flag argument
+		if solutionNameFromFlag != "" {
+			solutionName = solutionNameFromFlag
+		} else {
+			solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
+		}
 		solutionVersion = solutionVersionFlag                                                       // TODO: extract from archive
 		solutionDisplayText = fmt.Sprintf("solution archive %q", solutionBundlePath)
 		logFields = map[string]interface{}{

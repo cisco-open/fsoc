@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
-	//"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/output"
 )
 
 var solutionZapCmd = &cobra.Command{
@@ -58,18 +58,34 @@ func getSolutionZapCmd() *cobra.Command {
 }
 
 func zapSolution(cmd *cobra.Command, args []string) {
+	var confirmationAnswer string
 	var solutionPathInFlag string
 	var solutionId string
 	var solutionInstallObjectQuery string
 	var lastSolutionInstallVersion string
+	var solutionName string
+
 	solutionInstallObjectChan := make(chan StatusItem)
 	solutionObjectChan := make(chan ExtensibilitySolutionObjectData)
-	solutionName := getSolutionNameFromArgs(cmd, args, "")
+
 	cfg := config.GetCurrentContext()
-	solutionName = strings.ToLower(solutionName)
 	solutionTag, _ := cmd.Flags().GetString("tag")
+	skipConfirmationMessage, _ := cmd.Flags().GetBool("yes")
+	cmd.Flags().StringVar(&solutionName, "solution-name", "", "")
 	cmd.Flags().StringVar(&solutionPathInFlag, "solution-bundle", "", "")
 	cmd.Flags().StringVar(&lastSolutionInstallVersion, "solution-version", "", "")
+
+	solutionName = getSolutionNameFromArgs(cmd, args, "")
+	solutionName = strings.ToLower(solutionName)
+
+	if !skipConfirmationMessage {
+		fmt.Print(fmt.Sprintf("Please type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s ", solutionName, solutionTag))
+		fmt.Scanln(&confirmationAnswer)
+	
+		if confirmationAnswer != "YES" {
+			log.Fatal("Solution zap not confirmed, exiting command")
+		}
+	}
 
 	headers := map[string]string{
 		"layer-type": "TENANT",
@@ -131,6 +147,8 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	solutionPathInFlag = solutionArchive.Name()
 
 	uploadSolution(cmd, true)
+
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))
 }
 
 func (s StatusData) IsEmpty() bool {
