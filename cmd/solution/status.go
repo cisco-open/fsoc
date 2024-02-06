@@ -52,7 +52,8 @@ type GetExtensibilitySolutionObjectByIdResponse struct {
 }
 
 type ExtensibilitySolutionObjectData struct {
-	IsSubscribed bool `json:"isSubscribed,omitempty"`
+	IsSubscribed bool   `json:"isSubscribed,omitempty"`
+	SolutionType string `json:"solutionType,omitempty"`
 }
 
 var solutionStatusCmd = &cobra.Command{
@@ -97,7 +98,7 @@ func getObjects(url string, headers map[string]string) StatusItem {
 	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
 
 	if err != nil {
-		log.Fatalf("Error fetching status object %q: %v", url, err)
+		log.Fatalf("Error fetching solution object %q: %v", url, err)
 	}
 
 	if len(res.Items) > 0 {

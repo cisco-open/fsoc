@@ -75,7 +75,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error())
 	}
 
-	manifest := createInitialSolutionManifest(solutionName, solutionType)
+	manifest := createInitialSolutionManifest(solutionName, solutionType, "1.0.0")
 
 	if cmd.Flags().Changed("include-service") {
 		output.PrintCmdStatus(cmd, "Adding the service-component.json \n")
@@ -109,12 +109,11 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	createSolutionManifestFile(solutionName, manifest)
 }
 
-func createInitialSolutionManifest(solutionName string, solutionType string) *Manifest {
+func createInitialSolutionManifest(solutionName string, solutionType string, solutionVersion string) *Manifest {
 
 	emptyDeps := make([]string, 0)
 	manifest := &Manifest{
 		ManifestVersion: "1.1.0",
-		SolutionVersion: "1.0.0",
 		Dependencies:    emptyDeps,
 		Description:     "description of your solution",
 		GitRepoUrl:      "the url for the git repo holding your solution",
@@ -124,6 +123,7 @@ func createInitialSolutionManifest(solutionName string, solutionType string) *Ma
 	}
 	manifest.Name = solutionName
 	manifest.SolutionType = solutionType
+	manifest.SolutionVersion = solutionVersion
 
 	return manifest
 

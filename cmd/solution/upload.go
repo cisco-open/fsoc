@@ -61,6 +61,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
 	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
+	solutionVersionFlag, _ := cmd.Flags().GetString("solution-version")
 
 	// prepare tag-related flags (note: these will be replaced if isolation is attempted)
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
@@ -76,7 +77,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		solutionBundlePath = absolutizePath(solutionBundlePath)
 		solutionFileName := filepath.Base(solutionBundlePath)
 		solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
-		solutionVersion = ""                                                                        // TODO: extract from archive
+		solutionVersion = solutionVersionFlag                                                       // TODO: extract from archive
 		solutionDisplayText = fmt.Sprintf("solution archive %q", solutionBundlePath)
 		logFields = map[string]interface{}{
 			"zip_file":        solutionBundlePath,
@@ -250,7 +251,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Waiting %s for %s to be installed...\n", duration, solutionDisplayText))
 
-		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s"`, solutionName, solutionVersion)
+		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s" and data.tag eq "%s"`, solutionName, solutionVersion, solutionTagFlag)
 		query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filter))
 
 		headers := map[string]string{
