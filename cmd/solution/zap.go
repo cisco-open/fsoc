@@ -81,7 +81,7 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	solutionName = strings.ToLower(solutionName)
 
 	if !skipConfirmationMessage {
-		fmt.Printf("Please type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s ", solutionName, solutionTag)
+		fmt.Printf("WARNING! This command will remove all of the objects and types that are associated with this solution and will purge all data related to those objects and types.  Proceed with caution!  \nPlease type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s \n", solutionName, solutionTag)
 		fmt.Scanln(&confirmationAnswer)
 
 		if confirmationAnswer != "YES" {
@@ -127,34 +127,36 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	}
 	log.Infof(`last solution install version: %s`, lastSolutionInstallVersion)
 
-	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
+	tempDirRoot, err := os.MkdirTemp("", "")
+	if err != nil {
 		log.Fatal(err.Error())
 	}
+	solutionRootDirectory := filepath.Join(tempDirRoot, solutionName)
+
+	// Create the directory inside the temporary directory
+	if err := os.Mkdir(solutionRootDirectory, 0755); err != nil {
+		log.Fatal(err.Error())
+	}
+
+	// remove the temporary blank solution created so that the zap command can be run again in the same directory without
+	// any hiccups
+	defer os.RemoveAll(tempDirRoot)
 
 	manifest := createInitialSolutionManifest(solutionName, solutionType, lastSolutionInstallVersion)
 	if err := bumpManifestPatchVersion(manifest); err != nil {
 		log.Fatalf(err.Error())
 	}
-	createSolutionManifestFile(solutionName, manifest)
+	createSolutionManifestFile(solutionRootDirectory, manifest)
 
-	currentDirectory, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	solutionRootDirectory := filepath.Join(currentDirectory, solutionName)
 	log.Infof(`current solutionRootDirectoryPath: %s`, solutionRootDirectory)
 	solutionArchive := generateZip(cmd, solutionRootDirectory, "")
 	log.Infof(`current solutionArchive path after package in .zap: %v`, solutionArchive.Name())
 	solutionPathInFlag = solutionArchive.Name()
+	defer os.RemoveAll(solutionPathInFlag)
 
 	uploadSolution(cmd, true)
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))
-
-	// remove the temporary blank solution created so that the zap command can be run again in the same directory without
-	// any hiccups
-	os.RemoveAll(solutionRootDirectory)
 }
 
 func (s StatusData) IsEmpty() bool {
