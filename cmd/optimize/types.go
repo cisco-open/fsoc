@@ -168,6 +168,7 @@ type Blockers struct {
 	MTBFHigh                    *Blocker `json:"mtbf_high,omitempty"`
 	ErrorRateHigh               *Blocker `json:"error_rate_high,omitempty"`
 	NoOrchestrationAgent        *Blocker `json:"no_orchestration_agent,omitempty"`
+	BurstableInstance           *Blocker `json:"burstable_instance,omitempty"`
 }
 
 type Blocker struct {

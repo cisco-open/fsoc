@@ -483,19 +483,19 @@ func assignToBlocker(rawBlockers map[string]interface{}) (blockers Blockers) {
 			blocker.Description = "More than 5% of requests are resulting in errors"
 			blocker.Impact = "This may indicate that there's a larger problem in the service, so we cannot perform optimization tests"
 			blockers.ErrorRateHigh = blocker
-		case "no_orchestration":
+		case "no_orchestration_agent":
 			blocker.Description = "We didn't detect the Orchestration Client on your workload, which is responsible for provisioning and deprovisioning the Servo Agent"
 			blocker.Impact = "Optimization cannot be performed because the Servo Agent can't be provisioned on your cluster"
 			blockers.NoOrchestrationAgent = blocker
+		case "burstable_instance":
+			blocker.Description = "Workload detected to be on a burstable instance type. Unlike standard compute nodes, burstable nodes operate by offering baseline performance levels with the capability to burst, or temporarily increase, performance above the baseline as needed"
+			blocker.Impact = "Using burstable nodes for sustained loads can lead to unpredictable performance and costs compared to regular nodes, which makes them unsuitable for optimization"
+			blockers.BurstableInstance = blocker
 		default:
 			log.Warnf("Unknown blocker %q encountered", key)
 		}
 		data := rawBlockers[key].(map[string]interface{})
-		if data["overridable"] == "true" {
-			blocker.Overridable = true
-		} else {
-			blocker.Overridable = false
-		}
+		blocker.Overridable = data["overridable"] == "true"
 	}
 	return blockers
 }
