@@ -74,7 +74,7 @@ func getUpdateObjectCmd() *cobra.Command {
 	objStoreUpdateCmd.Flags().
 		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
 
-	_ = objStoreUpdateCmd.Flags().MarkHidden("include-tags")
+	_ = objStoreUpdateCmd.Flags().MarkDeprecated("include-tags", "Support for including tags in the response has been deprecated for now and will be fully added back once the new version of the json-store apis is released.")
 
 	objStoreUpdateCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")
