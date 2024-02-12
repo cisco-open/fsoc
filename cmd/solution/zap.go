@@ -61,7 +61,7 @@ func getSolutionZapCmd() *cobra.Command {
 
 func zapSolution(cmd *cobra.Command, args []string) {
 	var confirmationAnswer string
-	var solutionPathInFlag string
+	var solutionZipPath string
 	var solutionId string
 	var solutionInstallObjectQuery string
 	var lastSolutionInstallVersion string
@@ -73,18 +73,15 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	cfg := config.GetCurrentContext()
 	solutionTag, _ := cmd.Flags().GetString("tag")
 	skipConfirmationMessage, _ := cmd.Flags().GetBool("yes")
-	cmd.Flags().StringVar(&solutionName, "solution-name", "", "")
-	cmd.Flags().StringVar(&solutionPathInFlag, "solution-bundle", "", "")
-	cmd.Flags().StringVar(&lastSolutionInstallVersion, "solution-version", "", "")
 
 	solutionName = getSolutionNameFromArgs(cmd, args, "")
 	solutionName = strings.ToLower(solutionName)
 
 	if !skipConfirmationMessage {
-		fmt.Printf("WARNING! This command will remove all of the objects and types that are associated with this solution and will purge all data related to those objects and types.  Proceed with caution!  \nPlease type YES and hit enter confirm that you want to zap the solution with name: %s and tag: %s \n", solutionName, solutionTag)
+		fmt.Printf("WARNING! This command will remove all of the objects and types that are associated with this solution and will purge all data related to those objects and types.  Proceed with caution!  \nPlease type the name of the solution you want to delete and hit enter confirm that you want to zap the solution with name: %s and tag: %s \n", solutionName, solutionTag)
 		fmt.Scanln(&confirmationAnswer)
 
-		if confirmationAnswer != "YES" {
+		if confirmationAnswer != solutionName {
 			log.Fatal("Solution zap not confirmed, exiting command")
 		}
 	}
@@ -116,7 +113,6 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	solutionObject := <-solutionObjectChan
 	solutionInstallObjectData := solutionInstallObject.StatusData
 	solutionType := solutionObject.SolutionType
-	log.Infof(`solution type: %s`, solutionType)
 	if solutionInstallObjectData.IsEmpty() {
 		log.WithFields(
 			log.Fields{"solution": solutionName, "tag": solutionTag, "solutionID": solutionId},
@@ -125,7 +121,6 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	} else {
 		lastSolutionInstallVersion = solutionInstallObjectData.SolutionVersion
 	}
-	log.Infof(`last solution install version: %s`, lastSolutionInstallVersion)
 
 	tempDirRoot, err := os.MkdirTemp("", "")
 	if err != nil {
@@ -148,13 +143,11 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	}
 	createSolutionManifestFile(solutionRootDirectory, manifest)
 
-	log.Infof(`current solutionRootDirectoryPath: %s`, solutionRootDirectory)
 	solutionArchive := generateZip(cmd, solutionRootDirectory, "")
-	log.Infof(`current solutionArchive path after package in .zap: %v`, solutionArchive.Name())
-	solutionPathInFlag = solutionArchive.Name()
-	defer os.RemoveAll(solutionPathInFlag)
+	solutionZipPath = solutionArchive.Name()
+	defer os.RemoveAll(solutionZipPath)
 
-	uploadSolution(cmd, true)
+	uploadSolution(cmd, true, WithSolutionName(solutionName), WithSolutionZipPath(solutionZipPath), WithSolutionInstallVersion(lastSolutionInstallVersion))
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))
 }
