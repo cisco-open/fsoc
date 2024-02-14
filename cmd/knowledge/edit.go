@@ -56,11 +56,6 @@ func editObjectCmd() *cobra.Command {
 	_ = editCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	editCmd.Flags().
-		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
-
-	_ = editCmd.Flags().MarkDeprecated("include-tags", "Support for including tags in the response has been deprecated for now and will be fully added back once the new version of the json-store apis is released.")
-
-	editCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")
 
 	return editCmd
@@ -75,17 +70,9 @@ func editObject(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error())
 	}
 
-	var includeTagsString string = "false"
-	includeTagsFlag, _ := cmd.Flags().GetBool("include-tags")
-
-	if includeTagsFlag {
-		includeTagsString = "true"
-	}
-
 	headers := map[string]string{
-		"layer-type":  layerType,
-		"layer-id":    layerID,
-		"includeTags": includeTagsString,
+		"layer-type": layerType,
+		"layer-id":   layerID,
 	}
 	httpOptions := &api.Options{Headers: headers}
 	url := getObjectUrl(fqtn, objID)
@@ -127,10 +114,9 @@ func editObject(cmd *cobra.Command, args []string) {
 
 	// Send update to server, with etag
 	headersPut := map[string]string{
-		"layer-type":  layerType,
-		"layer-id":    layerID,
-		"If-Match":    etag,
-		"includeTags": includeTagsString,
+		"layer-type": layerType,
+		"layer-id":   layerID,
+		"If-Match":   etag,
 	}
 	var resPut any
 	err = api.JSONPut(url, editedData, &resPut, &api.Options{Headers: headersPut})

@@ -162,8 +162,6 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 	solutionPath = absolutizePath(solutionPath)
 	solutionParentPath := filepath.Dir(solutionPath)
 
-	log.Infof("got solution parent path after absolute: %s", solutionParentPath)
-
 	// switch cwd to the solution directory for archiving
 	fsocWorkingDir, err := os.Getwd()
 	if err != nil {
