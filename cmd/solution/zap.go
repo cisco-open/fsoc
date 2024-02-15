@@ -146,12 +146,13 @@ func zapSolution(cmd *cobra.Command, args []string) {
 		log.Fatalf(err.Error())
 	}
 	createSolutionManifestFile(solutionRootDirectory, manifest)
+	updatedManifestVersion := manifest.SolutionVersion
 
 	solutionArchive := generateZip(cmd, solutionRootDirectory, "")
 	solutionZipPath = solutionArchive.Name()
 	defer os.RemoveAll(solutionZipPath)
 
-	uploadSolution(cmd, true, WithSolutionName(solutionName), WithSolutionZipPath(solutionZipPath), WithSolutionInstallVersion(lastSolutionInstallVersion))
+	uploadSolution(cmd, true, WithSolutionName(solutionName), WithSolutionZipPath(solutionZipPath), WithSolutionInstallVersion(updatedManifestVersion))
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))
 }
