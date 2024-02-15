@@ -54,13 +54,14 @@ var updateChannel chan *semver.Version
 // rootCmd represents the base command when called without any subcommands
 // TODO: replace github link "for more info" with Cisco DevNet link for fsoc once published
 var rootCmd = &cobra.Command{
-	Use:   "fsoc",
+	Use:   "fsoc GROUP [COMMAND] [FLAGS...] [ARGUMENTS...]",
 	Short: "fsoc - Cisco Observability Platform Control Tool",
-	Long: `fsoc is an open source utility that serves as an entry point for developers on the Cisco Observability
-Platform (https://developer.cisco.com/docs/fso/).
+	Long: `fsoc is an open source utility that serves as a command line interface to the Cisco Observability
+Platform (https://developer.cisco.com/docs/fso/). 
 
-It allows developers to interact with the product environments--development, test and production--in a
-uniform way and to perform common tasks. fsoc primarily targets developers building solutions on the platform.
+fsoc provides a set of commands to interact with the platform. It allows developers to interact in a uniform way
+with the platform's different environments (development, test, production) and conveniently switch between them.
+fsoc primarily targets developers building solutions on the platform.
 
 You can use the --config and --profile flags to select authentication credentials to use. You can also use
 environment variables FSOC_CONFIG and FSOC_PROFILE, respectively. The command line flags take precedence.
@@ -73,19 +74,19 @@ fsoc logs its execution details into a log file. By default, fsoc shows only war
 the output. You can use the --verbose flag to show all log messages and/or the --log flag to set a desired location
 for saving the log file.
 
-Additional user docs for fsoc are available at https://developer.cisco.com/docs/fso/#!overview/overview.
+Detailed user docs for fsoc are available at https://developer.cisco.com/docs/fso/#!overview/overview.
+For source code and build instructions, see also https://github.com/cisco-open/fsoc.
 
-Examples:
+NOTE: fsoc is in alpha; breaking changes may occur.`,
+
+	Example: `
   fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
   fsoc login
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
   fsoc solution list
   fsoc solution list -o json
-  FSOC_CONFIG=tenant5-config.yaml fsoc solution subscribe spacefleet --profile admin
+  FSOC_CONFIG=tenant5-config.yaml fsoc solution subscribe spacefleet --profile admin`,
 
-For more information, see https://github.com/cisco-open/fsoc
-
-NOTE: fsoc is in alpha; breaking changes may occur`,
 	PersistentPreRun:  preExecHook,
 	PersistentPostRun: postExecHook,
 	TraverseChildren:  true,
