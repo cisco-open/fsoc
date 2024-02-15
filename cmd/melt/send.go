@@ -47,6 +47,8 @@ const (
 	OutputFormatHex   = melt.DumpFormatHex
 )
 
+const nRandomDatapoints = 5
+
 func init() {
 	meltSendCmd.Flags().Bool("dry-run", false, "Process data but don't send it to the ingestion API")
 	meltSendCmd.Flags().Bool("dump", false, "Display MELT data protobuf payloads")
@@ -91,12 +93,10 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 			entity.SetAttribute("telemetry.sdk.name", "fsoc-melt")
 		}
 		for _, m := range entity.Metrics {
-			et := time.Now()
 			if len(m.DataPoints) == 0 {
-				for i := 1; i < 6; i++ {
-					st := et.Add(time.Minute * -1)
-
-					// m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*50)
+				st := time.Now().Add(-time.Minute * nRandomDatapoints) // step back in time
+				for i := 0; i < nRandomDatapoints; i++ {
+					et := st.Add(time.Minute * 1)
 
 					// 2023-10-04, Wayne Brown
 					// Adding in code to allow for min / max thresholds.
@@ -157,7 +157,7 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 					}
 
 					m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
-					et = st
+					st = et
 				}
 			}
 		}
