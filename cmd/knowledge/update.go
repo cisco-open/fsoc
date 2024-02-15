@@ -72,9 +72,6 @@ func getUpdateObjectCmd() *cobra.Command {
 	_ = objStoreUpdateCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
 
 	objStoreUpdateCmd.Flags().
-		Bool("include-tags", false, "Include knowledge object tags in the response from the Knowledge Store")
-
-	objStoreUpdateCmd.Flags().
 		String("layer-id", "", "The layer-id of the knowledge object to update. Optional for TENANT and SOLUTION layers ")
 
 	return objStoreUpdateCmd
@@ -111,17 +108,9 @@ func updateObject(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	var includeTagsString string = "false"
-	includeTagsFlag, _ := cmd.Flags().GetBool("include-tags")
-
-	if includeTagsFlag {
-		includeTagsString = "true"
-	}
-
 	headers := map[string]string{
-		"layer-type":  layerType,
-		"layer-id":    layerID,
-		"includeTags": includeTagsString,
+		"layer-type": layerType,
+		"layer-id":   layerID,
 	}
 
 	var res any

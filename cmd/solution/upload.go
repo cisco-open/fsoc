@@ -34,6 +34,32 @@ import (
 
 const MAX_SUBSCRIBE_TRIES = 4
 
+type uploadOptions struct {
+	solutionName           string
+	solutionZipPath        string
+	solutionInstallVersion string
+}
+
+type uploadOption func(*uploadOptions)
+
+func WithSolutionName(name string) uploadOption {
+	return func(opts *uploadOptions) {
+		opts.solutionName = name
+	}
+}
+
+func WithSolutionZipPath(path string) uploadOption {
+	return func(opts *uploadOptions) {
+		opts.solutionZipPath = path
+	}
+}
+
+func WithSolutionInstallVersion(version string) uploadOption {
+	return func(opts *uploadOptions) {
+		opts.solutionInstallVersion = version
+	}
+}
+
 func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manifestPath string) {
 	if err := bumpManifestPatchVersion(manifest); err != nil {
 		log.Fatal(err.Error())
@@ -44,7 +70,12 @@ func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manif
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))
 }
 
-func uploadSolution(cmd *cobra.Command, push bool) {
+func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
+	opts := uploadOptions{}
+	for _, option := range options {
+		option(&opts)
+	}
+
 	var err error
 	var solutionName string
 	var solutionVersion string
@@ -60,7 +91,12 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	}
 	bumpFlag, _ := cmd.Flags().GetBool("bump")
 	solutionBundlePath, _ := cmd.Flags().GetString("solution-bundle")
+	if solutionBundlePath == "" && opts.solutionZipPath != "" {
+		solutionBundlePath = opts.solutionZipPath
+	}
 	solutionRootDirectory, _ := cmd.Flags().GetString("directory")
+	solutionVersionFromOptions := opts.solutionInstallVersion
+	solutionNameFromOptions := opts.solutionName
 
 	// prepare tag-related flags (note: these will be replaced if isolation is attempted)
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
@@ -75,8 +111,13 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 	if solutionAlreadyZipped {
 		solutionBundlePath = absolutizePath(solutionBundlePath)
 		solutionFileName := filepath.Base(solutionBundlePath)
-		solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
-		solutionVersion = ""                                                                        // TODO: extract from archive
+		// handle case where we are passing the solution name as a flag argument
+		if solutionNameFromOptions != "" {
+			solutionName = solutionNameFromOptions
+		} else {
+			solutionName = solutionFileName[:len(solutionFileName)-len(filepath.Ext(solutionFileName))] // TODO: extract from archive
+		}
+		solutionVersion = solutionVersionFromOptions // TODO: extract from archive
 		solutionDisplayText = fmt.Sprintf("solution archive %q", solutionBundlePath)
 		logFields = map[string]interface{}{
 			"zip_file":        solutionBundlePath,
@@ -250,7 +291,7 @@ func uploadSolution(cmd *cobra.Command, push bool) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Waiting %s for %s to be installed...\n", duration, solutionDisplayText))
 
-		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s"`, solutionName, solutionVersion)
+		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s" and data.tag eq "%s"`, solutionName, solutionVersion, solutionTagFlag)
 		query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filter))
 
 		headers := map[string]string{
