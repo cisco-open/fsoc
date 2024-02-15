@@ -137,7 +137,11 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	// any hiccups
 	defer os.RemoveAll(tempDirRoot)
 
-	manifest := createInitialSolutionManifest(solutionName, solutionType, lastSolutionInstallVersion)
+	// create a new solution manifest and bump the version to the next
+	manifest := createInitialSolutionManifest(
+		solutionName,
+		WithSolutionType(solutionType),
+		WithSolutionVersion(lastSolutionInstallVersion))
 	if err := bumpManifestPatchVersion(manifest); err != nil {
 		log.Fatalf(err.Error())
 	}
