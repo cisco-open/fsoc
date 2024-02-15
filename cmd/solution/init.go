@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/apex/log"
@@ -75,7 +76,7 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error())
 	}
 
-	manifest := createInitialSolutionManifest(solutionName, solutionType, "1.0.0")
+	manifest := createInitialSolutionManifest(solutionName, WithSolutionType(solutionType))
 
 	if cmd.Flags().Changed("include-service") {
 		output.PrintCmdStatus(cmd, "Adding the service-component.json \n")
@@ -109,11 +110,62 @@ func generateSolutionPackage(cmd *cobra.Command, args []string) {
 	createSolutionManifestFile(solutionName, manifest)
 }
 
-func createInitialSolutionManifest(solutionName string, solutionType string, solutionVersion string) *Manifest {
+// --- Solution Manifest Helpers
+
+type solutionManifestOptions struct {
+	manifestVersion string
+	solutionVersion string
+	solutionType    string
+}
+
+type SolutionManifestOption func(*solutionManifestOptions)
+
+func WithManifestVersion(version string) SolutionManifestOption {
+	return func(o *solutionManifestOptions) {
+		o.manifestVersion = version
+	}
+}
+
+func WithSolutionVersion(version string) SolutionManifestOption {
+	return func(o *solutionManifestOptions) {
+		o.solutionVersion = version
+	}
+}
+
+func WithSolutionType(solutionType string) SolutionManifestOption {
+	return func(o *solutionManifestOptions) {
+		o.solutionType = solutionType
+	}
+}
+
+var knownSolutionTypes = []string{"component", "module", "application"}
+var knownManifestVersions = []string{"1.0.0", "1.1.0"}
+
+func createInitialSolutionManifest(solutionName string, options ...SolutionManifestOption) *Manifest {
+
+	opts := solutionManifestOptions{
+		manifestVersion: "1.1.0",
+		solutionVersion: "1.0.0",
+		solutionType:    "component",
+	}
+	for _, o := range options {
+		o(&opts)
+	}
+
+	// soft-validate options
+	if !slices.Contains(knownSolutionTypes, opts.solutionType) {
+		log.Warnf("Unknown solution type %q (expected one of %q); proceeding anyway", opts.solutionType, knownSolutionTypes)
+	}
+	if !slices.Contains(knownManifestVersions, opts.manifestVersion) {
+		log.Warnf("Unknown manifest version %q (expected one of %q); proceeding anyway", opts.manifestVersion, knownManifestVersions)
+	}
 
 	emptyDeps := make([]string, 0)
 	manifest := &Manifest{
-		ManifestVersion: "1.1.0",
+		ManifestVersion: opts.manifestVersion,
+		Name:            solutionName,
+		SolutionType:    opts.solutionType,
+		SolutionVersion: opts.solutionVersion,
 		Dependencies:    emptyDeps,
 		Description:     "description of your solution",
 		GitRepoUrl:      "the url for the git repo holding your solution",
@@ -121,12 +173,8 @@ func createInitialSolutionManifest(solutionName string, solutionType string, sol
 		HomePage:        "the url for this solution's homepage",
 		Readme:          "the url for this solution's readme file",
 	}
-	manifest.Name = solutionName
-	manifest.SolutionType = solutionType
-	manifest.SolutionVersion = solutionVersion
 
 	return manifest
-
 }
 
 func writeSolutionManifest(folderName string, manifest *Manifest) error {
