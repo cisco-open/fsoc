@@ -5,6 +5,9 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/cisco-open/fsoc?style=for-the-badge)](https://goreportcard.com/report/github.com/cisco-open/fsoc) 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Github All Releases](https://img.shields.io/github/downloads/cisco-open/fsoc/total.svg?style=for-the-badge)](https://github.com/cisco-open/fsoc/releases/latest) 
+![build](https://github.com/ossf/scorecard/workflows/build/badge.svg?branch=main)
+![CodeQL](https://github.com/ossf/scorecard/workflows/CodeQL/badge.svg?branch=main)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/cisco-open/fsoc/badge)](https://securityscorecards.dev/viewer/?uri=github.com/cisco-open/fsoc)
 
 
 The Cisco Observability Platform provides core capabilities for developers to build observability solutions to gain visibility and actionable insights across their technology and business stack. The platform leverages OpenTelemetry collections to collect MELT* telemetry and then transforms the raw data into flexible and scalable objects that can be correlated and queried.
