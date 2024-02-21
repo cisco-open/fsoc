@@ -10,7 +10,12 @@ updates:
       - "*"
   open-pull-requests-limit: 5
 
-- package-ecosystem: github-actions
-  directory: /
-  schedule:
-    interval: daily
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    groups:
+      github:
+        patterns:
+          - "actions/*"
+          - "github/*"
+    schedule:
+      interval: "daily"
