@@ -180,7 +180,7 @@ func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
 				ascEntity := strings.Split(assoc, ":")[1]
 				elements = append(elements, EcpRelationshipMapEntry{
 					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
+					Path:            fmt.Sprintf("out(common:has).to(%s)", assoc),
 					EntityAttribute: "id",
 					IconName:        "AgentType.Appd",
 				})
