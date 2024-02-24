@@ -33,48 +33,49 @@ import (
 
 var (
 	//	currentContext bool
-	createContextLong = `Create or modify a context entry (profile) in an fsoc config file.
+	createContextLong = `Create a new context entry (profile) in an fsoc config file.
 
-Use the --config and --profile flags to create/update settings in a different config file and profile, respectively. These
-flags are available for all fsoc commands to direct which profile should be used to execute the command. The environment
-variables FSOC_CONFIG and FSOC_PROFILE can be used instead of flags to select a file and profile. The flags take precedence if both
-are specified.
-
-Specifying a profile name that already has some settings will intelligently update the context in a way that avoids
-mixing settings from different auth types. If you want to disable this and just replace values as given, use the --patch flag.
-Setting a value to the empty string (e.g., knowledge.apiver="") will delete the configuration value.
-
-Specifying a profile name that doesn't exist will create a new profile and set the values.
+Specify the desired name for the new profile, followed by desired settings for the profile as a list of SETTING=VALUE pairs. 
+The settings are specific to the authentication method used by the context, so specifying the auth method first is a good practice. 
 
 To see the list of configuration settings supported by fsoc, use the "fsoc config show-fields" command.	
-Note that each authentication method requires a slightly different set of values, see examples below.
+Note that each authentication method requires slightly different set of settings, so see the examples below for your use case.
+
+When creating the initial context for fsoc (after installing it), it is customary not to specify the context name, which will
+use the default name, "` + cfg.DefaultContext + `". This also becomes the current context that will be used by fsoc until changed.
+
+After creating the new context, fsoc will attempt to log in to it in order to verify that it is operable. Use the --no-login flag to
+skip this step.
+
+Once created, the new context can be modified with the "fsoc config set" command. The "fsoc config use" command can be used to
+make the new context the default one for the config file. See "fsoc help config" for more information.
+
 `
 
 	createContextExample = `
-  # Set oauth credentials (recommended for interactive use)
-  fsoc config set auth=oauth url=https://mytenant.observe.appdynamics.com
+  # Create an OAuth-based profile (recommended for interactive use)
+  fsoc config create auth=oauth url=https://mytenant.observe.appdynamics.com
+  fsoc config create tenant2 auth=oauth url=https://tenant2.observe.appdynamics.com 
 
-  # Set service or agent principal credentials (secret file must remain accessible)
-  fsoc config set auth=service-principal secret-file=my-service-principal.json
-  fsoc config set auth=agent-principal secret-file=collectors-values.yaml
-  fsoc config set auth=agent-principal secret-file=client-values.json tenant=123456 url=https://mytenant.observe.appdynamics.com
+  # Create profiles with service or agent principal credentials (secret file must remain accessible)
+  fsoc config create service auth=service-principal secret-file=my-service-principal.json
+  fsoc config create agent1 auth=agent-principal secret-file=collectors-values.yaml
+  fsoc config create agent2 auth=agent-principal secret-file=client-values.json tenant=123456 url=https://mytenant.observe.appdynamics.com
 
   # Set local access
-  fsoc config set auth=local url=http://localhost appd-pid=PID appd-tid=TID appd-pty=PTY
-  
-  # Set the token field on the "prod" context entry without touching other values
-  fsoc config set profile prod token=top-secret --patch
+  fsoc config create dev auth=local url=http://localhost appd-pid=PID appd-tid=TID appd-pty=PTY
  
-  # Create profiles with different names
-  fsoc config set  --profile ci auth=service-principal secret-file=my-service-principal.json
-  fsoc config set  --profile ingest auth=agent-principal secret-file=agent-helm-values.yaml`
+  # Create profiles for different purposes (e.g., continuous integration, ingestion)
+  fsoc config create auth=service-principal secret-file=my-service-principal.json --no-login --config=ci-config.yaml
+  fsoc config create ingest auth=agent-principal secret-file=agent-helm-values.yaml
+`
 )
 
 func newCmdConfigCreate() *cobra.Command {
 
 	var cmd = &cobra.Command{
 		Use:         "create [CONTEXT_NAME] [--config CONFIG_FILE] [SETTING=VALUE]+",
-		Short:       "Create a new context an fsoc config file",
+		Short:       "Create a new context in an fsoc config file",
 		Long:        createContextLong,
 		Example:     createContextExample,
 		Annotations: map[string]string{cfg.AnnotationForConfigBypass: ""},
