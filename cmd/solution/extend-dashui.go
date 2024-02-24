@@ -150,47 +150,34 @@ func getRelationshipMap(entity *FmmEntity) *DashuiTemplate {
 		IconName:        "AgentType.Appd",
 	})
 
+	// append associations
 	if entity.AssociationTypes != nil {
-		if entity.AssociationTypes.Consists_of != nil {
-			for _, assoc := range entity.AssociationTypes.Consists_of {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
-		if entity.AssociationTypes.Aggregates_of != nil {
-
-			for _, assoc := range entity.AssociationTypes.Aggregates_of {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
-
-		if entity.AssociationTypes.Has != nil {
-			for _, assoc := range entity.AssociationTypes.Has {
-				ascEntity := strings.Split(assoc, ":")[1]
-				elements = append(elements, EcpRelationshipMapEntry{
-					Key:             ascEntity,
-					Path:            fmt.Sprintf("out(common:consists_of).to(%s)", assoc),
-					EntityAttribute: "id",
-					IconName:        "AgentType.Appd",
-				})
-			}
-		}
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Aggregates_of, "common:aggregates_of")...)
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Consists_of, "common:consists_of")...)
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Is_a, "common:is_a")...)
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Has, "common:has")...)
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Relates_to, "common:relates_to")...)
+		elements = append(elements, getEcpRelationshipMapEntries(entity.AssociationTypes.Uses, "common:uses")...)
 	}
 
 	ecpLeftBar.Elements = elements
 
 	return ecpRelationshipMap
+}
+
+// EcpRelationshipMapEntry builds a set of EcpRelationshipMapEntry objects, one for each association, all with the same association type
+func getEcpRelationshipMapEntries(associations []string, assocType string) []EcpRelationshipMapEntry {
+	entries := make([]EcpRelationshipMapEntry, 0, len(associations))
+	for _, assoc := range associations {
+		ascEntity := strings.Split(assoc, ":")[1]
+		entries = append(entries, EcpRelationshipMapEntry{
+			Key:             ascEntity,
+			Path:            fmt.Sprintf("out(%s).to(%s)", assocType, assoc),
+			EntityAttribute: "id",
+			IconName:        "AgentType.Appd",
+		})
+	}
+	return entries
 }
 
 func getEcpListInspector(entity *FmmEntity) *DashuiTemplate {
