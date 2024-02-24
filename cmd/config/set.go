@@ -29,6 +29,8 @@ import (
 	"golang.org/x/exp/slices"
 
 	cfg "github.com/cisco-open/fsoc/config"
+	"github.com/cisco-open/fsoc/output"
+	"github.com/cisco-open/fsoc/platform/api"
 )
 
 var (
@@ -88,6 +90,9 @@ func newCmdConfigSet() *cobra.Command {
 
 	// real command flag(s)
 	cmd.Flags().Bool("patch", false, "Bypass field clearing")
+	cmd.Flags().Bool("login", false, "Try to log in to the new context after creating or updating it (in the future, this will become the default)")
+	cmd.Flags().Bool("no-login", false, "Do not attempt to log in to the newly modified context (default, this is for future compatibility)")
+	cmd.MarkFlagsMutuallyExclusive("login", "no-login")
 
 	// deprecated flags representing core config settings
 	cmd.Flags().String(cfg.AppdPid, "", "pid to use (local auth type only, provide raw value to be encoded)")
@@ -119,6 +124,10 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	var subsystemSettingArgs []string
 	var err error
 
+	// Get login flags (mutual exclusivity verified by cobra)
+	login, _ := cmd.Flags().GetBool("login")
+	noLogin, _ := cmd.Flags().GetBool("no-login")
+
 	// transfer core fsoc settings from args to legacy flags, and extract the remainder
 	// as subsystem-specific settings
 	subsystemSettingArgs, err = transferCoreArgs(cmd, args)
@@ -148,6 +157,7 @@ func configSetContext(cmd *cobra.Command, args []string) {
 			Name: contextName,
 		}
 	}
+	cfg.ForceSetActiveProfileName(contextName) // for possible subsequent login or other operations
 
 	patch, _ := cmd.Flags().GetBool("patch")
 
@@ -307,6 +317,15 @@ func configSetContext(cmd *cobra.Command, args []string) {
 	if err := cfg.UpsertContext(ctxPtr); err != nil {
 		log.Fatalf("%v", err)
 	}
+
+	// log into the updated context, if requested
+	if login && !noLogin {
+		if err := api.Login(); err != nil {
+			log.Fatalf("Failed to log into the updated context: %v; please update the settings and try again", err)
+		}
+	}
+
+	output.PrintCmdOutput(cmd, fmt.Sprintf("Context %q updated", contextName))
 }
 
 // expandHomePath replaces ~ in the path with the absolute home directory

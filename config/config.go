@@ -235,6 +235,14 @@ func SetActiveProfile(cmd *cobra.Command, args []string, emptyOK bool) {
 	activeProfile = profile
 }
 
+// ForceSetActiveProfileName sets the name of the profile to the specified value. This is used
+// primarily when managing profiles, for commands where the profile name is given as an argument
+// (which takes precedence over any name set in env var or config file's default). Note that this
+// function does not validate the profile name or even its existence.
+func ForceSetActiveProfileName(profile string) {
+	activeProfile = profile
+}
+
 // GetCurrentProfileName returns the profile name that is used to select the context.
 // This is mostly the same as returned by GetCurrentContext().Name, except for the
 // case when a new profile is being created.
