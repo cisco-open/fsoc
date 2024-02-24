@@ -126,9 +126,13 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 	var solutionInstallationMessagePrefix string
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
 
+	// ensure that the solution exists.
+	// This also ensures that the user is logged in (to avoid a race condition on login for the subsequent parallel API calls)
+	solutionStatusItem := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
+
+	// fetch the remaining solution status objects in parallel
 	uploadStatusChan := make(chan StatusItem)
 	installStatusChan := make(chan StatusItem)
-	solutionStatusChan := make(chan ExtensibilitySolutionObjectData)
 	successfulSolutionInstallStatusChan := make(chan StatusItem)
 
 	go func() {
@@ -138,16 +142,14 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		installStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionInstallObjectQuery), requestHeaders)
 	}()
 	go func() {
-		solutionStatusChan <- getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
-	}()
-	go func() {
 		successfulSolutionInstallStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), successfulSolutionInstallObjectQuery), requestHeaders)
 	}()
 
 	uploadStatusItem := <-uploadStatusChan
 	installStatusItem := <-installStatusChan
-	solutionStatusItem := <-solutionStatusChan
 	successfulInstallStatusItem := <-successfulSolutionInstallStatusChan
+
+	// process status & display
 
 	installStatusData := installStatusItem.StatusData
 	successfulInstallStatusData := successfulInstallStatusItem.StatusData
