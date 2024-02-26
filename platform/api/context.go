@@ -42,7 +42,7 @@ func newCallContext() *callContext {
 	// get current config context
 	cfg := config.GetCurrentContext()
 	if cfg == nil {
-		log.Fatal("Missing context; use 'fsoc config set' to configure your context")
+		log.Fatal(`Missing context; use "fsoc config create" to configure your context`)
 		panic("unreachable") // keep golintci happy (until it recognizes apex/log fatals)
 	}
 	log.WithFields(log.Fields{"context": cfg.Name, "url": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")

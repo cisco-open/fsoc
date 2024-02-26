@@ -42,7 +42,7 @@ func ListContexts(prefix string) []string {
 
 // GetCurrentContext returns the context (access profile) selected by the user
 // for the particular invocation of the fsoc utility. Returns nil if no current context is defined (and the
-// only command allowed in this state is `config set`, which will create the context).
+// only commands allowed in this state are `config create|set`, which will create the context).
 // Note that GetCurrentContext returns a pointer into the config file's overall configuration; it can be
 // modified and then updated using ReplaceCurrentContext().
 func GetCurrentContext() *Context {

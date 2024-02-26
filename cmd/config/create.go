@@ -36,16 +36,20 @@ var (
 	createContextLong = `Create a new context entry (profile) in an fsoc config file.
 
 Specify the desired name for the new profile, followed by desired settings for the profile as a list of SETTING=VALUE pairs. 
-The settings are specific to the authentication method used by the context, so specifying the auth method first is a good practice. 
 
-To see the list of configuration settings supported by fsoc, use the "fsoc config show-fields" command.	
-Note that each authentication method requires slightly different set of settings, so see the examples below for your use case.
+The name of the context to create can be specified in several ways: as a first positional parameter (recommended for interactive use),
+as the value of the --profile flag or as the value of the FSOC_PROFILE environment variable. If more than one of these is specified,
+the positional parameter takes precedence over the flag, which takes precedence over the environment variable.
 
-When creating the initial context for fsoc (after installing it), it is customary not to specify the context name, which will
+When creating the initial context for fsoc (after installing it), it is customary not to specify the context name, which will then
 use the default name, "` + cfg.DefaultContext + `". This also becomes the current context that will be used by fsoc until changed.
 
-After creating the new context, fsoc will attempt to log in to it in order to verify that it is operable. Use the --no-login flag to
-skip this step.
+To see the list of configuration settings supported by fsoc, use the "fsoc config show-fields" command.	
+Many of the settings that can be configured are specific to the selected authentication method, so specifying the auth method
+setting first is a good practice (as shown in the examples below). 
+
+After creating the new context and storing the settings, fsoc will attempt to log in to the profiler in order to verify that it is operable.
+Use the --no-login flag to skip this step.
 
 Once created, the new context can be modified with the "fsoc config set" command. The "fsoc config use" command can be used to
 make the new context the default one for the config file. See "fsoc help config" for more information.
@@ -93,19 +97,20 @@ func configCreateContext(cmd *cobra.Command, args []string) {
 
 	// -- Perform command-line parsing checks first (syntax)
 
-	// warn if the --profile flag is used (it does not apply to this command)
-	if cmd.Flags().Changed("profile") {
-		log.Warn("Ignored the --profile flag, as it is not used by this command. Please specify the profile name to create as a first positional argument instead")
-	}
-
-	// get the context name, if specified (it will be the first argument and not contain an '=')
+	// get the context name, if specified (it will be the first argument and not contain an '='); trumps --profile and FSOC_PROFILE
 	if !strings.Contains(args[0], "=") {
 		contextName = args[0]
-		args = args[1:]
+		if contextName == "" {
+			log.Fatal("Context name, if specified as a first positional argument, must be non-empty")
+		}
+		args = args[1:] // remove from the args list so that the rest can be processed as settings
+	} else {
+		// Set name to (in priority order): --profile flag, FSOC_PROFILE env var, config file's default, fsoc default
+		// (The config file's default, if the file and context exists, will cause the command to fail later, which is the correct response)
+		cfg.SetActiveProfile(cmd, args, true)     // set to --profile or env var, empty if neither is set; "true" here means non-existent profile is ok
+		contextName = cfg.GetCurrentProfileName() // get the active profile name (if set) or default (if not set otherwise)
 	}
-	if contextName == "" {
-		contextName = cfg.DefaultContext
-	}
+	cfg.ForceSetActiveProfileName(contextName) // set to the name we chose according to the priority order above
 
 	// parse settings and separate the core fsoc settings from any subsystem-specific settings
 	// note that, unlike on `set`, this command does not support the legacy --flag-based settings (since it's a new command)
@@ -125,10 +130,6 @@ func configCreateContext(cmd *cobra.Command, args []string) {
 	if _, err := cfg.GetContext(contextName); err == nil {
 		log.Fatalf("Context %q already exists; create with a different name or use 'fsoc config set' to update this one", contextName)
 	}
-
-	// set the profile name (as if it was provided by --profile)
-	// this is necessary to ensure that the correct profile is used when loggin in and, in general, avoid clobbering an existing profile
-	cfg.ForceSetActiveProfileName(contextName)
 
 	// -- Fill in the new context
 

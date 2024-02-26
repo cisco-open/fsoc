@@ -31,8 +31,9 @@ func newCmdConfigShowFields() *cobra.Command {
 
 	var cmd = &cobra.Command{
 		Use:         "show-fields",
-		Short:       `Show fields that can be configured with "config set"`,
-		Long:        `Show the names and meaning of fields that can be configured with the "config set" command`,
+		Short:       `Show fields that can be configured in profiles`,
+		Long:        `Show the names and meaning of fields that can be configured with the "config create" and "config set" commands`,
+		Example:     `  fsoc config show-fields`,
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{cfg.AnnotationForConfigBypass: ""},
 		Run:         configShowFields,
@@ -41,13 +42,8 @@ func newCmdConfigShowFields() *cobra.Command {
 	return cmd
 }
 
-const helpIntro = `The following settings can be configured with the "config set" command.
+const helpIntro = `The following settings can be configured with the "config create" and "config set" commands.
 The current setting values can be seen with the "config get" command. 
-
-Examples:
-  fsoc config set auth=oauth url=mytenant.observe.appdynamics.com
-  fsoc config set auth=oauth url=mytest.observe.appdynamics.com knowledge.apiver=v2beta --profile test
-  fsoc config set auth=oauth url=mytest.observe.appdynamics.com knowledge.apiver="" --profile test
 
 Settings:`
 
