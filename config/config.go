@@ -229,7 +229,7 @@ func SetActiveProfile(cmd *cobra.Command, args []string, emptyOK bool) {
 	if !emptyOK && getContext(profile) == nil {
 		log.Fatalf("Could not find profile %q", profile)
 	}
-	if activeProfile != "" {
+	if activeProfile != "" && activeProfile != profile {
 		log.Warnf("The selected profile is being overridden: old=%q, new=%q", activeProfile, profile)
 	}
 	activeProfile = profile
