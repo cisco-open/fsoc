@@ -229,9 +229,17 @@ func SetActiveProfile(cmd *cobra.Command, args []string, emptyOK bool) {
 	if !emptyOK && getContext(profile) == nil {
 		log.Fatalf("Could not find profile %q", profile)
 	}
-	if activeProfile != "" {
+	if activeProfile != "" && activeProfile != profile {
 		log.Warnf("The selected profile is being overridden: old=%q, new=%q", activeProfile, profile)
 	}
+	activeProfile = profile
+}
+
+// ForceSetActiveProfileName sets the name of the profile to the specified value. This is used
+// primarily when managing profiles, for commands where the profile name is given as an argument
+// (which takes precedence over any name set in env var or config file's default). Note that this
+// function does not validate the profile name or even its existence.
+func ForceSetActiveProfileName(profile string) {
 	activeProfile = profile
 }
 

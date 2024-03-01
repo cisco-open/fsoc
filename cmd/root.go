@@ -80,8 +80,7 @@ For source code and build instructions, see also https://github.com/cisco-open/f
 NOTE: fsoc is in alpha; breaking changes may occur.`,
 
 	Example: `
-  fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
-  fsoc login
+  fsoc config create auth=oauth url=https://MYTENANT.observe.appdynamics.com
   fsoc uql "FETCH id, type, attributes FROM entities(k8s:workload)"
   fsoc solution list
   fsoc solution list -o json
@@ -225,7 +224,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 	// try to read the config file.and profile
 	err = viper.ReadInConfig()
 	if err != nil && !bypass {
-		log.Fatalf("fsoc is not configured, please use \"fsoc config set\" to configure an initial context")
+		log.Fatal(`fsoc is not configured, please use "fsoc config create" to configure an initial context`)
 	}
 
 	// override the config file's current profile from cmd line or env var
@@ -237,7 +236,7 @@ func preExecHook(cmd *cobra.Command, args []string) {
 		cfg := config.GetCurrentContext()         // nil if profile does not exist
 		exists := cfg != nil
 		if !exists && !bypass {
-			log.Fatalf("fsoc is not fully configured: missing profile %q; please use \"fsoc config set\" to configure it", profile)
+			log.Fatalf(`fsoc is not fully configured: missing profile %q; please use "fsoc config create" to configure it`, profile)
 		}
 		customSubsysConfigs := []string{}
 		if exists {

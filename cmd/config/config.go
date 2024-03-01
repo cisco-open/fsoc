@@ -40,6 +40,7 @@ func NewSubCmd() *cobra.Command {
 		TraverseChildren: true,
 	}
 
+	cmd.AddCommand(newCmdConfigCreate())
 	cmd.AddCommand(newCmdConfigGet())
 	cmd.AddCommand(newCmdConfigSet())
 	cmd.AddCommand(newCmdConfigUse())
