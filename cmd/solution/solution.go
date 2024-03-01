@@ -29,7 +29,7 @@ var solutionCmd = &cobra.Command{
 	Short: "Perform solution operations",
 	Long: `Perform solution lifecycle and control operations.
 
-For more information on platform solutions, see https://developer.cisco.com/docs/fso/#!create-a-solution-introduction`,
+For more information on platform solutions, see https://developer.cisco.com/docs/cisco-observability-platform/#!create-a-solution-introduction`,
 	Example:          `  fsoc solution list`,
 	TraverseChildren: true,
 }

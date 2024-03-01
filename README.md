@@ -19,7 +19,7 @@ lifecycle and interact with the core services and solutions in the platform.
 
 ## Documentation
 
-The `fsoc` [user documentation](https://developer.cisco.com/docs/fso/#!overview/overview) is published in Cisco's DevNet as part of the [platform documentation](https://developer.cisco.com/docs/fso/). 
+The `fsoc` [user documentation](https://developer.cisco.com/docs/cisco-observability-platform/#!overview/overview) is published in Cisco's DevNet as part of the [platform documentation](https://developer.cisco.com/docs/cisco-observability-platform/). 
 
 As `fsoc` is still evolving quickly, the DevNet documentation may sometimes not include information about the latest released version of `fsoc`. The `fsoc help` command is always the best way to get the correct help for the version of fsoc you have. Most commands provide sample command lines you can try.
 
@@ -123,7 +123,7 @@ fsoc login  # test access
 
 NOTE: The login command will pop up a browser to perform the log in and then continue executing the command. Subsequent invocations of fsoc will use cached credentials. 
 
-Use the `fsoc help config set` command to see examples of the different authentication methods that `fsoc` supports in addition to OAuth (e.g., service principal, agent principal, local). You can find additional details in the `fsoc` [config page](https://developer.cisco.com/docs/fso/#!install-and-configure-fsoc/configure-access) in the platform docs.
+Use the `fsoc help config set` command to see examples of the different authentication methods that `fsoc` supports in addition to OAuth (e.g., service principal, agent principal, local). You can find additional details in the `fsoc` [config page](https://developer.cisco.com/docs/cisco-observability-platform/#!install-and-configure-fsoc/configure-access) in the platform docs.
 
 ## Assistance and Suggestions
 

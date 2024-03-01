@@ -39,7 +39,7 @@ func NewSubCmd() *cobra.Command {
 		Long: `
 Perform Knowledge Store operations. "ks" is a convenient alias to the "knowledge" command.
 
-See https://developer.cisco.com/docs/fso/#!knowledge-store-introduction/introduction for more information on the Knowledge Store.
+See https://developer.cisco.com/docs/cisco-observability-platform/#!knowledge-store-introduction for more information on the Knowledge Store.
 
 All operations require the type to be specified as a fully-qualified type name (FQTN). FQTN follows the format solutionName:typeName (e.g., extensibility:solution).
 
