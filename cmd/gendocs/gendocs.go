@@ -119,10 +119,10 @@ func genDocs(cmd *cobra.Command, args []string) {
 	flagH1, _ := cmd.Flags().GetBool("h1")
 	flagRelLinks, _ := cmd.Flags().GetBool("rel-links")
 	if flagH1 || flagRelLinks {
-		log.Infof("Editing files: h1=%v, rel-links=%v", flagH1, flagRelLinks)
+		log.Infof("Processing files: h1=%v, rel-links=%v", flagH1, flagRelLinks)
 
 		files := getListOfFiles(path)
-		log.Infof("There are %d files to edit", len(files))
+		log.Infof("There are %d files to process", len(files))
 
 		for i := 0; i < len(files); i++ {
 			file := files[i]
@@ -242,15 +242,18 @@ func processFile(file *os.File, modifyHeaderLevels bool, makeDocLinksRelative bo
 			}
 		}
 		if makeDocLinksRelative {
+			oldLine := fileLines[i]
+
 			// replace topic links, changing from an absolute URL to a markdown doc root-relative link
-			if gblLinkReplaceRegexp.MatchString(fileLines[i]) {
-				fmt.Printf("<%s\n", fileLines[i])
-				fileLines[i] = gblLinkReplaceRegexp.ReplaceAllString(fileLines[i], `[$1](/#!$1)$2`)
-				fmt.Printf(">%s\n\n", fileLines[i])
-			}
+			fileLines[i] = gblLinkReplaceRegexp.ReplaceAllString(fileLines[i], `[$1](/#!$1)$2`)
 
 			// replace any remaining absolute links
 			fileLines[i] = strings.ReplaceAll(fileLines[i], DocLinkUrl, "[platform documentation](./)")
+
+			// log change
+			if fileLines[i] != oldLine {
+				log.Infof("Changed link %d: %q -> %q", i, oldLine, fileLines[i])
+			}
 		}
 	}
 
