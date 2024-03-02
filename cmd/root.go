@@ -57,7 +57,7 @@ var rootCmd = &cobra.Command{
 	Use:   "fsoc GROUP [COMMAND] [FLAGS...] [ARGUMENTS...]",
 	Short: "fsoc - Cisco Observability Platform Control Tool",
 	Long: `fsoc is an open source utility that serves as a command line interface to the Cisco Observability
-Platform (https://developer.cisco.com/docs/fso/). 
+Platform (https://developer.cisco.com/docs/cisco-observability-platform). 
 
 fsoc provides a set of commands to interact with the platform. It allows developers to interact in a uniform way
 with the platform's different environments (development, test, production) and conveniently switch between them.
@@ -74,7 +74,7 @@ fsoc logs its execution details into a log file. By default, fsoc shows only war
 the output. You can use the --verbose flag to show all log messages and/or the --log flag to set a desired location
 for saving the log file.
 
-Detailed user docs for fsoc are available at https://developer.cisco.com/docs/fso/#!overview/overview.
+Detailed user docs for fsoc are available at https://developer.cisco.com/docs/cisco-observability-platform/#!overview.
 For source code and build instructions, see also https://github.com/cisco-open/fsoc.
 
 NOTE: fsoc is in alpha; breaking changes may occur.`,

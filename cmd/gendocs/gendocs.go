@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/apex/log"
@@ -35,6 +36,11 @@ import (
 )
 
 const TOCFileName = "pages.json"
+
+const DocLinkUrl = "https://developer.cisco.com/docs/cisco-observability-platform"
+
+// DocLinkReplaceRegexp is a regular expression to match absolute links to the platform documentation, capturing the topic as $1
+var gblLinkReplaceRegexp = regexp.MustCompile(regexp.QuoteMeta(DocLinkUrl+`/#!`) + `(.*?)(\s|$|\.\s|\.$)`)
 
 // gendocsCmd represents the gendocs command
 var gendocsCmd = &cobra.Command{
@@ -54,6 +60,8 @@ The directory should either be empty or not exist.`,
 func NewSubCmd() *cobra.Command {
 	gendocsCmd.Flags().
 		Bool("h1", true, "adjust generated headings to start from h1 rather than h2")
+	gendocsCmd.Flags().
+		Bool("rel-links", true, "adjust generated platform doc links to become relative")
 	return gendocsCmd
 }
 
@@ -108,17 +116,19 @@ func genDocs(cmd *cobra.Command, args []string) {
 		log.Fatalf("Error generating fsoc docs table of contents: %v", err)
 	}
 
-	if cmd.Flag("h1").Changed {
-		log.Infof("Editing headers in files\n")
+	flagH1, _ := cmd.Flags().GetBool("h1")
+	flagRelLinks, _ := cmd.Flags().GetBool("rel-links")
+	if flagH1 || flagRelLinks {
+		log.Infof("Processing files: h1=%v, rel-links=%v", flagH1, flagRelLinks)
 
 		files := getListOfFiles(path)
-		log.Infof("There are %d files to edit\n", len(files))
+		log.Infof("There are %d files to process", len(files))
 
 		for i := 0; i < len(files); i++ {
 			file := files[i]
-			log.Infof("Starting to process file %s\n", file.Name())
+			log.Infof("Processing file %q", file.Name())
 
-			err := processFile(file)
+			err := processFile(file, flagH1, flagRelLinks)
 			if err != nil {
 				log.Fatalf(err.Error())
 			}
@@ -141,20 +151,12 @@ func genTableOfContents(cmd *cobra.Command, path string, fs *afero.Afero) error 
 	// generate TOC in memory
 	toc := tocEntry{Items: []tocEntry{*genTOCNode(root)}}
 
-	// display TOC if verbose
-	if verbose, _ := root.Flags().GetBool("verbose"); verbose {
-		if err := output.PrintJson(cmd, toc); err != nil {
-			return fmt.Errorf("failed to marshal TOC to JSON: %v", err)
-		}
-	}
-
 	// write TOC to file (rw permissions & umask)
 	tocPath := filepath.Join(path, TOCFileName)
 	tocFile, err := fs.OpenFile(tocPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return fmt.Errorf("failed to open TOC file %v: %v", path, err)
 	}
-
 	if err = output.WriteJson(toc, tocFile); err != nil {
 		return fmt.Errorf("failed to write TOC file %v: %v", path, err)
 	}
@@ -197,12 +199,13 @@ func getListOfFiles(dir string) []*os.File {
 	err := filepath.Walk(dir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
+				log.Warnf("Error walking files at %q: %v", path, err)
 				return err
 			}
 			file := getFileFromArgs(path)
 			isFileMarkdown := strings.Contains(file.Name(), ".md")
 			if isFileMarkdown {
-				log.Infof("Adding %s to the list of files to edit\n", file.Name())
+				log.Infof("Adding %q to the list of files to process", file.Name())
 				files = append(files, file)
 			}
 			return nil
@@ -213,7 +216,7 @@ func getListOfFiles(dir string) []*os.File {
 	return files
 }
 
-func processFile(file *os.File) error {
+func processFile(file *os.File, modifyHeaderLevels bool, makeDocLinksRelative bool) error {
 	fileScanner := bufio.NewScanner(file)
 	fileScanner.Split(bufio.ScanLines)
 	var fileLines []string
@@ -223,16 +226,34 @@ func processFile(file *os.File) error {
 	}
 	for i := 0; i < len(fileLines); i++ {
 		line := fileLines[i]
-		if len(line) > 2 {
-			if line[0:2] == "##" {
-				fileLines[i] = line[1:]
+		if modifyHeaderLevels {
+			if len(line) > 2 {
+				if line[0:2] == "##" {
+					fileLines[i] = line[1:]
+				}
+			}
+
+			// the following two changes are not header level changes but related to meeting the same doc requirements
+			if fileLines[i] == "## SEE ALSO" {
+				fileLines[i] = "## See Also"
+			}
+			if fileLines[i] == "## Options inherited from parent commands" {
+				fileLines[i] = "## Options Inherited From Parent Commands"
 			}
 		}
-		if fileLines[i] == "## SEE ALSO" {
-			fileLines[i] = "## See Also"
-		}
-		if fileLines[i] == "## Options inherited from parent commands" {
-			fileLines[i] = "## Options Inherited From Parent Commands"
+		if makeDocLinksRelative {
+			oldLine := fileLines[i]
+
+			// replace topic links, changing from an absolute URL to a markdown doc root-relative link
+			fileLines[i] = gblLinkReplaceRegexp.ReplaceAllString(fileLines[i], `[$1](/#!$1)$2`)
+
+			// replace any remaining absolute links
+			fileLines[i] = strings.ReplaceAll(fileLines[i], DocLinkUrl, "[platform documentation](./)")
+
+			// log change
+			if fileLines[i] != oldLine {
+				log.Infof("Changed link %d: %q -> %q", i, oldLine, fileLines[i])
+			}
 		}
 	}
 

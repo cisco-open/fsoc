@@ -29,7 +29,7 @@ Important details on solution tags:
 (1) A tag must be associated with the solution being uploaded.  All subsequent solution upload requests should use this same tag
 (2) Use caution when supplying the tag value to the solution to upload as typos can result in misleading validation results
 (3) 'stable' is a reserved tag value keyword for production-ready versions and hence should be used appropriately
-(4) For more info on tags, please visit: https://developer.cisco.com/docs/fso/#!tag-a-solution
+(4) For more info on tags, please visit: https://developer.cisco.com/docs/cisco-observability-platform/#!tag-a-solution
 `,
 	Example: `
   fsoc solution push --tag=stable
