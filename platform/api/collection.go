@@ -61,6 +61,9 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 			out.Items = append(out.Items, page.Items...)
 		}
 
+		pageItemsCount = len(page.Items)
+		pageTotalCount = page.Total
+
 		// break if no more pages (no response headers, no links or no next link)
 		if subOptions.ResponseHeaders == nil {
 			break
@@ -88,8 +91,6 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 		}
 		nextUrl.RawQuery = nextQuery
 		path = nextUrl.String()
-		pageItemsCount = len(page.Items)
-		pageTotalCount = page.Total
 	}
 	log.Infof("Collection page #%v at %q returned %v items (last page)", pageNo+1, path, pageItemsCount)
 
