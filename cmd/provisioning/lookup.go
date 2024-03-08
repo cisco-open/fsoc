@@ -16,10 +16,12 @@ package provisioning
 
 import (
 	"fmt"
+
 	"github.com/apex/log"
+	"github.com/spf13/cobra"
+
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
-	"github.com/spf13/cobra"
 )
 
 var lookupCmd = &cobra.Command{
@@ -43,11 +45,16 @@ func lookup(cmd *cobra.Command, args []string) {
 
 	log.WithFields(log.Fields{"command": cmd.Name(), "vanityUrl": vanityUrl}).Info("Provisioning group command")
 
+	response := callBackend(vanityUrl)
+
+	output.PrintCmdOutput(cmd, response)
+}
+
+func callBackend(vanityUrl string) any {
 	var response any
 	err := api.JSONGet(fmt.Sprintf("/provisioning/v1beta/tenants/lookup/vanityUrl/%s", vanityUrl), &response, nil)
 	if err != nil {
 		log.Fatalf("Tenant lookup failed with %v", err.Error())
 	}
-
-	output.PrintCmdOutput(cmd, response)
+	return response
 }

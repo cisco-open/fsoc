@@ -24,6 +24,7 @@ var provisioningCmd = &cobra.Command{
 	Long:             `Use to provision new tenant and troubleshoot provisioning workflow.`,
 	Example:          `  ./fsoc provisioning [flags]`,
 	TraverseChildren: true,
+	Hidden:           true,
 }
 
 func init() {
