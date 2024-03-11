@@ -24,20 +24,23 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
-var lookupCmd = &cobra.Command{
-	Use:              "lookup",
-	Short:            "Lookup for a tenant by vanity URL",
-	Long:             `Check whether tenant exist and return tenant Id if it does.`,
-	Example:          ` provisioning lookup --vanityUrl=fsoc-test.saas.appd-test.com`,
-	Args:             cobra.ExactArgs(0),
-	Run:              lookup,
-	TraverseChildren: true,
-}
+func newCmdLookup() *cobra.Command {
 
-func init() {
-	lookupCmd.Flags().String("vanityUrl", "", "Vanity URL")
+	var lookupCmd = &cobra.Command{
+		Use:              "lookup-tenant",
+		Short:            "Lookup for a tenant by vanity URL",
+		Long:             `Check whether tenant exist and return tenant Id if it does.`,
+		Example:          `  provisioning lookup-tenant --vanityUrl=fsoc-test.saas.appd-test.com`,
+		Args:             cobra.ExactArgs(0),
+		Run:              lookup,
+		TraverseChildren: true,
+	}
 
-	provisioningCmd.AddCommand(lookupCmd)
+	vanityUrlFlag := "vanityUrl"
+	lookupCmd.Flags().String(vanityUrlFlag, "", "Vanity URL")
+	_ = lookupCmd.MarkFlagRequired(vanityUrlFlag)
+
+	return lookupCmd
 }
 
 func lookup(cmd *cobra.Command, args []string) {

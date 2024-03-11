@@ -18,19 +18,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var provisioningCmd = &cobra.Command{
-	Use:              "provisioning",
-	Short:            "Tenant provisioning and management",
-	Long:             `Use to provision new tenant and troubleshoot provisioning workflow.`,
-	Example:          `  ./fsoc provisioning [flags]`,
-	TraverseChildren: true,
-	Hidden:           true,
-}
-
-func init() {
-
-}
-
 func NewSubCmd() *cobra.Command {
-	return provisioningCmd
+	var cmd = &cobra.Command{
+		Use:              "provisioning",
+		Short:            "Tenant provisioning and management",
+		Long:             `Use to provision new tenant and troubleshoot provisioning workflow.`,
+		Example:          `  fsoc provisioning [flags]`,
+		TraverseChildren: true,
+		Hidden:           true,
+	}
+
+	cmd.AddCommand(newCmdLookup())
+
+	return cmd
 }
