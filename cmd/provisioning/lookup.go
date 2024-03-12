@@ -37,7 +37,7 @@ func newCmdLookup() *cobra.Command {
 	}
 
 	vanityUrlFlag := "vanityUrl"
-	lookupCmd.Flags().String(vanityUrlFlag, "", "Vanity URL")
+	lookupCmd.Flags().String(vanityUrlFlag, "", "Vanity URL without a scheme. Provide only domain part.")
 	_ = lookupCmd.MarkFlagRequired(vanityUrlFlag)
 
 	return lookupCmd
