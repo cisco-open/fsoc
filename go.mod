@@ -1,13 +1,14 @@
 module github.com/cisco-open/fsoc
 
 go 1.21
+toolchain go1.22.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/apex/log v1.9.0
 	github.com/blues/jsonata-go v1.5.4
 	github.com/briandowns/spinner v1.23.0
-	github.com/charmbracelet/lipgloss v0.9.1
+	github.com/charmbracelet/lipgloss v0.10.0
 	github.com/google/uuid v1.6.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.5.0
@@ -20,13 +21,13 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/proto/otlp v1.1.0
-	go.pinniped.dev v0.28.0
+	go.pinniped.dev v0.29.0
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
-	golang.org/x/oauth2 v0.17.0
-	golang.org/x/term v0.17.0
+	golang.org/x/oauth2 v0.18.0
+	golang.org/x/term v0.18.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -72,8 +73,8 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.33.0
