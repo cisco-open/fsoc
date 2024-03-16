@@ -1,5 +1,11 @@
 package melt
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 // AggregationTemporality - aggretation temporality
 type AggregationTemporality int8
 
@@ -320,4 +326,37 @@ func (m *Metric) AddDataPoint(startTime, endTime int64, value float64) *Metric {
 // ClearDataPoints - clears the data points
 func (m *Metric) ClearDataPoints() {
 	m.DataPoints = []*DataPoint{}
+}
+
+// UnmarshalYAML for AggregationTemporality support both integer and string (human) enumerated values
+func (a *AggregationTemporality) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var originalValue string
+	if err := unmarshal(&originalValue); err != nil {
+		return err
+	}
+
+	// First try to parse as an integer
+	if valueInt, err := strconv.Atoi(originalValue); err == nil {
+		switch valueInt {
+		case 0, 1, 2:
+			*a = AggregationTemporality(valueInt)
+			return nil
+		default:
+			return fmt.Errorf("invalid aggregationtemporality value %v, must be 0-2 or one of (unspecified, delta, cumulative)", valueInt)
+		}
+	}
+
+	// If that fails, try to match the string
+	valueString := strings.ToLower(originalValue)
+	switch valueString {
+	case "unspecified":
+		*a = AggregationTemporalityUnspecified
+	case "delta":
+		*a = AggregationTemporalityDelta
+	case "cumulative":
+		*a = AggregationTemporalityCumulative
+	default:
+		return fmt.Errorf("invalid aggregationtemporality value %q, must be 0-2 or one of (unspecified, delta, cumulative)", originalValue)
+	}
+	return nil
 }
