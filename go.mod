@@ -1,6 +1,8 @@
 module github.com/cisco-open/fsoc
 
-go 1.21
+go 1.21.3
+
+toolchain go1.22.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -23,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/proto/otlp v1.1.0
-	go.pinniped.dev v0.28.0
+	go.pinniped.dev v0.29.0
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
 	golang.org/x/oauth2 v0.18.0
 	golang.org/x/term v0.18.0
