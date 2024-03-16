@@ -1,6 +1,7 @@
 module github.com/cisco-open/fsoc
 
-go 1.21
+go 1.21.3
+
 toolchain go1.22.1
 
 require (
