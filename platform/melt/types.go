@@ -338,7 +338,9 @@ func (a *AggregationTemporality) UnmarshalYAML(unmarshal func(interface{}) error
 	// First try to parse as an integer
 	if valueInt, err := strconv.Atoi(originalValue); err == nil {
 		switch valueInt {
-		case 0, 1, 2:
+		case int(AggregationTemporalityUnspecified),
+			int(AggregationTemporalityDelta),
+			int(AggregationTemporalityCumulative):
 			*a = AggregationTemporality(valueInt)
 			return nil
 		default:
@@ -349,11 +351,11 @@ func (a *AggregationTemporality) UnmarshalYAML(unmarshal func(interface{}) error
 	// If that fails, try to match the string
 	valueString := strings.ToLower(originalValue)
 	switch valueString {
-	case "unspecified":
+	case "unspecified", "aggregation_temporality_unspecified":
 		*a = AggregationTemporalityUnspecified
-	case "delta":
+	case "delta", "aggregation_temporality_delta":
 		*a = AggregationTemporalityDelta
-	case "cumulative":
+	case "cumulative", "aggregation_temporality_cumulative":
 		*a = AggregationTemporalityCumulative
 	default:
 		return fmt.Errorf("invalid aggregationtemporality value %q, must be 0-2 or one of (unspecified, delta, cumulative)", originalValue)

@@ -9,9 +9,12 @@ import (
 func TestAggregationTemporalityParsing(t *testing.T) {
 
 	validYamlStrings := map[string]AggregationTemporality{
-		"aggregationtemporality: UNSPECIFIED": AggregationTemporalityUnspecified,
-		"aggregationtemporality: delta":       AggregationTemporalityDelta,
-		"aggregationtemporality: Cumulative":  AggregationTemporalityCumulative,
+		"aggregationtemporality: UNSPECIFIED":                         AggregationTemporalityUnspecified,
+		"aggregationtemporality: delta":                               AggregationTemporalityDelta,
+		"aggregationtemporality: Cumulative":                          AggregationTemporalityCumulative,
+		"aggregationtemporality: AGGREGATION_TEMPORALITY_UNSPECIFIED": AggregationTemporalityUnspecified,
+		"aggregationtemporality: AGGREGATION_TEMPORALITY_DELTA":       AggregationTemporalityDelta,
+		"aggregationtemporality: AGGREGATION_TEMPORALITY_CUMULATIVE":  AggregationTemporalityCumulative,
 	}
 	validYamlNumbers := map[string]AggregationTemporality{
 		"aggregationtemporality: 0": AggregationTemporalityUnspecified,
@@ -51,8 +54,6 @@ func TestAggregationTemporalityParsing(t *testing.T) {
 		err := yaml.Unmarshal([]byte(text), &temp)
 		if err == nil {
 			t.Errorf("Expected error when parsing invalid YAML %q, got nil", text)
-		} else {
-			t.Logf("Got expected error when parsing invalid YAML %q: %v", text, err)
 		}
 	}
 }
