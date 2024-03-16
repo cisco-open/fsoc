@@ -269,7 +269,9 @@ func (exp *Exporter) buildSpansPayload(entities []*Entity) *collspans.ExportTrac
 
 func (exp *Exporter) createOtelMetric(m *Metric) *metrics.Metric {
 	otm := &metrics.Metric{
-		Name: m.TypeName,
+		Name:        m.TypeName,
+		Description: m.Description,
+		Unit:        m.Unit,
 	}
 
 	switch m.ContentType {

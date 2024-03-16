@@ -58,6 +58,7 @@ type Entity struct {
 // Metric - structs for metrics
 type Metric struct {
 	TypeName               string
+	Description            string
 	ContentType            string
 	Unit                   string
 	Type                   string
