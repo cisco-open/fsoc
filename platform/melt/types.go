@@ -336,11 +336,11 @@ func (a *AggregationTemporality) UnmarshalYAML(unmarshal func(interface{}) error
 	}
 
 	// First try to parse as an integer
-	if valueInt, err := strconv.Atoi(originalValue); err == nil {
+	if valueInt, err := strconv.ParseInt(originalValue, 10, 8); err == nil {
 		switch valueInt {
-		case int(AggregationTemporalityUnspecified),
-			int(AggregationTemporalityDelta),
-			int(AggregationTemporalityCumulative):
+		case int64(AggregationTemporalityUnspecified),
+			int64(AggregationTemporalityDelta),
+			int64(AggregationTemporalityCumulative):
 			*a = AggregationTemporality(valueInt)
 			return nil
 		default:
