@@ -93,9 +93,9 @@ print-version-info:
 
 .PHONY: install-tools
 install-tools:
-	${GO} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
-	${GO} install github.com/goreleaser/goreleaser@v1.22.1
-	${GO} install golang.org/x/tools/cmd/goimports@v0.15.0
+	${GO} install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
+	${GO} install github.com/goreleaser/goreleaser@v1.24.0
+	${GO} install golang.org/x/tools/cmd/goimports@v0.19.0
 	${GO} install github.com/pavius/impi/cmd/impi@v0.0.3
 	${GO} install github.com/wadey/gocovmerge@v0.0.0-20160331181800-b5bfa59ec0ad
 	${GO} install github.com/ory/go-acc@v0.2.8
