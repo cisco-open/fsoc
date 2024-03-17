@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -260,6 +261,8 @@ func isSolutionPackageRoot(path string) bool {
 }
 
 func getSolutionManifest(path string) (*Manifest, error) {
+	checkStructTags(reflect.TypeOf(Manifest{})) // ensure struct tags are correct
+
 	// Determine manifest name, in JSON or YAML format
 	var manifestPath string
 	manifestPathJson := filepath.Join(path, "manifest.json")

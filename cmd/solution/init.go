@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -42,9 +43,10 @@ Solution names must start with a lowercase letter and contain only lowercase let
 It creates a subdirectory named <solution-name> in the current directory and
 a solution manifest. Once the solution is created, the "solution extend" command
 can be used to add types and objects to it.`,
-	Example:          `  fsoc solution init mysolution`,
+	Example: `  fsoc solution init mycomponent
+  fsoc solution init mymodule --solution-type=module --yaml`,
 	Run:              createNewSolution,
-	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""}, // this command does not require a valid context
 	TraverseChildren: true,
 }
 
@@ -152,6 +154,8 @@ func createInitialSolutionManifest(solutionName string, options ...SolutionManif
 }
 
 func writeSolutionManifest(folderName string, manifest *Manifest) error {
+	checkStructTags(reflect.TypeOf(manifest)) // ensure json/yaml struct tags are correct
+
 	// create the manifest file, overwriting prior manifest
 	filepath := filepath.Join(folderName, fmt.Sprintf("manifest.%s", manifest.ManifestFormat))
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
@@ -182,41 +186,6 @@ func createSolutionManifestFile(folderName string, manifest *Manifest) {
 	if err := writeSolutionManifest(folderName, manifest); err != nil {
 		log.Fatalf(err.Error())
 	}
-}
-
-func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
-	jsonSchema := map[string]interface{}{
-		"$schema":              "http://json-schema.org/draft-07/schema#",
-		"title":                "Data Collector Configuration",
-		"description":          "Sample Knowledge type representing the configuration information required for a data collector service component to access an external service",
-		"type":                 "object",
-		"additionalProperties": false,
-		"properties": map[string]interface{}{
-			"cloudCollectorTargetURL": map[string]interface{}{
-				"type":        "string",
-				"description": "The URL that the data collector will connect to using the api key",
-			},
-			"cloudCollectorTargetApiKey": map[string]interface{}{
-				"type":        "string",
-				"description": "The apiKey used to secure the REST endpoint and added to calls by the poller function",
-			},
-			"name": map[string]interface{}{
-				"type":        "string",
-				"description": "Name for the data collector configuration that will be used to generate the ID for this knowledge object",
-			},
-		},
-		"required": []string{"cloudCollectorTargetURL", "cloudCollectorTargetApiKey", "name"},
-	}
-
-	knowledgeComponent := &KnowledgeDef{
-		Name:                  "dataCollectorConfiguration",
-		AllowedLayers:         []string{"TENANT"},
-		IdentifyingProperties: []string{"/name"},
-		SecureProperties:      []string{"$.collectorTargetApiKey"},
-		JsonSchema:            jsonSchema,
-	}
-
-	return knowledgeComponent
 }
 
 func createComponentFile(compDef any, folderName string, fileName string) {

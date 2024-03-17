@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,40 +53,40 @@ type Manifest struct {
 }
 
 type ComponentDef struct {
-	Type        string `json:"type,omitempty"`
-	ObjectsFile string `json:"objectsFile,omitempty"`
-	ObjectsDir  string `json:"objectsDir,omitempty"`
+	Type        string `json:"type,omitempty" yaml:"type,omitempty"`
+	ObjectsFile string `json:"objectsFile,omitempty" yaml:"objectsFile,omitempty"`
+	ObjectsDir  string `json:"objectsDir,omitempty" yaml:"objectsDir,omitempty"`
 }
 
 type ServiceDef struct {
-	Name  string `json:"name,omitempty"`
-	Image string `json:"image,omitempty"`
+	Name  string `json:"name,omitempty" yaml:"name,omitempty"`
+	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 }
 
 type KnowledgeDef struct {
-	Name                  string                 `json:"name,omitempty"`
-	AllowedLayers         []string               `json:"allowedLayers,omitempty"`
-	IdentifyingProperties []string               `json:"identifyingProperties,omitempty"`
-	SecureProperties      []string               `json:"secureProperties,omitempty"`
-	JsonSchema            map[string]interface{} `json:"jsonSchema,omitempty"`
+	Name                  string                 `json:"name,omitempty" yaml:"name,omitempty"`
+	AllowedLayers         []string               `json:"allowedLayers,omitempty" yaml:"allowedLayers,omitempty"`
+	IdentifyingProperties []string               `json:"identifyingProperties,omitempty" yaml:"identifyingProperties,omitempty"`
+	SecureProperties      []string               `json:"secureProperties,omitempty" yaml:"secureProperties,omitempty"`
+	JsonSchema            map[string]interface{} `json:"jsonSchema,omitempty" yaml:"jsonSchema,omitempty"`
 }
 
 type SolutionDef struct {
-	Dependencies []string `json:"dependencies,omitempty"`
-	IsSubscribed bool     `json:"isSubscribed,omitempty"`
-	IsSystem     bool     `json:"isSystem,omitempty"`
-	Name         string   `json:"name,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	IsSubscribed bool     `json:"isSubscribed,omitempty" yaml:"isSubscribed,omitempty"`
+	IsSystem     bool     `json:"isSystem,omitempty" yaml:"isSystem,omitempty"`
+	Name         string   `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
 type Solution struct {
-	ID             string `json:"id"`
-	LayerID        string `json:"layerId"`
-	LayerType      string `json:"layerType"`
-	ObjectMimeType string `json:"objectMimeType"`
-	TargetObjectId string `json:"targetObjectId"`
-	CreatedAt      string `json:"createdAt"`
-	UpdatedAt      string `json:"updatedAt"`
-	DisplayName    string `json:"displayName"`
+	ID             string `json:"id" yaml:"id"`
+	LayerID        string `json:"layerId" yaml:"layerId"`
+	LayerType      string `json:"layerType" yaml:"layerType"`
+	ObjectMimeType string `json:"objectMimeType" yaml:"objectMimeType"`
+	TargetObjectId string `json:"targetObjectId" yaml:"targetObjectId"`
+	CreatedAt      string `json:"createdAt" yaml:"createdAt"`
+	UpdatedAt      string `json:"updatedAt" yaml:"updatedAt"`
+	DisplayName    string `json:"displayName" yaml:"displayName"`
 }
 
 func (manifest *Manifest) GetNamespaceName() string {

@@ -1,4 +1,4 @@
-// Copyright 2023 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/apex/log"
@@ -32,9 +33,9 @@ var solutionExtendCmd = &cobra.Command{
 	Args:             cobra.NoArgs,
 	Short:            "Extends your solution by adding new components",
 	Long:             `This command allows you to easily add new components to your solution.`,
-	Example:          `  fsoc solution extend --add-knowledge=<knowldgetypename>`,
+	Example:          `  fsoc solution extend --add-knowledge=dataCollectorConfiguration --add-service=ingestor`,
 	Run:              extendSolution,
-	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
+	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""}, // this command does not require a valid context
 	TraverseChildren: true,
 }
 
@@ -42,6 +43,7 @@ var solutionExtendCmd = &cobra.Command{
 // --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
 
 func getSolutionExtendCmd() *cobra.Command {
+	// component(s) to be added to the solution
 	solutionExtendCmd.Flags().
 		String("add-service", "", "Add a new service component definition to this solution")
 	solutionExtendCmd.Flags().
@@ -62,6 +64,13 @@ func getSolutionExtendCmd() *cobra.Command {
 		String("add-ecpDetails", "", "Add all template definition to build the details experience for a given entity within this solution")
 	solutionExtendCmd.Flags().
 		Bool("add-ecpHome", false, "Add a template extension definition to build the ecpHome experience for this solution")
+
+	// file format override flags (mutually exclusive)
+	solutionInitCmd.Flags().
+		Bool("json", false, "Use JSON format for the component file, even if the manifest is in YAML.")
+	solutionInitCmd.Flags().
+		Bool("yaml", false, "Use YAML format for the component file, even if the manifest is in JSON.")
+	solutionInitCmd.MarkFlagsMutuallyExclusive("json", "yaml")
 
 	return solutionExtendCmd
 
@@ -181,7 +190,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "zodiac:function":
 		{
 			component := &newComponent{
-				Filename:   componentFileName(manifest, componentName),
+				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       componentType,
 				Definition: getServiceComponent(componentName),
 			}
@@ -191,7 +200,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:entity":
 		{
 			entity := &newComponent{
-				Filename:   componentFileName(manifest, componentName),
+				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       componentType,
 				Definition: getEntityComponent(componentName, namespaceName),
 			}
@@ -203,7 +212,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			entityName, _ := cmd.Flags().GetString("add-resourceMapping")
 			entityName = strings.ToLower(entityName)
 			entity := &newComponent{
-				Filename:   componentFileName(manifest, componentName+"-resourceMapping"),
+				Filename:   componentFileName(cmd, manifest, componentName+"-resourceMapping"),
 				Type:       componentType,
 				Definition: getResourceMap(nil, entityName, manifest),
 			}
@@ -215,7 +224,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 		{
 			entityName := strings.ToLower(componentName)
 			entity := &newComponent{
-				Filename:   componentFileName(manifest, entityName+"-associationDeclarations"),
+				Filename:   componentFileName(cmd, manifest, entityName+"-associationDeclarations"),
 				Type:       componentType,
 				Definition: getAssociationDeclarations(entityName, manifest),
 			}
@@ -226,7 +235,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:metric":
 		{
 			metric := &newComponent{
-				Filename:   componentFileName(manifest, componentName),
+				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       componentType,
 				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, namespaceName),
 			}
@@ -236,7 +245,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:event":
 		{
 			event := &newComponent{
-				Filename:   componentFileName(manifest, componentName),
+				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       componentType,
 				Definition: getEventComponent(componentName, namespaceName),
 			}
@@ -250,7 +259,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
 			ecpList := &newComponent{
-				Filename:   componentFileName(manifest, "ecpList"),
+				Filename:   componentFileName(cmd, manifest, "ecpList"),
 				Type:       "dashui:template",
 				Definition: getEcpList(entity),
 			}
@@ -258,7 +267,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpList)
 
 			entityGridTable := &newComponent{
-				Filename:   componentFileName(manifest, entity.Name+"GridTable"),
+				Filename:   componentFileName(cmd, manifest, entity.Name+"GridTable"),
 				Type:       "dashui:template",
 				Definition: getDashuiGridTable(entity),
 			}
@@ -266,7 +275,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, entityGridTable)
 
 			ecpRelationshipMap := &newComponent{
-				Filename:   componentFileName(manifest, "ecpRelationshipMap"),
+				Filename:   componentFileName(cmd, manifest, "ecpRelationshipMap"),
 				Type:       "dashui:template",
 				Definition: getRelationshipMap(entity),
 			}
@@ -274,7 +283,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpRelationshipMap)
 
 			ecpListInspector := &newComponent{
-				Filename:   componentFileName(manifest, "ecpListInspector"),
+				Filename:   componentFileName(cmd, manifest, "ecpListInspector"),
 				Type:       "dashui:template",
 				Definition: getEcpListInspector(entity),
 			}
@@ -285,7 +294,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				entityInspectorWidget := &newComponent{
-					Filename:   componentFileName(manifest, entity.Name+"InspectorWidget"),
+					Filename:   componentFileName(cmd, manifest, entity.Name+"InspectorWidget"),
 					Type:       "dashui:template",
 					Definition: getEcpInspectorWidget(entity),
 				}
@@ -296,7 +305,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			templateName = "dashui:name"
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				ecpName := &newComponent{
-					Filename:   componentFileName(manifest, "ecpName"),
+					Filename:   componentFileName(cmd, manifest, "ecpName"),
 					Type:       "dashui:template",
 					Definition: getEcpName(entity),
 				}
@@ -312,7 +321,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
 			ecpDetails := &newComponent{
-				Filename:   componentFileName(manifest, "ecpDetails"),
+				Filename:   componentFileName(cmd, manifest, "ecpDetails"),
 				Type:       "dashui:template",
 				Definition: getEcpDetails(entity),
 			}
@@ -320,7 +329,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpDetails)
 
 			ecpDetailsList := &newComponent{
-				Filename:   componentFileName(manifest, entity.Name+"DetailsList.json"),
+				Filename:   componentFileName(cmd, manifest, entity.Name+"DetailsList.json"),
 				Type:       "dashui:template",
 				Definition: getDashuiDetailsList(entity, manifest),
 			}
@@ -328,7 +337,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpDetailsList)
 
 			ecpDetailsInspector := &newComponent{
-				Filename:   componentFileName(manifest, "ecpDetailsInspector"),
+				Filename:   componentFileName(cmd, manifest, "ecpDetailsInspector"),
 				Type:       "dashui:template",
 				Definition: getEcpDetailsInspector(entity),
 			}
@@ -339,7 +348,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				entityInspectorWidget := &newComponent{
-					Filename:   componentFileName(manifest, entity.Name+"InspectorWidget"),
+					Filename:   componentFileName(cmd, manifest, entity.Name+"InspectorWidget"),
 					Type:       "dashui:template",
 					Definition: getEcpInspectorWidget(entity),
 				}
@@ -350,7 +359,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			templateName = "dashui:name"
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				ecpName := &newComponent{
-					Filename:   componentFileName(manifest, "ecpName"),
+					Filename:   componentFileName(cmd, manifest, "ecpName"),
 					Type:       "dashui:template",
 					Definition: getEcpName(entity),
 				}
@@ -362,7 +371,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "dashui:ecpHome":
 		{
 			ecpHome := &newComponent{
-				Filename:   componentFileName(manifest, componentName),
+				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       "dashui:templatePropsExtension",
 				Definition: getEcpHome(manifest),
 			}
@@ -373,6 +382,8 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	}
 
 	for _, newObject := range newComponents {
+		checkStructTags(reflect.TypeOf(newObject.Definition))
+
 		addCompDefToManifest(cmd, manifest, newObject.Type, folderName)
 		createComponentFile(newObject.Definition, folderName, newObject.Filename)
 		objFilePath := filepath.Join(folderName, newObject.Filename)
@@ -454,7 +465,7 @@ func addNewKnowledgeComponent(cmd *cobra.Command, manifest *Manifest, obj *Knowl
 
 	// fail if the file already exists, prevent overwriting existing type
 	if _, err := os.Stat(filePath); err == nil {
-		log.Fatalf("Type file %s already exists in the solution. Please use a different type name", filePath)
+		log.Fatalf("Type file %s already exists in the solution. Please use a different type name.", filePath)
 	}
 
 	// add the file if not already in the list
@@ -477,7 +488,56 @@ func addNewKnowledgeComponent(cmd *cobra.Command, manifest *Manifest, obj *Knowl
 	output.PrintCmdStatus(cmd, statusMsg)
 }
 
-// componentFileName returns a file name for a component based on the manifest format
-func componentFileName(manifest *Manifest, componentName string) string {
-	return fmt.Sprintf("%s.%s", componentName, manifest.ManifestFormat)
+// componentFileName returns a file name for a component with a file extension reflecting the format.
+// The manfest and the optional cobra command are provided as means to determine the file format.
+// If the command is provided and a format is specified with a flag, that takes precedence
+// over the manifest format; otherwise the component is created in the same format as the manifest.
+// If neither command nor manifest is provided, the default format is JSON.
+// This function cannot fail.
+func componentFileName(cmd *cobra.Command, manifest *Manifest, componentName string) string {
+	format := FileFormatJSON
+	if cmd != nil {
+		if isJSON, _ := cmd.Flags().GetBool("json"); isJSON {
+			format = FileFormatJSON
+		} else if isYAML, _ := cmd.Flags().GetBool("yaml"); isYAML {
+			format = FileFormatYAML
+		}
+	} else if manifest != nil {
+		format = manifest.ManifestFormat
+	}
+	return fmt.Sprintf("%s.%s", componentName, format)
+}
+
+// checkStructTags checks if the struct tags for json and yaml are identical,
+// and logs a warning if they are not. This helps to prevent issues with
+// serialization and deserialization of the component definition in JSON vs. YAML format,
+// as we want to ensure that field names are consistent across both formats. There doesn't
+// seem to be a good way to avoid the duplication, so this check help make sure that
+// we don't accidentally introduce inconsistencies in the field names across the formats.
+// Note that this function checks the structure definition, not the actual data; failures
+// here indicate a bug in the code, not a problem with the data.
+func checkStructTags(t reflect.Type) {
+	switch t.Kind() {
+	case reflect.Ptr:
+		checkStructTags(t.Elem())
+	case reflect.Struct:
+		for i := 0; i < t.NumField(); i++ {
+			// assert the two tags are the same (or neither exists)
+			field := t.Field(i)
+			jsonTag := field.Tag.Get("json")
+			yamlTag := field.Tag.Get("yaml")
+			if jsonTag != yamlTag {
+				log.Warnf("(possible bug) Field %q in struct %q has different json and yaml tags: %q vs. %q", field.Name, t.Name(), jsonTag, yamlTag)
+			}
+
+			// nest into struct and *struct fields (incl. anonymous structs)
+			if field.Type.Kind() == reflect.Struct {
+				checkStructTags(field.Type)
+			} else if field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
+				checkStructTags(field.Type.Elem())
+			}
+		}
+	default:
+		log.Warnf("(possible bug) Expected a struct or struct pointer but got %q for type %q", t.Kind(), t.Name())
+	}
 }
