@@ -68,7 +68,7 @@ Package `cmdkit`: a toolkit for building fsoc commands with minimum boilerplate
 
 For an example on using this function, see:
 
-* for a single object, [`cmd/iamrole/list.go`](../cmd/iamrole/permissions.go).  
+* for a single object, [`cmd/iamrole/permissions.go`](../cmd/iamrole/permissions.go).  
 * for a collection, [`cmd/iamrole/list.go`](../cmd/iamrole/list.go). The `IsCollection` option specifies that a possibly-paginated collection is being retrieved (`JSONGetCollection()`+`PrintCmdOutput()`).
 
 With this function, it is possible to have one-liner handlers, for example:
