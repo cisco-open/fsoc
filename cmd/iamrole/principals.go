@@ -22,7 +22,7 @@ import (
 	"github.com/cisco-open/fsoc/platform/api"
 )
 
-// iamRbCmd represents the role binding command group
+// iamRolePrincipalsCmd represents the role principals list command
 var iamRolePrincipalsCmd = &cobra.Command{
 	Use:   "principals <role>",
 	Short: "List principals bound to a role",

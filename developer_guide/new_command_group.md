@@ -4,7 +4,7 @@ The intended way to extend fsoc is to add new command groups and commands. Aside
 
 fsoc has specifically been designed to make it easy to add new command groups by new contributors, as we expect that each team will add and work on its own command group(s). There is high degree of decoupling between command groups; if everything goes according to plan, different teams will never have to modify the same file (so no merges and resolving conflicts on rebase).
 
-To add a new command group (and its initial) command, take a look at the `src/cmd/uql.go` file and the `src/cmd/uql/` subdirectory. You can simply copy these, replace `uql` with your command group name and proceed.
+To add a new command group (and its initial) command, take a look at the `cmd/iam-role.go` file and the `cmd/iam-role/` subdirectory. You can simply copy these, replace `iam-role` with your command group name and proceed.
 
 Here is a summary of what you would need to do to add a fictitious command group `shed`, with two subcommands, `paint` and `report`. Note that command groups are usually nouns (and, for cooler project names, proper nouns) and commands are usually verbs. fsoc uses the `noun verb` order (instead of `verb noun`) in recognition of the fact that different groups may have vastly different commands.
 
@@ -38,7 +38,7 @@ func init() {
 
 This file causes the shed package to be registered with the command-line processor.
 
-Now, add the root command for this group, in `src/cmd/shed/shed.go`:
+Now, add the root command for this group, in `cmd/shed/shed.go`:
 
 ```go
 // Copyright 2024 Cisco Systems, Inc.

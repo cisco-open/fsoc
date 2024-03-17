@@ -21,7 +21,7 @@ import (
 	"github.com/cisco-open/fsoc/output"
 )
 
-// iamRbCmd represents the role binding command group
+// iamRbAddCmd represents the role binding add command
 var iamRbAddCmd = &cobra.Command{
 	Use:   "add <principal> [<role>]+",
 	Short: "Add roles to a principal",

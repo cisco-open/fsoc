@@ -1,10 +1,13 @@
-## Adding Domain-Specific Configuration Parameters
+# Adding Domain-Specific Configuration Parameters
 
-We have two examples: UQL and knowledge.
-They showcase the two different approaches fsoc's config extensions support:
+In some cases, it may be necessary to define domain-specific settings that can be configured in each access profile (context). While this is rarely necessary, it can help provide support for testing upcoming releases and setting advanced behaviors without affecting the general usage.
 
-1. Allow only one of a predetermined, enumerated set of versions you want to allow (e.g, just "v1" and "v2beta"). I think that's what we do in the UQL case
-2. Allow any api-version--like value, e.g., v1, v1beta, v2alpha2,--even if it is not supported by the backend API. This is what we do in the knowledge case
+We have two examples that illustrate configuring the API version that fsoc uses for their respective domains. The examples showcase two different approaches provided by fsoc's config extensions support:
+
+1. Allow any api-version-like value, e.g., `v1`, `v1beta`, `v2alpha2`, even if that version is not supported by the backend API. The [`knowledge` command group](../cmd/knowledge.com) uses this approach, using the predefined `api.Version` type.
+2. Allow only one of a predetermined, enumerated set of values to allow (e.g, just "v1" and "v2beta"). The [`uql` command group](../cmd/uql.go) uses this approach, by defining its own version type.
+
+Note that, while these examples are both related to an API version setting, domains can define any setting they need.
 
 
 

@@ -21,7 +21,7 @@ import (
 	"github.com/cisco-open/fsoc/output"
 )
 
-// iamRbCmd represents the role binding command group
+// iamRbRemoveCmd represents the role binding remove command
 var iamRbRemoveCmd = &cobra.Command{
 	Use:   "remove <principal> [<role>]+",
 	Short: "Remove roles from a principal",

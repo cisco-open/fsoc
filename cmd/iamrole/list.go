@@ -21,7 +21,7 @@ import (
 	"github.com/cisco-open/fsoc/output"
 )
 
-// iamRbCmd represents the role binding command group
+// iamRoleListCmd defines the list roles command
 var iamRoleListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List roles",
