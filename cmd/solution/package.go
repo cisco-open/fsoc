@@ -16,7 +16,6 @@ package solution
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
@@ -260,7 +260,26 @@ func isSolutionPackageRoot(path string) bool {
 }
 
 func getSolutionManifest(path string) (*Manifest, error) {
-	manifestPath := filepath.Join(path, "manifest.json")
+	// Determine manifest name, in JSON or YAML format
+	var manifestPath string
+	manifestPathJson := filepath.Join(path, "manifest.json")
+	manifestPathYaml := filepath.Join(path, "manifest.yaml")
+	_, err := os.Stat(manifestPathJson)
+	jsonExists := err == nil
+	_, err = os.Stat(manifestPathYaml)
+	yamlExists := err == nil
+	switch {
+	case jsonExists && yamlExists:
+		return nil, fmt.Errorf("found both JSON and YAML manifests; only one can exist")
+	case jsonExists:
+		manifestPath = manifestPathJson
+	case yamlExists:
+		manifestPath = manifestPathYaml
+	default:
+		return nil, fmt.Errorf("%q is not a solution root directory", path)
+	}
+
+	// Read manifest
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("%q is not a solution root directory", path)
@@ -272,11 +291,29 @@ func getSolutionManifest(path string) (*Manifest, error) {
 		return nil, err
 	}
 
+	// Unmarshal manifest
 	var manifest *Manifest
-	err = json.Unmarshal(manifestBytes, &manifest)
+	err = yaml.Unmarshal(manifestBytes, &manifest) // json is a subset of yaml
 	if err != nil {
 		return nil, err
 	}
+
+	// Store manifest type
+	if jsonExists {
+		manifest.ManifestFormat = FileFormatJSON
+	} else {
+		manifest.ManifestFormat = FileFormatYAML
+	}
+
+	// Log manifest summary
+	log.WithFields(log.Fields{
+		"manifest_path":    absolutizePath(manifestPath),
+		"manifest_version": manifest.ManifestVersion,
+		"manifest_format":  manifest.ManifestFormat,
+		"solution_name":    manifest.Name,
+		"solution_version": manifest.SolutionVersion,
+		"solution_type":    manifest.SolutionType,
+	}).Info("Read solution manifest")
 
 	return manifest, nil
 }

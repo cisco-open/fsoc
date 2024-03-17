@@ -15,10 +15,9 @@
 package solution
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/apex/log"
@@ -30,7 +29,7 @@ import (
 
 var solutionExtendCmd = &cobra.Command{
 	Use:              "extend [flags]",
-	Args:             cobra.ExactArgs(0),
+	Args:             cobra.NoArgs,
 	Short:            "Extends your solution by adding new components",
 	Long:             `This command allows you to easily add new components to your solution.`,
 	Example:          `  fsoc solution extend --add-knowledge=<knowldgetypename>`,
@@ -69,31 +68,19 @@ func getSolutionExtendCmd() *cobra.Command {
 }
 
 func extendSolution(cmd *cobra.Command, args []string) {
-	manifest := GetManifest()
+	manifest, err := GetManifest(".")
+	if err != nil {
+		log.Fatalf("Failed to read manifest file: %v", err)
+	}
 
 	if cmd.Flags().Changed("add-knowledge") {
 		componentName, _ := cmd.Flags().GetString("add-knowledge")
 		componentName = strings.ToLower(componentName)
 		if strings.Contains(componentName, ":") {
-			log.Fatalf("\":\" is a disallowed character. Note that solution name is not required for the add-knowledge flag")
+			log.Fatalf(`":" is a disallowed character. Note that solution name is not required for the add-knowledge flag`)
 		}
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge component to %s's solution directory structure... \n", componentName, manifest.Name))
-		folderName := "types"
-		fileName := fmt.Sprintf("%s.json", componentName)
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Creating the %s file\n", fileName))
-		manifest.Types = append(manifest.Types, fmt.Sprintf("%s/%s", folderName, fileName))
-		f, err := os.OpenFile("./manifest.json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatalf("Can't open manifest file: %v", err)
-		}
-		defer f.Close()
-		err = output.WriteJson(manifest, f)
-		if err != nil {
-			log.Fatalf("Failed to update manifest.json file to reflect new knowledge type: %v", err)
-		}
-
-		knowledgeComp := getKnowledgeComponent(componentName)
-		createComponentFile(knowledgeComp, folderName, fileName)
+		output.PrintCmdStatus(cmd, fmt.Sprintf("Adding %s knowledge type.\n", componentName))
+		addNewKnowledgeComponent(cmd, manifest, getKnowledgeComponent(componentName))
 	}
 
 	if cmd.Flags().Changed("add-service") {
@@ -194,6 +181,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "zodiac:function":
 		{
 			component := &newComponent{
+				Filename:   componentFileName(manifest, componentName),
 				Type:       componentType,
 				Definition: getServiceComponent(componentName),
 			}
@@ -203,7 +191,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:entity":
 		{
 			entity := &newComponent{
-				Filename:   componentName + ".json",
+				Filename:   componentFileName(manifest, componentName),
 				Type:       componentType,
 				Definition: getEntityComponent(componentName, namespaceName),
 			}
@@ -215,7 +203,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			entityName, _ := cmd.Flags().GetString("add-resourceMapping")
 			entityName = strings.ToLower(entityName)
 			entity := &newComponent{
-				Filename:   componentName + "-resourceMapping.json",
+				Filename:   componentFileName(manifest, componentName+"-resourceMapping"),
 				Type:       componentType,
 				Definition: getResourceMap(nil, entityName, manifest),
 			}
@@ -227,7 +215,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 		{
 			entityName := strings.ToLower(componentName)
 			entity := &newComponent{
-				Filename:   entityName + "-associationDeclarations.json",
+				Filename:   componentFileName(manifest, entityName+"-associationDeclarations"),
 				Type:       componentType,
 				Definition: getAssociationDeclarations(entityName, manifest),
 			}
@@ -238,7 +226,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:metric":
 		{
 			metric := &newComponent{
-				Filename:   componentName + ".json",
+				Filename:   componentFileName(manifest, componentName),
 				Type:       componentType,
 				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, namespaceName),
 			}
@@ -248,7 +236,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "fmm:event":
 		{
 			event := &newComponent{
-				Filename:   componentName + ".json",
+				Filename:   componentFileName(manifest, componentName),
 				Type:       componentType,
 				Definition: getEventComponent(componentName, namespaceName),
 			}
@@ -262,7 +250,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
 			ecpList := &newComponent{
-				Filename:   "ecpList.json",
+				Filename:   componentFileName(manifest, "ecpList"),
 				Type:       "dashui:template",
 				Definition: getEcpList(entity),
 			}
@@ -270,7 +258,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpList)
 
 			entityGridTable := &newComponent{
-				Filename:   fmt.Sprintf("%sGridTable.json", entity.Name),
+				Filename:   componentFileName(manifest, entity.Name+"GridTable"),
 				Type:       "dashui:template",
 				Definition: getDashuiGridTable(entity),
 			}
@@ -278,7 +266,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, entityGridTable)
 
 			ecpRelationshipMap := &newComponent{
-				Filename:   "ecpRelationshipMap.json",
+				Filename:   componentFileName(manifest, "ecpRelationshipMap"),
 				Type:       "dashui:template",
 				Definition: getRelationshipMap(entity),
 			}
@@ -286,7 +274,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpRelationshipMap)
 
 			ecpListInspector := &newComponent{
-				Filename:   "ecpListInspector.json",
+				Filename:   componentFileName(manifest, "ecpListInspector"),
 				Type:       "dashui:template",
 				Definition: getEcpListInspector(entity),
 			}
@@ -297,7 +285,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				entityInspectorWidget := &newComponent{
-					Filename:   fmt.Sprintf("%sInspectorWidget.json", entity.Name),
+					Filename:   componentFileName(manifest, entity.Name+"InspectorWidget"),
 					Type:       "dashui:template",
 					Definition: getEcpInspectorWidget(entity),
 				}
@@ -308,7 +296,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			templateName = "dashui:name"
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				ecpName := &newComponent{
-					Filename:   "ecpName.json",
+					Filename:   componentFileName(manifest, "ecpName"),
 					Type:       "dashui:template",
 					Definition: getEcpName(entity),
 				}
@@ -324,7 +312,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			dashuiTemplates := manifest.GetDashuiTemplates()
 
 			ecpDetails := &newComponent{
-				Filename:   "ecpDetails.json",
+				Filename:   componentFileName(manifest, "ecpDetails"),
 				Type:       "dashui:template",
 				Definition: getEcpDetails(entity),
 			}
@@ -332,7 +320,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpDetails)
 
 			ecpDetailsList := &newComponent{
-				Filename:   fmt.Sprintf("%sDetailsList.json", entity.Name),
+				Filename:   componentFileName(manifest, entity.Name+"DetailsList.json"),
 				Type:       "dashui:template",
 				Definition: getDashuiDetailsList(entity, manifest),
 			}
@@ -340,7 +328,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpDetailsList)
 
 			ecpDetailsInspector := &newComponent{
-				Filename:   "ecpDetailsInspector.json",
+				Filename:   componentFileName(manifest, "ecpDetailsInspector"),
 				Type:       "dashui:template",
 				Definition: getEcpDetailsInspector(entity),
 			}
@@ -351,7 +339,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				entityInspectorWidget := &newComponent{
-					Filename:   fmt.Sprintf("%sInspectorWidget.json", entity.Name),
+					Filename:   componentFileName(manifest, entity.Name+"InspectorWidget"),
 					Type:       "dashui:template",
 					Definition: getEcpInspectorWidget(entity),
 				}
@@ -362,7 +350,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			templateName = "dashui:name"
 			if !hasDashuiTemplate(entity, dashuiTemplates, templateName) {
 				ecpName := &newComponent{
-					Filename:   "ecpName.json",
+					Filename:   componentFileName(manifest, "ecpName"),
 					Type:       "dashui:template",
 					Definition: getEcpName(entity),
 				}
@@ -374,7 +362,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	case "dashui:ecpHome":
 		{
 			ecpHome := &newComponent{
-				Filename:   fmt.Sprintf("%s.json", componentName),
+				Filename:   componentFileName(manifest, componentName),
 				Type:       "dashui:templatePropsExtension",
 				Definition: getEcpHome(manifest),
 			}
@@ -387,8 +375,8 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 	for _, newObject := range newComponents {
 		addCompDefToManifest(cmd, manifest, newObject.Type, folderName)
 		createComponentFile(newObject.Definition, folderName, newObject.Filename)
-		objFilePath := fmt.Sprintf("%s/%s", folderName, newObject.Filename)
-		statusMsg := fmt.Sprintf("Added %s file to your solution \n", objFilePath)
+		objFilePath := filepath.Join(folderName, newObject.Filename)
+		statusMsg := fmt.Sprintf("Added file %s to your solution\n", objFilePath)
 		output.PrintCmdStatus(cmd, statusMsg)
 	}
 }
@@ -431,21 +419,8 @@ func getStringfiedArray(array []string) string {
 	return prettyArrayString
 }
 
-func GetManifest() *Manifest {
-	manifestFile := openFile("manifest.json")
-	defer manifestFile.Close()
-
-	manifestBytes, err := io.ReadAll(manifestFile)
-	if err != nil {
-		log.Fatalf("Failed to read solution manifest: %v", err)
-	}
-
-	var manifest *Manifest
-	err = json.Unmarshal(manifestBytes, &manifest)
-	if err != nil {
-		log.Fatalf("Failed to parse solution manifest: %v", err)
-	}
-	return manifest
+func GetManifest(path string) (*Manifest, error) {
+	return getSolutionManifest(path)
 }
 
 func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType string, folderName string) {
@@ -469,4 +444,40 @@ func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType 
 	createSolutionManifestFile(".", manifest)
 	statusMsg := fmt.Sprintf("Added new %s definition to the solution manifest \n", componentType)
 	output.PrintCmdStatus(cmd, statusMsg)
+}
+
+func addNewKnowledgeComponent(cmd *cobra.Command, manifest *Manifest, obj *KnowledgeDef) {
+	// construct file path for the type file
+	folderName := "types"
+	fileName := fmt.Sprintf("%s.%s", obj.Name, manifest.ManifestFormat) // json or yaml
+	filePath := filepath.Join(folderName, fileName)
+
+	// fail if the file already exists, prevent overwriting existing type
+	if _, err := os.Stat(filePath); err == nil {
+		log.Fatalf("Type file %s already exists in the solution. Please use a different type name", filePath)
+	}
+
+	// add the file if not already in the list
+	found := false
+	for _, t := range manifest.Types {
+		if t == obj.Name {
+			found = true
+		}
+	}
+	if !found {
+		manifest.Types = append(manifest.Types, filePath)
+
+	}
+
+	// add type to manifest & create type file
+	createComponentFile(obj, folderName, fileName)
+	createSolutionManifestFile(".", manifest)
+
+	statusMsg := fmt.Sprintf("Added knowledge type %s to your solution in %s\n", obj.Name, fileName)
+	output.PrintCmdStatus(cmd, statusMsg)
+}
+
+// componentFileName returns a file name for a component based on the manifest format
+func componentFileName(manifest *Manifest, componentName string) string {
+	return fmt.Sprintf("%s.%s", componentName, manifest.ManifestFormat)
 }

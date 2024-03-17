@@ -25,19 +25,31 @@ import (
 	"github.com/apex/log"
 )
 
+type FileFormat int8
+
+const (
+	FileFormatJSON FileFormat = iota
+	FileFormatYAML
+)
+
+func (f FileFormat) String() string {
+	return [...]string{"json", "yaml"}[f]
+}
+
 type Manifest struct {
-	ManifestVersion string         `json:"manifestVersion,omitempty"`
-	Name            string         `json:"name,omitempty"`
-	SolutionVersion string         `json:"solutionVersion,omitempty"`
-	SolutionType    string         `json:"solutionType,omitempty"`
-	Dependencies    []string       `json:"dependencies"`
-	Description     string         `json:"description,omitempty"`
-	Contact         string         `json:"contact,omitempty"`
-	HomePage        string         `json:"homepage,omitempty"`
-	GitRepoUrl      string         `json:"gitRepoUrl,omitempty"`
-	Readme          string         `json:"readme,omitempty"`
-	Objects         []ComponentDef `json:"objects,omitempty"`
-	Types           []string       `json:"types,omitempty"`
+	ManifestVersion string         `json:"manifestVersion,omitempty" yaml:"manifestVersion,omitempty"`
+	ManifestFormat  FileFormat     `json:"-" yaml:"-"` // not serialized, in memory
+	Name            string         `json:"name,omitempty" yaml:"name,omitempty"`
+	SolutionVersion string         `json:"solutionVersion,omitempty" yaml:"solutionVersion,omitempty"`
+	SolutionType    string         `json:"solutionType,omitempty" yaml:"solutionType,omitempty"`
+	Dependencies    []string       `json:"dependencies" yaml:"dependencies"`
+	Description     string         `json:"description,omitempty" yaml:"description,omitempty"`
+	Contact         string         `json:"contact,omitempty" yaml:"contact,omitempty"`
+	HomePage        string         `json:"homepage,omitempty" yaml:"homepage,omitempty"`
+	GitRepoUrl      string         `json:"gitRepoUrl,omitempty" yaml:"gitRepoUrl,omitempty"`
+	Readme          string         `json:"readme,omitempty" yaml:"readme,omitempty"`
+	Objects         []ComponentDef `json:"objects,omitempty" yaml:"objects,omitempty"`
+	Types           []string       `json:"types,omitempty" yaml:"types,omitempty"`
 }
 
 type ComponentDef struct {

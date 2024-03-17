@@ -36,7 +36,10 @@ func init() {
 }
 
 func meltModel(cmd *cobra.Command, args []string) {
-	manifest := sol.GetManifest()
+	manifest, err := sol.GetManifest(".")
+	if err != nil {
+		log.Fatalf("Failed to get manifest: %v", err)
+	}
 	if manifest.HasIsolation() {
 
 		if !(cmd.Flags().Changed("tag") || cmd.Flags().Changed("env-file")) {

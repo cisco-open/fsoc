@@ -16,8 +16,11 @@ package solution
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -30,84 +33,55 @@ import (
 
 var solutionInitCmd = &cobra.Command{
 	Use:   "init <solution-name>",
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.ExactArgs(1),
 	Short: "Create a new solution",
 	Long: `This command creates a skeleton of a solution in the current directory.
 
-It creates a subdirectory named <solution-name> in the current directory and populates
-it with a solution manifest and objects for it. Once the solution is created,
-the "solution extend" command can be used to add objects to it.`,
+Solution names must start with a lowercase letter and contain only lowercase letters and digits.
+
+It creates a subdirectory named <solution-name> in the current directory and
+a solution manifest. Once the solution is created, the "solution extend" command
+can be used to add types and objects to it.`,
 	Example:          `  fsoc solution init mysolution`,
-	Run:              generateSolutionPackage,
+	Run:              createNewSolution,
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 
 func getInitSolutionCmd() *cobra.Command {
 	solutionInitCmd.Flags().
-		String("name", "", "The name of the new solution (required)")
-	_ = solutionInitCmd.Flags().MarkDeprecated("name", "please use argument instead.")
-
+		String("solution-type", "component", "The type of the solution you are creating (should be one of component, module, or application).")
 	solutionInitCmd.Flags().
-		Bool("include-service", true, "Add a service component definition to this solution")
-	_ = solutionInitCmd.Flags().MarkDeprecated("include-service", `please use the "solution extend" command instead.`)
-	solutionInitCmd.Flags().
-		Bool("include-knowledge", true, "Add a knowledge type definition to this solution")
-	_ = solutionInitCmd.Flags().MarkDeprecated("include-knowledge", `please use the "solution extend" command instead.`)
-
-	solutionInitCmd.Flags().
-		String("solution-type", "component", "The type of the solution you are creating (should be one of component, module, or application).  Default value is component.")
+		Bool("yaml", false, "Use YAML format instead of JSON for the solution manifest and objects.")
 
 	return solutionInitCmd
 }
 
-func generateSolutionPackage(cmd *cobra.Command, args []string) {
-	solutionName := getSolutionNameFromArgs(cmd, args, "name")
-	solutionName = strings.ToLower(solutionName)
-	solutionType, err := cmd.Flags().GetString("solution-type")
+func createNewSolution(cmd *cobra.Command, args []string) {
+	solutionName := strings.ToLower(args[0])
+	solutionType, _ := cmd.Flags().GetString("solution-type") // checked when creating manifest
 
+	// check solution name for validity / safety for creating a directory (incl. empty name)
+	match, err := regexp.Match(`^[a-z][a-z0-9]*$`, []byte(solutionName))
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("Failed to validate solution name %q: %v", solutionName, err)
+	}
+	if !match {
+		log.Fatalf("Invalid solution name %q: must start with a lowercase letter and contain only lowercase letters and digits", solutionName)
 	}
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Preparing the solution directory structure for %q... \n", solutionName))
-
 	if err := os.Mkdir(solutionName, os.ModePerm); err != nil {
-		log.Fatal(err.Error())
+		log.Fatalf("Failed to create a new directory %q: %v", solutionName, err)
 	}
 
 	manifest := createInitialSolutionManifest(solutionName, WithSolutionType(solutionType))
-
-	if cmd.Flags().Changed("include-service") {
-		output.PrintCmdStatus(cmd, "Adding the service-component.json \n")
-		folderName := solutionName + "/services"
-		fileName := "service-component.json"
-
-		manifest.Dependencies = append(manifest.Dependencies, "zodiac")
-
-		serviceComponentDef := &ComponentDef{
-			Type:        "zodiac:function",
-			ObjectsFile: "services/service-component.json",
-		}
-
-		manifest.Objects = append(manifest.Objects, *serviceComponentDef)
-		serviceComp := getServiceComponent("sampleservice")
-
-		createComponentFile(serviceComp, folderName, fileName)
+	if useYaml, _ := cmd.Flags().GetBool("yaml"); useYaml {
+		manifest.ManifestFormat = FileFormatYAML
 	}
-
-	if cmd.Flags().Changed("include-knowledge") {
-		output.PrintCmdStatus(cmd, "Adding the knowledge-component.json \n")
-		folderName := solutionName + "/knowledge"
-		fileName := "knowledge-component.json"
-		manifest.Types = append(manifest.Types, fmt.Sprintf("knowledge/%s", fileName))
-
-		knowledgeComp := createKnowledgeComponent(manifest)
-		createComponentFile(knowledgeComp, folderName, fileName)
-	}
-
-	output.PrintCmdStatus(cmd, "Adding the manifest.json \n")
 	createSolutionManifestFile(solutionName, manifest)
+
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution %q created successfully.\n", solutionName))
 }
 
 // --- Solution Manifest Helpers
@@ -178,14 +152,23 @@ func createInitialSolutionManifest(solutionName string, options ...SolutionManif
 }
 
 func writeSolutionManifest(folderName string, manifest *Manifest) error {
-	filepath := fmt.Sprintf("%s/manifest.json", folderName)
+	// create the manifest file, overwriting prior manifest
+	filepath := filepath.Join(folderName, fmt.Sprintf("manifest.%s", manifest.ManifestFormat))
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
 	if err != nil {
 		return fmt.Errorf("failed to create manifest file %q: %w", filepath, err)
 	}
 	defer manifestFile.Close()
 
-	err = output.WriteJson(manifest, manifestFile)
+	// write the manifest into the file, in manifest's selected format
+	switch manifest.ManifestFormat {
+	case FileFormatJSON:
+		err = output.WriteJson(manifest, manifestFile)
+	case FileFormatYAML:
+		err = output.WriteYaml(manifest, manifestFile)
+	default:
+		err = fmt.Errorf("(bug) unknown manifest format %q", manifest.ManifestFormat)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
 	}
@@ -237,33 +220,45 @@ func createKnowledgeComponent(manifest *Manifest) *KnowledgeDef {
 }
 
 func createComponentFile(compDef any, folderName string, fileName string) {
-
-	if _, err := os.Stat(folderName); os.IsNotExist(err) {
+	// create directory if it doesn't exist
+	if _, err := os.Stat(folderName); errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(folderName, os.ModePerm); err != nil {
 			log.Fatalf("Failed to create solution component directory %q: %v", folderName, err)
 		}
 	}
 
-	filepath := fmt.Sprintf("%s/%s", folderName, fileName)
+	// determine file format
+	var format FileFormat
+	ext, _ := strings.CutPrefix(filepath.Ext(fileName), ".") // extension without the leading dot
+	switch ext {
+	case FileFormatJSON.String():
+		format = FileFormatJSON
+	case FileFormatYAML.String():
+		format = FileFormatYAML
+	}
 
+	// create the component file
+	filepath := filepath.Join(folderName, fileName)
 	svcFile, err := os.Create(filepath)
 	if err != nil {
-		log.Fatalf("Failed to create solution component file %q: %v", folderName+"/"+fileName, err)
+		log.Fatalf("Failed to create solution component file %q: %v", filepath, err)
 	}
 	defer svcFile.Close()
 
-	enc := json.NewEncoder(svcFile)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", output.JsonIndent)
-	err = enc.Encode(compDef)
-
-	if err != nil {
-		log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
+	// write the component definition into the file
+	switch format {
+	case FileFormatYAML:
+		err = output.WriteYaml(compDef, svcFile)
+	case FileFormatJSON:
+		// nb: don't use output.WriteJson in order to be able to control HTML escaping
+		enc := json.NewEncoder(svcFile)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", output.JsonIndent)
+		err = enc.Encode(compDef)
 	}
-
-	// if err = output.WriteJson(compDef, svcFile); err != nil {
-	// 	log.Fatalf("Failed to write the solution component into file %q: %v", folderName+"/"+fileName, err)
-	// }
+	if err != nil {
+		log.Fatalf("Failed to write the solution component into file %q: %v", filepath, err)
+	}
 }
 
 func openFile(filePath string) *os.File {
