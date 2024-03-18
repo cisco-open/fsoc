@@ -18,11 +18,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Config defines the subsystem configuration under fsoc
+type Config struct {
+	ApiVersion *ApiVersion `mapstructure:"apiver,omitempty" fsoc-help:"API version to use for tenant provisioning. The default is \"v1beta\"."`
+}
+
+// To make it work provisioning should be registered as subsystem and
+// provisioning.GlobalConfig needs to be passed as provisioning config
+var GlobalConfig Config
+
 func NewSubCmd() *cobra.Command {
+
 	var cmd = &cobra.Command{
 		Use:              "provisioning",
 		Short:            "Tenant provisioning and management",
 		Long:             `Use to provision new tenant and troubleshoot provisioning workflow.`,
+		Aliases:          []string{"prov", "tep"},
 		Example:          `  fsoc provisioning [flags]`,
 		TraverseChildren: true,
 		Hidden:           true,

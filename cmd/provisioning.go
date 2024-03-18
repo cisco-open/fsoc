@@ -14,8 +14,10 @@
 
 package cmd
 
-import "github.com/cisco-open/fsoc/cmd/provisioning"
+import (
+	"github.com/cisco-open/fsoc/cmd/provisioning"
+)
 
 func init() {
-	registerSubsystem(provisioning.NewSubCmd())
+	registerSubSystemWithConfig(provisioning.NewSubCmd(), &provisioning.GlobalConfig)
 }

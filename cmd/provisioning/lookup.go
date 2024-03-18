@@ -15,47 +15,39 @@
 package provisioning
 
 import (
-	"fmt"
-
 	"github.com/apex/log"
-	"github.com/spf13/cobra"
-
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
+	"github.com/spf13/cobra"
 )
 
 func newCmdLookup() *cobra.Command {
 
 	var lookupCmd = &cobra.Command{
-		Use:              "lookup-tenant",
-		Short:            "Lookup for a tenant by vanity URL",
-		Long:             `Check whether tenant exist and return tenant Id if it does.`,
-		Example:          `  provisioning lookup-tenant --vanityUrl=fsoc-test.saas.appd-test.com`,
-		Args:             cobra.ExactArgs(0),
+		Use:   "lookup",
+		Short: "Lookup for a tenant Id by vanity URL",
+		Long: `Check whether tenant exist and return tenant Id if it does.
+Tenant lookup doesn't require valid authentication (auth=none) but any configured auth type/tenant will also work.`,
+		Example: `  fsoc provisioning lookup your-vanity-url.appdynamics.com
+  or with alias
+  fsoc tep lookup your-vanity-url.appdynamics.com`,
+		Args:             cobra.ExactArgs(1),
 		Run:              lookup,
 		TraverseChildren: true,
 	}
-
-	vanityUrlFlag := "vanityUrl"
-	lookupCmd.Flags().String(vanityUrlFlag, "", "Vanity URL without a scheme. Provide only domain part.")
-	_ = lookupCmd.MarkFlagRequired(vanityUrlFlag)
-
 	return lookupCmd
 }
 
 func lookup(cmd *cobra.Command, args []string) {
-	vanityUrl, _ := cmd.Flags().GetString("vanityUrl")
-
-	log.WithFields(log.Fields{"command": cmd.Name(), "vanityUrl": vanityUrl}).Info("Provisioning group command")
+	vanityUrl := args[0]
 
 	response := callBackend(vanityUrl)
-
 	output.PrintCmdOutput(cmd, response)
 }
 
 func callBackend(vanityUrl string) any {
 	var response any
-	err := api.JSONGet(fmt.Sprintf("/provisioning/v1beta/tenants/lookup/vanityUrl/%s", vanityUrl), &response, nil)
+	err := api.JSONGet(getTenantLookupUrl(vanityUrl), &response, nil)
 	if err != nil {
 		log.Fatalf("Tenant lookup failed with %v", err.Error())
 	}
