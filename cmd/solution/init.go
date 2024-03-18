@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -153,9 +154,27 @@ func createInitialSolutionManifest(solutionName string, options ...SolutionManif
 	return manifest
 }
 
-func writeSolutionManifest(folderName string, manifest *Manifest) error {
+func writeSolutionManifest(manifest *Manifest, w io.Writer) error {
 	checkStructTags(reflect.TypeOf(manifest)) // ensure json/yaml struct tags are correct
 
+	// write the manifest into the file, in manifest's selected format
+	var err error
+	switch manifest.ManifestFormat {
+	case FileFormatJSON:
+		err = output.WriteJson(manifest, w)
+	case FileFormatYAML:
+		err = output.WriteYaml(manifest, w)
+	default:
+		err = fmt.Errorf("(bug) unknown manifest format %q", manifest.ManifestFormat)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to write the manifest: %w", err)
+	}
+
+	return nil
+}
+
+func saveSolutionManifest(folderName string, manifest *Manifest) error {
 	// create the manifest file, overwriting prior manifest
 	filepath := filepath.Join(folderName, fmt.Sprintf("manifest.%s", manifest.ManifestFormat))
 	manifestFile, err := os.Create(filepath) // create new or truncate existing
@@ -165,14 +184,7 @@ func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	defer manifestFile.Close()
 
 	// write the manifest into the file, in manifest's selected format
-	switch manifest.ManifestFormat {
-	case FileFormatJSON:
-		err = output.WriteJson(manifest, manifestFile)
-	case FileFormatYAML:
-		err = output.WriteYaml(manifest, manifestFile)
-	default:
-		err = fmt.Errorf("(bug) unknown manifest format %q", manifest.ManifestFormat)
-	}
+	err = writeSolutionManifest(manifest, manifestFile)
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
 	}
@@ -181,9 +193,9 @@ func writeSolutionManifest(folderName string, manifest *Manifest) error {
 	return nil
 }
 
-// createSolutionManifestFile is a "must succeed" version of writeSolutionManifests
+// createSolutionManifestFile is a "must succeed" version of saveSolutionManifest
 func createSolutionManifestFile(folderName string, manifest *Manifest) {
-	if err := writeSolutionManifest(folderName, manifest); err != nil {
+	if err := saveSolutionManifest(folderName, manifest); err != nil {
 		log.Fatalf(err.Error())
 	}
 }
@@ -215,19 +227,30 @@ func createComponentFile(compDef any, folderName string, fileName string) {
 	defer svcFile.Close()
 
 	// write the component definition into the file
+	err = writeComponent(compDef, svcFile, format)
+	if err != nil {
+		log.Fatalf("Failed to write the solution component into file %q: %v", filepath, err)
+	}
+}
+
+func writeComponent(compDef any, w io.Writer, format FileFormat) error {
+	// write the component definition into the file
+	var err error
 	switch format {
 	case FileFormatYAML:
-		err = output.WriteYaml(compDef, svcFile)
+		err = output.WriteYaml(compDef, w)
 	case FileFormatJSON:
 		// nb: don't use output.WriteJson in order to be able to control HTML escaping
-		enc := json.NewEncoder(svcFile)
+		enc := json.NewEncoder(w)
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", output.JsonIndent)
 		err = enc.Encode(compDef)
 	}
 	if err != nil {
-		log.Fatalf("Failed to write the solution component into file %q: %v", filepath, err)
+		return fmt.Errorf("failed to write the solution file with %T: %v", compDef, err)
 	}
+
+	return nil
 }
 
 func openFile(filePath string) *os.File {

@@ -66,11 +66,11 @@ func getSolutionExtendCmd() *cobra.Command {
 		Bool("add-ecpHome", false, "Add a template extension definition to build the ecpHome experience for this solution")
 
 	// file format override flags (mutually exclusive)
-	solutionInitCmd.Flags().
+	solutionExtendCmd.Flags().
 		Bool("json", false, "Use JSON format for the component file, even if the manifest is in YAML.")
-	solutionInitCmd.Flags().
+	solutionExtendCmd.Flags().
 		Bool("yaml", false, "Use YAML format for the component file, even if the manifest is in JSON.")
-	solutionInitCmd.MarkFlagsMutuallyExclusive("json", "yaml")
+	solutionExtendCmd.MarkFlagsMutuallyExclusive("json", "yaml")
 
 	return solutionExtendCmd
 
