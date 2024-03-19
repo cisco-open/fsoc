@@ -34,7 +34,7 @@ func NewSubCmd() *cobra.Command {
 		Short:            "Tenant provisioning and management",
 		Long:             `Use to provision new tenant and troubleshoot provisioning workflow.`,
 		Aliases:          []string{"prov", "tep"},
-		Example:          `  fsoc provisioning [flags]`,
+		Example:          `  fsoc provisioning`,
 		TraverseChildren: true,
 		Hidden:           true,
 	}

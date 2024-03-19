@@ -15,10 +15,9 @@
 package provisioning
 
 import (
-	"github.com/apex/log"
-	"github.com/cisco-open/fsoc/output"
-	"github.com/cisco-open/fsoc/platform/api"
 	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/cmdkit"
 )
 
 func newCmdLookup() *cobra.Command {
@@ -28,9 +27,8 @@ func newCmdLookup() *cobra.Command {
 		Short: "Lookup for a tenant Id by vanity URL",
 		Long: `Check whether tenant exist and return tenant Id if it does.
 Tenant lookup doesn't require valid authentication (auth=none) but any configured auth type/tenant will also work.`,
-		Example: `  fsoc provisioning lookup your-vanity-url.appdynamics.com
-  or with alias
-  fsoc tep lookup your-vanity-url.appdynamics.com`,
+		Example: `  fsoc provisioning lookup MYTENANT.observe.appdynamics.com
+  fsoc tep lookup MYTENANT.observe.appdynamics.com`,
 		Args:             cobra.ExactArgs(1),
 		Run:              lookup,
 		TraverseChildren: true,
@@ -40,16 +38,5 @@ Tenant lookup doesn't require valid authentication (auth=none) but any configure
 
 func lookup(cmd *cobra.Command, args []string) {
 	vanityUrl := args[0]
-
-	response := callBackend(vanityUrl)
-	output.PrintCmdOutput(cmd, response)
-}
-
-func callBackend(vanityUrl string) any {
-	var response any
-	err := api.JSONGet(getTenantLookupUrl(vanityUrl), &response, nil)
-	if err != nil {
-		log.Fatalf("Tenant lookup failed with %v", err.Error())
-	}
-	return response
+	cmdkit.FetchAndPrint(cmd, getTenantLookupUrl(vanityUrl), &cmdkit.FetchAndPrintOptions{})
 }

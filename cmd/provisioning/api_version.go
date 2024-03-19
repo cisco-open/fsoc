@@ -16,10 +16,8 @@ package provisioning
 
 import (
 	"fmt"
+	"slices"
 	"strings"
-
-	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 // Tenant Provisioning API version type, supporting a limited set of values.
@@ -38,10 +36,10 @@ var supportedApiVersions = []string{
 func (a *ApiVersion) ValidateAndSet(version any) error {
 	s, ok := version.(string)
 	if !ok {
-		return errors.New(fmt.Sprintf(`the API version value must be a string, found %T instead`, version))
+		return fmt.Errorf(`the API version value must be a string, found %T instead`, version)
 	}
 	if !slices.Contains(supportedApiVersions, s) {
-		return errors.New(fmt.Sprintf(`API version %q is not supported; valid value(s): "%v"`, version, strings.Join(supportedApiVersions, `", "`)))
+		return fmt.Errorf(`API version %q is not supported; valid value(s): "%v"`, version, strings.Join(supportedApiVersions, `", "`))
 	}
 	*a = ApiVersion(s)
 	return nil
