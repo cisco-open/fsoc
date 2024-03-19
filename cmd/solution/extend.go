@@ -458,9 +458,17 @@ func addCompDefToManifest(cmd *cobra.Command, manifest *Manifest, componentType 
 }
 
 func addNewKnowledgeComponent(cmd *cobra.Command, manifest *Manifest, obj *KnowledgeDef) {
+	// finalize file format
+	fileFormat := manifest.ManifestFormat
+	if isJSON, _ := cmd.Flags().GetBool("json"); isJSON {
+		fileFormat = FileFormatJSON
+	} else if isYAML, _ := cmd.Flags().GetBool("yaml"); isYAML {
+		fileFormat = FileFormatYAML
+	}
+
 	// construct file path for the type file
 	folderName := "types"
-	fileName := fmt.Sprintf("%s.%s", obj.Name, manifest.ManifestFormat) // json or yaml
+	fileName := fmt.Sprintf("%s.%s", obj.Name, fileFormat)
 	filePath := filepath.Join(folderName, fileName)
 
 	// fail if the file already exists, prevent overwriting existing type
@@ -495,16 +503,24 @@ func addNewKnowledgeComponent(cmd *cobra.Command, manifest *Manifest, obj *Knowl
 // If neither command nor manifest is provided, the default format is JSON.
 // This function cannot fail.
 func componentFileName(cmd *cobra.Command, manifest *Manifest, componentName string) string {
+	// first, assume default format is JSON
 	format := FileFormatJSON
+
+	// then, match manifest's format if the manifest is provided
+	if manifest != nil {
+		format = manifest.ManifestFormat
+	}
+
+	// and then, use command's format flag, if specified
 	if cmd != nil {
 		if isJSON, _ := cmd.Flags().GetBool("json"); isJSON {
 			format = FileFormatJSON
 		} else if isYAML, _ := cmd.Flags().GetBool("yaml"); isYAML {
 			format = FileFormatYAML
 		}
-	} else if manifest != nil {
-		format = manifest.ManifestFormat
 	}
+
+	// compose the file name
 	return fmt.Sprintf("%s.%s", componentName, format)
 }
 
