@@ -156,8 +156,25 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 						}
 					}
 
-					m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
+					if m.ContentType == "distribution" {
+						quantiles := []*melt.QuantileValue{{Quantile: 0.0, Value: dp}, {Quantile: 1.0, Value: dp}}
+						m.AddDistributionDataPoint(st.UnixNano(), et.UnixNano(), dp, 1, quantiles)
+					} else {
+						m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
+					}
+
 					st = et
+				}
+			} else {
+				// 2024-03-18 Renato Quedas - adding support for metric datapoints with values representing up to 30 minutes on a 1 minute granularity
+				et := time.Now()
+				for _, dtp := range m.DataPoints {
+					if dtp.StartTime == 0 && dtp.EndTime == 0 {
+						st := et.Add(time.Minute * -1)
+						dtp.StartTime = st.UnixNano()
+						dtp.EndTime = et.UnixNano()
+						et = st
+					}
 				}
 			}
 		}

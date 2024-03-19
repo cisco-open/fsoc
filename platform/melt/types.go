@@ -78,6 +78,15 @@ type Metric struct {
 	AggregationTemporality AggregationTemporality `yaml:"aggregationtemporality,omitempty"`
 }
 
+// DataPoint - structs for data point
+type DataPoint struct {
+	StartTime int64
+	EndTime   int64
+	Value     float64
+	Count     int64
+	Quantiles []*QuantileValue
+}
+
 // Log - structs for logs“
 type Log struct {
 	Resource   Resource `yaml:"resource,omitempty"`
@@ -132,11 +141,9 @@ type SpanStatus struct {
 	Code    SpanStatusCode
 }
 
-// DataPoint - structs for data point
-type DataPoint struct {
-	StartTime int64
-	EndTime   int64
-	Value     float64
+type QuantileValue struct {
+	Quantile float64
+	Value    float64
 }
 
 // Relationship - structs for holding relationship info
@@ -312,13 +319,27 @@ func (s *Span) SetStatus(message string, code SpanStatusCode) *Span {
 	return s
 }
 
-// AddDataPoint - Add a data point
+// AddDataPoint - Add a data point for sum or gauge metrics
 func (m *Metric) AddDataPoint(startTime, endTime int64, value float64) *Metric {
 	dp := &DataPoint{
 		StartTime: startTime,
 		EndTime:   endTime,
 		Value:     value,
 	}
+	m.DataPoints = append(m.DataPoints, dp)
+	return m
+}
+
+// AddDistributionDataPoint - Add a data point for distribution metrics.
+func (m *Metric) AddDistributionDataPoint(startTime, endTime int64, value float64, count int64, quantiles []*QuantileValue) *Metric {
+	dp := &DataPoint{
+		StartTime: startTime,
+		EndTime:   endTime,
+		Value:     value,
+		Count:     count,
+		Quantiles: quantiles,
+	}
+
 	m.DataPoints = append(m.DataPoints, dp)
 	return m
 }
