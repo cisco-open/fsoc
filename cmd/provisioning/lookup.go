@@ -38,5 +38,5 @@ Tenant lookup doesn't require valid authentication (auth=none) but any configure
 
 func lookup(cmd *cobra.Command, args []string) {
 	vanityUrl := args[0]
-	cmdkit.FetchAndPrint(cmd, getTenantLookupUrl(vanityUrl), &cmdkit.FetchAndPrintOptions{})
+	cmdkit.FetchAndPrint(cmd, getTenantLookupUrl(vanityUrl), nil)
 }
