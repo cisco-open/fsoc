@@ -330,6 +330,33 @@ func (exp *Exporter) createOtelMetric(m *Metric) *metrics.Metric {
 		otm.Data = &metrics.Metric_Gauge{Gauge: s}
 
 		return otm
+
+	case "distribution":
+		mAttribs := toKeyValueList(m.Attributes)
+		smMetric := &metrics.Summary{}
+		for _, dp := range m.DataPoints {
+			otdp := &metrics.SummaryDataPoint{
+				StartTimeUnixNano: uint64(dp.StartTime),
+				TimeUnixNano:      uint64(dp.EndTime),
+				Attributes:        mAttribs,
+				Count:             uint64(dp.Count),
+				Sum:               dp.Value,
+			}
+
+			for _, qtv := range dp.Quantiles {
+				qtValue := &metrics.SummaryDataPoint_ValueAtQuantile{
+					Quantile: qtv.Quantile,
+					Value:    qtv.Value,
+				}
+				otdp.QuantileValues = append(otdp.QuantileValues, qtValue)
+			}
+
+			smMetric.DataPoints = append(smMetric.DataPoints, otdp)
+		}
+
+		otm.Data = &metrics.Metric_Summary{Summary: smMetric}
+
+		return otm
 	}
 
 	log.Errorf("unsuported metrics type: %s", m.ContentType)
