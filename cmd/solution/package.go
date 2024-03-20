@@ -250,13 +250,15 @@ func addFileToZip(zipWriter *zip.Writer, fileName string, info os.FileInfo) {
 }
 
 func isSolutionPackageRoot(path string) bool {
-	manifestPath := fmt.Sprintf("%s/manifest.json", path)
-	manifestFile, err := os.Open(manifestPath)
+	_, err := getSolutionManifest(path)
 	if err != nil {
-		log.Errorf("The directory %s is not a solution root directory", path)
+		if errors.Is(err, os.ErrNotExist) {
+			log.Errorf("The directory %s is not a solution root directory", path)
+		} else {
+			log.Errorf("Failed to read solution manifest: %v", err)
+		}
 		return false
 	}
-	manifestFile.Close()
 	return true
 }
 

@@ -193,6 +193,11 @@ func changeManifestFormat(cmd *cobra.Command, manifest *Manifest, format string)
 		return ErrNoEffect
 	}
 
+	// Prevent changing pseudo-isolated solutions to YAML
+	if fileFormat == FileFormatYAML {
+		return fmt.Errorf("changing pseudo-isolated solutions to YAML is not supported; pseudo-isolation is supported only for JSON-formatted solutions")
+	}
+
 	// Change manifest format
 	manifest.ManifestFormat = fileFormat
 	// nb: writing the format back will change the format
