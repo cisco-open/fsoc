@@ -57,6 +57,13 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, s
 		return sourceDir, tag, nil
 	}
 
+	// reject if manifest is in YAML format (pseudo-isolation is supported only for JSON files)
+	if manifest.ManifestFormat != FileFormatJSON {
+		return "", "", fmt.Errorf("pseudo-isolation is supported only for JSON-formatted solutions")
+	}
+
+	log.Warnf("This solution uses fsoc-provided pseudo-isolation, which is now deprecated; please transition your solutions to native isolation soon to get the full isolation benefits.")
+
 	// prepare target directory
 	// TODO: instead of fsoc as prefix, use as much as we can extract from the solution name
 	//       in the manifest (assuming "<solution-name>${<something>}", the idea is to extract <solution-name>

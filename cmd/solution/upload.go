@@ -64,7 +64,7 @@ func bumpSolutionVersionInManifest(cmd *cobra.Command, manifest *Manifest, manif
 	if err := bumpManifestPatchVersion(manifest); err != nil {
 		log.Fatal(err.Error())
 	}
-	if err := writeSolutionManifest(manifestPath, manifest); err != nil {
+	if err := saveSolutionManifest(manifestPath, manifest); err != nil {
 		log.Fatalf("Failed to update solution manifest in %q after version bump: %v", manifestPath, err)
 	}
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution version updated to %v\n", manifest.SolutionVersion))

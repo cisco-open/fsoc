@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,53 +19,53 @@ import (
 )
 
 type FmmTypeDef struct {
-	Namespace   *FmmNamespaceAssignTypeDef `json:"namespace"`
-	Kind        string                     `json:"kind"`
-	Name        string                     `json:"name"`
-	DisplayName string                     `json:"displayName,omitempty"`
+	Namespace   *FmmNamespaceAssignTypeDef `json:"namespace" yaml:"namespace"`
+	Kind        string                     `json:"kind" yaml:"kind"`
+	Name        string                     `json:"name" yaml:"name"`
+	DisplayName string                     `json:"displayName,omitempty" yaml:"displayName,omitempty"`
 }
 
 type FmmNamespaceAssignTypeDef struct {
-	Name    string `json:"name"`
-	Version int    `json:"version"`
+	Name    string `json:"name" yaml:"name"`
+	Version int    `json:"version" yaml:"version"`
 }
 
 type FmmLifecycleConfigTypeDef struct {
-	PurgeTtlInMinutes     int64 `json:"purgeTtlInMinutes"`
-	RetentionTtlInMinutes int64 `json:"retentionTtlInMinutes"`
+	PurgeTtlInMinutes     int64 `json:"purgeTtlInMinutes" yaml:"purgeTtlInMinutes"`
+	RetentionTtlInMinutes int64 `json:"retentionTtlInMinutes" yaml:"retentionTtlInMinutes"`
 }
 
 type FmmAttributeTypeDef struct {
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
+	Type        string `json:"type" yaml:"type"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 }
 
 type FmmRequiredAttributeDefinitionsTypeDef struct {
-	Required []string `json:"required"`
+	Required []string `json:"required" yaml:"required"`
 	*FmmAttributeDefinitionsTypeDef
 }
 
 type FmmAttributeDefinitionsTypeDef struct {
-	Optimized  []string                        `json:"optimized"`
-	Attributes map[string]*FmmAttributeTypeDef `json:"attributes"`
+	Optimized  []string                        `json:"optimized" yaml:"optimized"`
+	Attributes map[string]*FmmAttributeTypeDef `json:"attributes" yaml:"attributes"`
 }
 
 type FmmAssociationTypesTypeDef struct {
-	Aggregates_of []string `json:"common:aggregates_of,omitempty"`
-	Consists_of   []string `json:"common:consists_of,omitempty"`
-	Is_a          []string `json:"common:is_a,omitempty"`
-	Has           []string `json:"common:has,omitempty"`
-	Relates_to    []string `json:"common:relates_to,omitempty"`
-	Uses          []string `json:"common:uses,omitempty"`
+	Aggregates_of []string `json:"common:aggregates_of,omitempty" yaml:"common:aggregates_of,omitempty"`
+	Consists_of   []string `json:"common:consists_of,omitempty" yaml:"common:consists_of,omitempty"`
+	Is_a          []string `json:"common:is_a,omitempty" yaml:"common:is_a,omitempty"`
+	Has           []string `json:"common:has,omitempty" yaml:"common:has,omitempty"`
+	Relates_to    []string `json:"common:relates_to,omitempty" yaml:"common:relates_to,omitempty"`
+	Uses          []string `json:"common:uses,omitempty" yaml:"common:uses,omitempty"`
 }
 
 type FmmEntity struct {
 	*FmmTypeDef
-	AttributeDefinitions  *FmmRequiredAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
-	LifecyleConfiguration *FmmLifecycleConfigTypeDef              `json:"lifecycleConfiguration"`
-	MetricTypes           []string                                `json:"metricTypes,omitempty"`
-	EventTypes            []string                                `json:"eventTypes,omitempty"`
-	AssociationTypes      *FmmAssociationTypesTypeDef             `json:"associationTypes,omitempty"`
+	AttributeDefinitions  *FmmRequiredAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty" yaml:"attributeDefinitions,omitempty"`
+	LifecyleConfiguration *FmmLifecycleConfigTypeDef              `json:"lifecycleConfiguration" yaml:"lifecycleConfiguration"`
+	MetricTypes           []string                                `json:"metricTypes,omitempty" yaml:"metricTypes,omitempty"`
+	EventTypes            []string                                `json:"eventTypes,omitempty" yaml:"eventTypes,omitempty"`
+	AssociationTypes      *FmmAssociationTypesTypeDef             `json:"associationTypes,omitempty" yaml:"associationTypes,omitempty"`
 }
 
 func (entity *FmmEntity) GetTypeName() string {
@@ -74,46 +74,46 @@ func (entity *FmmEntity) GetTypeName() string {
 
 type FmmEvent struct {
 	*FmmTypeDef
-	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions"` // required always, do not omitempty
+	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions" yaml:"attributeDefinitions"` // required always, do not omitempty
 }
 
 type FmmResourceMapping struct {
 	*FmmTypeDef
-	EntityType            string               `json:"entityType"`
-	ScopeFilter           string               `json:"scopeFilter"`
-	Mappings              []FmmMapAndTransform `json:"mappings,omitempty"`
-	AttributeNameMappings FmmNameMappings      `json:"attributeNameMappings,omitempty"`
+	EntityType            string               `json:"entityType" yaml:"entityType"`
+	ScopeFilter           string               `json:"scopeFilter" yaml:"scopeFilter"`
+	Mappings              []FmmMapAndTransform `json:"mappings,omitempty" yaml:"mappings,omitempty"`
+	AttributeNameMappings FmmNameMappings      `json:"attributeNameMappings,omitempty" yaml:"attributeNameMappings,omitempty"`
 }
 
 type FmmAssociationDeclaration struct {
 	*FmmTypeDef
-	ScopeFilter     string `json:"scopeFilter"`
-	FromType        string `json:"fromType"`
-	ToType          string `json:"toType"`
-	AssociationType string `json:"associationType"`
+	ScopeFilter     string `json:"scopeFilter" yaml:"scopeFilter"`
+	FromType        string `json:"fromType" yaml:"fromType"`
+	ToType          string `json:"toType" yaml:"toType"`
+	AssociationType string `json:"associationType" yaml:"associationType"`
 }
 
 type FmmMapAndTransform struct {
-	To   string `json:"to"`
-	From string `json:"from"`
+	To   string `json:"to" yaml:"to"`
+	From string `json:"from" yaml:"from"`
 }
 
 type FmmNameMappings map[string]string
 
 type FmmNamespace struct {
-	Name string `json:"name"`
+	Name string `json:"name" yaml:"name"`
 }
 
 type FmmMetric struct {
 	*FmmTypeDef
-	Category               FmmMetricCategory               `json:"category"`
-	ContentType            FmmMetricContentType            `json:"contentType"`
-	AggregationTemporality string                          `json:"aggregationTemporality"`
-	IsMonotonic            bool                            `json:"isMonotonic"`
-	Type                   FmmMetricType                   `json:"type"`
-	Unit                   string                          `json:"unit"`
-	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty"`
-	IngestGranularities    []int                           `json:"ingestGranularities,omitempty"`
+	Category               FmmMetricCategory               `json:"category" yaml:"category"`
+	ContentType            FmmMetricContentType            `json:"contentType" yaml:"contentType"`
+	AggregationTemporality string                          `json:"aggregationTemporality" yaml:"aggregationTemporality"`
+	IsMonotonic            bool                            `json:"isMonotonic" yaml:"isMonotonic"`
+	Type                   FmmMetricType                   `json:"type" yaml:"type"`
+	Unit                   string                          `json:"unit" yaml:"unit"`
+	AttributeDefinitions   *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty" yaml:"attributeDefinitions,omitempty"`
+	IngestGranularities    []int                           `json:"ingestGranularities,omitempty" yaml:"ingestGranularities,omitempty"`
 }
 
 type FmmMetricCategory string

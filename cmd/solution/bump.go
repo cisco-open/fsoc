@@ -57,7 +57,7 @@ func bumpSolutionVersion(cmd *cobra.Command, args []string) {
 	}
 	newVer := manifest.SolutionVersion
 
-	if err = writeSolutionManifest(manifestDir, manifest); err != nil {
+	if err = saveSolutionManifest(manifestDir, manifest); err != nil {
 		log.Fatalf("Failed to update solution manifest: %v", err)
 	}
 

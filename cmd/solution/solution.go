@@ -52,6 +52,7 @@ func NewSubCmd() *cobra.Command {
 	solutionCmd.AddCommand(getSubscribeSolutionCmd())
 	solutionCmd.AddCommand(getUnsubscribeSolutionCmd())
 	solutionCmd.AddCommand(getSolutionExtendCmd())
+	solutionCmd.AddCommand(getSolutionFixCmd())
 	solutionCmd.AddCommand(getSolutionPackageCmd())
 	solutionCmd.AddCommand(getSolutionPushCmd())
 	solutionCmd.AddCommand(getSolutionDownloadCmd())

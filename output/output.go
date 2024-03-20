@@ -111,6 +111,16 @@ func WriteJson(obj interface{}, w io.Writer) error {
 	return err
 }
 
+func WriteYaml(obj interface{}, w io.Writer) error {
+	data, err := yaml.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	_, err = w.Write(data)
+	return err
+}
+
 // PrintJson displays the output in prettified JSON
 func PrintJson(cmd *cobra.Command, v any) error {
 	return WriteJson(v, GetOutWriter(cmd))
