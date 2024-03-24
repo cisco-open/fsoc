@@ -35,7 +35,7 @@ var solutionFixCmd = &cobra.Command{
 	1. Upgrade the solution format to recent changes (e.g., manifest version)
 	2. Fix common issues in the solution (e.g., missing required fields)
 	3. Make common changes and refactoring (e.g., change file format from JSON to YAML)`,
-	Example:     `  fsoc solution fix --manifest-type=yaml --manifest-version`,
+	Example:     `  fsoc solution fix --manifest-format=yaml --manifest-version --solution-type=module`,
 	Run:         solutionFix,
 	Annotations: map[string]string{config.AnnotationForConfigBypass: ""}, // this command does not require a valid context
 }
