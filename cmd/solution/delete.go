@@ -38,6 +38,7 @@ type SolutionDeletionData struct {
 
 type SolutionDeletionRecord struct {
 	DeletionData SolutionDeletionData `json:"data,omitempty"`
+	ID           string               `json:"id,omitempty"`
 }
 
 type SolutionDeletionResponseBlob struct {
@@ -85,6 +86,7 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 	var confirmationAnswer string
 	var solutionName string
 	var solutionTag string
+	var existingSolutionDeletionObjectId string
 
 	solutionTag, _ = cmd.Flags().GetString("tag")
 	skipConfirmationMessage, _ := cmd.Flags().GetBool("yes")
@@ -106,6 +108,12 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	existingDeletionObj := getSolutionDeletionObject(solutionTag, solutionName)
+
+	if !existingDeletionObj.IsEmpty() {
+		existingSolutionDeletionObjectId = existingDeletionObj.ID
+	}
+
 	solutionDeleteUrl := fmt.Sprintf(getSolutionDeleteUrl(), solutionName)
 
 	var res any
@@ -117,15 +125,18 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 	if !noWait {
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution deletion initiated for solution with name: %s and tag: %s\n", solutionName, solutionTag))
 		var deletionObjData SolutionDeletionData
+		var newDeletionObjectId string
 		waitStartTime := time.Now()
 
-		for deletionObjData.Status == "" || deletionObjData.Status == "inProgress" || deletionObjData.IsEmpty() {
+		for deletionObjData.Status == "" || deletionObjData.Status == "inProgress" || deletionObjData.IsEmpty() || newDeletionObjectId == existingSolutionDeletionObjectId {
 			output.PrintCmdStatus(cmd, fmt.Sprintf("Waited %f seconds for solution with name: %s and tag: %s to be marked as deleted\n", time.Since(waitStartTime).Seconds(), solutionName, solutionTag))
 			if time.Since(waitStartTime).Seconds() > float64(waitForDeletionDuration) {
 				log.Fatalf("Failed to validate solution with name %s and tag: %s was deleted: timed out", solutionName, solutionTag)
 			}
 			deletionObj := getSolutionDeletionObject(solutionTag, solutionName)
 			deletionObjData = deletionObj.DeletionData
+			newDeletionObjectId = deletionObj.ID
+			log.Infof("Got value of new deletion objectID :%s", newDeletionObjectId)
 			time.Sleep(3 * time.Second)
 		}
 
@@ -149,6 +160,10 @@ func getExtSolutionDeletionUrl() string {
 
 func (s SolutionDeletionData) IsEmpty() bool {
 	return reflect.DeepEqual(s, SolutionDeletionData{})
+}
+
+func (s SolutionDeletionRecord) IsEmpty() bool {
+	return reflect.DeepEqual(s, SolutionDeletionRecord{})
 }
 
 func getSolutionDeletionObject(solutionTag string, solutionName string) SolutionDeletionRecord {
