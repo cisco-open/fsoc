@@ -66,6 +66,7 @@ func NewSubCmd() *cobra.Command {
 	solutionCmd.AddCommand(getSolutionTestStatusCmd())
 	solutionCmd.AddCommand(getsolutionIsolateCmd())
 	solutionCmd.AddCommand(getSolutionZapCmd())
+	solutionCmd.AddCommand(getSolutionDeleteCommand())
 	solutionListCmd.Flags().StringP("output", "o", "", "Output format (human*, json, yaml)")
 
 	return solutionCmd
