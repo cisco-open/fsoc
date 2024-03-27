@@ -105,7 +105,13 @@ func zapSolution(cmd *cobra.Command, args []string) {
 		solutionInstallObjectChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), solutionInstallObjectQuery), headers)
 	}()
 	go func() {
-		solutionObjectChan <- getExtensibilitySolutionObject(getSolutionObjectUrl(solutionId), headers)
+		solutionObject, err := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionId), headers)
+
+		if err != nil {
+			log.Fatalf("Error getting solution object: %v", err)
+		}
+
+		solutionObjectChan <- solutionObject
 	}()
 
 	solutionInstallObject := <-solutionInstallObjectChan

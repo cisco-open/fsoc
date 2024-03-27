@@ -108,27 +108,51 @@ func getObjects(url string, headers map[string]string) StatusItem {
 	}
 }
 
-func getExtensibilitySolutionObject(url string, headers map[string]string) ExtensibilitySolutionObjectData {
+func getExtensibilitySolutionObject(url string, headers map[string]string) (ExtensibilitySolutionObjectData, error) {
 	var res GetExtensibilitySolutionObjectByIdResponse
 
-	err := api.JSONGet(url, &res, &api.Options{Headers: headers})
+	err := api.JSONGet(url, &res, &api.Options{Headers: headers, ExpectedErrors: []int{404}})
 
 	if err != nil {
-		log.Fatalf("Error fetching extensibility:solution object %q: %v", url, err)
+		return ExtensibilitySolutionObjectData{}, err
 	}
 
-	return res.Data
+	return res.Data, nil
 
 }
 
-func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, solutionReleaseObjectQuery string, successfulSolutionInstallObjectQuery string, solutionID string, requestHeaders map[string]string, cmd *cobra.Command) {
+func checkIfSolutionDeleted(solutionName string, solutionTag string) (bool, SolutionDeletionData) {
+	log.Infof("Checking if solution with name: %s and tag: %s has been deleted", solutionName, solutionTag)
+	solutionDeletionObject := getSolutionDeletionObject(solutionTag, solutionName)
+
+	if solutionDeletionObject.IsEmpty() {
+		log.Infof("Solution with name: %s and tag: %s not found in deletion object", solutionName, solutionTag)
+		return false, SolutionDeletionData{}
+	} else {
+		return true, solutionDeletionObject.DeletionData
+	}
+}
+
+func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, solutionReleaseObjectQuery string, successfulSolutionInstallObjectQuery string, solutionID string, solutionName string, solutionTag string, requestHeaders map[string]string, cmd *cobra.Command) {
 	// finalize solution name (incl. the solution object name which includes the tag value)
 	var solutionInstallationMessagePrefix string
 	solutionVersion, _ := cmd.Flags().GetString("solution-version")
 
 	// ensure that the solution exists.
 	// This also ensures that the user is logged in (to avoid a race condition on login for the subsequent parallel API calls)
-	solutionStatusItem := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
+	solutionStatusItem, err := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
+
+	if err != nil {
+		isSolutionDeleted, solutionDeletionData := checkIfSolutionDeleted(solutionName, solutionTag)
+		// If solution has been deleted previously, print out a helpful message to let the user know
+		// else throw an error
+		if isSolutionDeleted {
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted with status: %s.  \nPlease upload and subscribe again if you want to see its status.\n", solutionName, solutionTag, solutionDeletionData.Status))
+			return
+		} else {
+			log.Fatalf("Error fetching extensibility:solution object %q: %v", getSolutionObjectUrl(solutionID), err)
+		}
+	}
 
 	// fetch the remaining solution status objects in parallel
 	uploadStatusChan := make(chan StatusItem)
@@ -255,7 +279,7 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 
 	log.Infof(`solution name and version query: %s`, solutionInstallObjectQuery)
 
-	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionID, headers, cmd)
+	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionID, solutionName, solutionTag, headers, cmd)
 
 	return nil
 }
