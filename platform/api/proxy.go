@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -32,7 +31,7 @@ import (
 
 var gblShutdown bool // global flag to indicate server shutdown is pending
 
-func RunProxyServer(port int, command string, statusPrinter func(string), exitCode *int) error {
+func RunProxyServer(port int, command []string, statusPrinter func(string), exitCode *int) error {
 	if statusPrinter == nil {
 		statusPrinter = func(s string) {
 			log.Info(s)
@@ -85,7 +84,7 @@ func RunProxyServer(port int, command string, statusPrinter func(string), exitCo
 	}()
 
 	// If a command is provided, execute it and then shut down the server
-	if command != "" {
+	if len(command) != 0 {
 		statusPrinter(fmt.Sprintf("Executing command: %v", command))
 		runExitCode, err := runCommand(command)
 		if err != nil {
@@ -134,15 +133,13 @@ func RunProxyServer(port int, command string, statusPrinter func(string), exitCo
 	return nil
 }
 
-func runCommand(command string) (int, error) {
-	// Separate the command and its arguments
-	args := strings.Fields(command)
-	if len(args) == 0 {
+func runCommand(command []string) (int, error) {
+	if len(command) == 0 {
 		return 1, fmt.Errorf("command cannot be empty")
 	}
 
 	// Execute the command and wait for it to complete
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

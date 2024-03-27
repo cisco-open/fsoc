@@ -26,7 +26,7 @@ import (
 
 // proxyCmd represents the login command
 var proxyCmd = &cobra.Command{
-	Use:   "proxy",
+	Use:   "proxy [flags] [--] [command] [args...]",
 	Short: "Proxy local http requests to platform",
 	Long: `This command runs a proxy server to forward http requests
 to the platform API. It will automatically login and provide the necessary authentication.
@@ -35,17 +35,17 @@ The command can be used in two modes:
 1. Run the proxy server in foreground until terminated with Ctrl-C.
 2. Start the proxy server, execute a command (e.g., curl or shell script) and terminate.
 
-When running a command, fsoc will exit with the exit code of the command.
-`,
+When running a command, fsoc will exit with the exit code of the command. Note that if the 
+command has flags, you must use the ` + "`--`" + ` separator before the command, so that
+fsoc does not interpret the flags as its own. Otherwise, the separator is optional.`,
 	Example: `  fsoc proxy -p 8000
-  fsoc proxy -c "curl -fsSL http://localhost:8080/knowledge-store/v1/objects/extensibility:solution/k8sprofiler" -q
-  fsoc proxy -p 8000 -c "mytest.sh 8000"`,
+  fsoc proxy -q -- curl -fsSL http://localhost:8080/knowledge-store/v1/objects/extensibility:solution/k8sprofiler
+  fsoc proxy -p 8000 mytest.sh 8000`,
 	Run: proxy,
 }
 
 func NewSubCmd() *cobra.Command {
 	proxyCmd.Flags().IntP("port", "p", 8080, "Port to listen on")
-	proxyCmd.Flags().StringP("command", "c", "", "Command to run after starting the proxy server")
 	proxyCmd.Flags().BoolP("quiet", "q", false, "Suppress all fsoc status output to stdout")
 	return proxyCmd
 }
@@ -68,14 +68,13 @@ func proxy(cmd *cobra.Command, args []string) {
 
 	// run the proxy server
 	port, _ := cmd.Flags().GetInt("port")
-	command, _ := cmd.Flags().GetString("command")
 	var exitCode int
-	if err := api.RunProxyServer(port, command, statusPrinter, &exitCode); err != nil {
+	if err := api.RunProxyServer(port, args, statusPrinter, &exitCode); err != nil {
 		log.Fatalf("Proxy server failed: %v", err)
 	}
 
 	// pass exit code back to caller (if we executed a command)
-	if command != "" && exitCode != 0 {
+	if len(args) > 0 && exitCode != 0 {
 		os.Exit(exitCode)
 	}
 }
