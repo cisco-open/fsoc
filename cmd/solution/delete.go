@@ -47,17 +47,17 @@ type SolutionDeletionResponseBlob struct {
 
 var solutionDeleteCmd = &cobra.Command{
 	Use:   "delete <solution-name>",
-	Args:  cobra.MinimumNArgs(1),
+	Args:  cobra.ExactArgs(1),
 	Short: "Delete a non-stable tagged version of a solution",
 	Long: `This command deletes a non-stable tagged version of a solution uploaded by your tenant.
 
 This is for the purpose of deleting a non-stable tagged solution that you no longer want to use.  
 This will clean up all of objects/types defined by the solution as well as all of the solution metadata.  
 Please note you must terminate all active subscriptions to the solution before issuing this command.
-Please also note this is an asynchronous operation and thus it may take some time for the status to reflect properly.`,
-	Example:          `fsoc solution delete mysolution`,
+Please also note this is an asynchronous operation and thus it may take some time for the status to reflect properly.
+If you issue this command while an active deletion is in progress, it will simply wait for that deletion to finish.`,
+	Example:          `  fsoc solution delete mysolution --tag custom --wait 45 --yes`,
 	Run:              deleteSolution,
-	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 
@@ -69,13 +69,13 @@ func getSolutionDeleteCommand() *cobra.Command {
 	_ = solutionDeleteCmd.MarkFlagRequired("tag")
 
 	solutionDeleteCmd.Flags().
-		Int("wait", 10, "Wait to terminate the command until the solution the solution deletion process is completed.  Default time is 10 seconds.")
+		Int("wait", 60, "Wait to terminate the command until the solution the solution deletion process is completed.  Default time is 60 seconds.")
 
 	solutionDeleteCmd.Flags().
 		Bool("no-wait", false, "Don't wait for solution to be deleted after issuing delete request.")
 
 	solutionDeleteCmd.Flags().
-		Bool("yes", false, "Skip warning message and bypass confirmation step")
+		BoolP("yes", "y", false, "Skip warning message and bypass confirmation step")
 
 	solutionDeleteCmd.MarkFlagsMutuallyExclusive("wait", "no-wait")
 
@@ -87,6 +87,7 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 	var solutionName string
 	var solutionTag string
 	var existingSolutionDeletionObjectId string
+	var existingSolutionDeletionInProgress bool = false
 
 	solutionTag, _ = cmd.Flags().GetString("tag")
 	skipConfirmationMessage, _ := cmd.Flags().GetBool("yes")
@@ -112,23 +113,28 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 
 	if !existingDeletionObj.IsEmpty() {
 		existingSolutionDeletionObjectId = existingDeletionObj.ID
+		if existingDeletionObj.DeletionData.Status == "inProgress" {
+			existingSolutionDeletionInProgress = true
+		}
 	}
 
 	solutionDeleteUrl := fmt.Sprintf(getSolutionDeleteUrl(), solutionName)
 
-	var res any
-	err := api.JSONDelete(solutionDeleteUrl, &res, &api.Options{Headers: headers})
-	if err != nil {
-		log.Fatalf("Solution delete command failed: %v", err)
+	if !existingSolutionDeletionInProgress {
+		var res any
+		err := api.JSONDelete(solutionDeleteUrl, &res, &api.Options{Headers: headers})
+		if err != nil {
+			log.Fatalf("Solution delete command failed: %v", err)
+		}
 	}
 
-	if !noWait {
+	if !noWait && waitForDeletionDuration > 0 {
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution deletion initiated for solution with name: %s and tag: %s\n", solutionName, solutionTag))
 		var deletionObjData SolutionDeletionData
 		var newDeletionObjectId string
 		waitStartTime := time.Now()
 
-		for deletionObjData.Status == "" || deletionObjData.Status == "inProgress" || deletionObjData.IsEmpty() || newDeletionObjectId == existingSolutionDeletionObjectId {
+		for (newDeletionObjectId == existingSolutionDeletionObjectId && !existingSolutionDeletionInProgress) || deletionObjData.IsEmpty() || deletionObjData.Status == "inProgress" {
 			output.PrintCmdStatus(cmd, fmt.Sprintf("Waited %f seconds for solution with name: %s and tag: %s to be marked as deleted\n", time.Since(waitStartTime).Seconds(), solutionName, solutionTag))
 			if time.Since(waitStartTime).Seconds() > float64(waitForDeletionDuration) {
 				log.Fatalf("Failed to validate solution with name %s and tag: %s was deleted: timed out", solutionName, solutionTag)
@@ -136,7 +142,6 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 			deletionObj := getSolutionDeletionObject(solutionTag, solutionName)
 			deletionObjData = deletionObj.DeletionData
 			newDeletionObjectId = deletionObj.ID
-			log.Infof("Got value of new deletion objectID :%s", newDeletionObjectId)
 			time.Sleep(3 * time.Second)
 		}
 

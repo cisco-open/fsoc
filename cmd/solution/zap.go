@@ -31,7 +31,7 @@ import (
 
 var solutionZapCmd = &cobra.Command{
 	Use:   "zap <solution-name>",
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.ExactArgs(1),
 	Short: "Upload an empty version of a solution to clean it up",
 	Long: `This command creates an empty version of an existing solution and uploads it.
 
@@ -39,7 +39,6 @@ This is for the purpose of cleaning up a solution by removing the knowledge type
 associated with it.  Use this command with caution.`,
 	Example:          `  fsoc solution zap mysolution`,
 	Run:              zapSolution,
-	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""},
 	TraverseChildren: true,
 }
 
