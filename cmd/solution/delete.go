@@ -48,10 +48,10 @@ type SolutionDeletionResponseBlob struct {
 var solutionDeleteCmd = &cobra.Command{
 	Use:   "delete <solution-name>",
 	Args:  cobra.ExactArgs(1),
-	Short: "Delete a non-stable tagged version of a solution",
-	Long: `This command deletes a non-stable tagged version of a solution uploaded by your tenant.
+	Short: "Delete a solution.  Stable solutions cannot be deleted",
+	Long: `This command deletes a solution uploaded by your tenant.  Stable solutions cannot be deleted.
 
-This is for the purpose of deleting a non-stable tagged solution that you no longer want to use.  
+This is for the purpose of deleting a solution that you no longer want to use.  
 This will clean up all of objects/types defined by the solution as well as all of the solution metadata.  
 Please note you must terminate all active subscriptions to the solution before issuing this command.
 Please also note this is an asynchronous operation and thus it may take some time for the status to reflect properly.
@@ -101,7 +101,7 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 	}
 
 	if !skipConfirmationMessage {
-		fmt.Printf("WARNING! This command will remove all of the objects and types that are associated with this solution and will purge all data related to those objects and types.  It will also remove all solution metadata (including, but not limited to, subscriptions and other related objects).\nProceed with caution!  \nPlease type the name of the solution you want to delete and hit enter confirm that you want to delete the solution with name: %s and tag: %s \n", solutionName, solutionTag)
+		fmt.Printf("WARNING! This command will remove all objects and types that are associated with this solution and will purge all data related to those objects and types.  It will also remove all solution metadata (including, but not limited to, subscriptions and other related objects).\nProceed with caution!  \nPlease type the name of the solution you want to delete and hit enter confirm that you want to delete the solution with name: %s and tag: %s \n", solutionName, solutionTag)
 		fmt.Scanln(&confirmationAnswer)
 
 		if confirmationAnswer != solutionName {
@@ -128,8 +128,9 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution deletion initiated for solution with name: %s and tag: %s\n", solutionName, solutionTag))
+
 	if !noWait && waitForDeletionDuration > 0 {
-		output.PrintCmdStatus(cmd, fmt.Sprintf("Solution deletion initiated for solution with name: %s and tag: %s\n", solutionName, solutionTag))
 		var deletionObjData SolutionDeletionData
 		var newDeletionObjectId string
 		waitStartTime := time.Now()
@@ -137,7 +138,7 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 		for (newDeletionObjectId == existingSolutionDeletionObjectId && !existingSolutionDeletionInProgress) || deletionObjData.IsEmpty() || deletionObjData.Status == "inProgress" {
 			output.PrintCmdStatus(cmd, fmt.Sprintf("Waited %f seconds for solution with name: %s and tag: %s to be marked as deleted\n", time.Since(waitStartTime).Seconds(), solutionName, solutionTag))
 			if time.Since(waitStartTime).Seconds() > float64(waitForDeletionDuration) {
-				log.Fatalf("Failed to validate solution with name %s and tag: %s was deleted: timed out", solutionName, solutionTag)
+				log.Fatalf("Timed out waiting for solution with name %s and tag: %s to be deleted. Deletion continues, please check status for outcome.", solutionName, solutionTag)
 			}
 			deletionObj := getSolutionDeletionObject(solutionTag, solutionName)
 			deletionObjData = deletionObj.DeletionData
@@ -148,10 +149,8 @@ func deleteSolution(cmd *cobra.Command, args []string) {
 		if deletionObjData.Status == "successful" {
 			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s deleted successfully", solutionName, solutionTag))
 		} else {
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Issue deleting solution with name: %s and tag %s.  Error message: %s", solutionName, solutionTag, deletionObjData.DeleteMessage))
+			output.PrintCmdStatus(cmd, fmt.Sprintf("Failed to delete solution with name: %s and tag %s.  Error message: %s", solutionName, solutionTag, deletionObjData.DeleteMessage))
 		}
-	} else {
-		output.PrintCmdStatus(cmd, "Solution deletion initiated, skip waiting for transaction to complete")
 	}
 }
 
