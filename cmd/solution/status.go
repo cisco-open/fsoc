@@ -1,4 +1,4 @@
-// Copyright 2022 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -262,7 +262,6 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	solutionInstallSuccessfulFilter = `data.isSuccessful eq "true"`
 	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
 	solutionIDFilter = fmt.Sprintf(`data.solutionID eq "%s"`, solutionID)
-	log.Infof(`value of solutionID filter: %s`, solutionIDFilter)
 
 	if solutionVersion != "" {
 		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s`, solutionVersionFilter, solutionIDFilter)
@@ -276,8 +275,6 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	solutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionInstallObjectFilter))
 	successfulSolutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(lastSuccesfulInstallFilter))
 	solutionReleaseObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionReleaseObjectFilter))
-
-	log.Infof(`solution name and version query: %s`, solutionInstallObjectQuery)
 
 	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionID, solutionName, solutionTag, headers, cmd)
 
