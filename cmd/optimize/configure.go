@@ -472,8 +472,8 @@ func assignToBlocker(rawBlockers map[string]interface{}) (blockers Blockers) {
 			blocker.Impact = "To perform optimization, the workload must be actively scaling above its minimum scale at least 25% of the time"
 			blockers.InsufficientRelativeScaling = blocker
 		case "insufficient_fixed_scaling":
-			blocker.Description = "During the last 7 days, the workload did not have a minimum horizontal scale of at least 3 for the entire period"
-			blocker.Impact = "To perform optimization, the workload must have a minimum horizontal scale of 3 (during the last 7 days). This ensures that optimization tests receive at most one quarter of the total live load"
+			blocker.Description = "During the last 7 days, the workload did not have a minimum horizontal scale of at least 5 for the entire period"
+			blocker.Impact = "To perform optimization, the workload must have a minimum horizontal scale of 5 (during the last 7 days). This ensures that optimization tests receive at most one sixth of the total live load"
 			blockers.InsufficientFixedScaling = blocker
 		case "mtbf_high":
 			blocker.Description = "The per-pod mean time between failure (MTBF) is less than 1 day"
