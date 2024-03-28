@@ -85,6 +85,10 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 	if err != nil {
 		log.Fatalf("Can't open data file %q: %v", dataFileName, err)
 	}
+	if fsoData == nil {
+		log.Fatalf("Failed to load data from file %q: empty file", dataFileName)
+		panic("unreachable") // unreachable, keep glanci-lint happy for using fsoData below
+	}
 
 	for _, entity := range fsoData.Melt {
 		if _, ok := entity.Attributes["telemetry.sdk.name"]; ok {
