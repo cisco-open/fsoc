@@ -27,8 +27,8 @@ var meltModelCmd = &cobra.Command{
 }
 
 func init() {
-	meltModelCmd.Flags().String("tag", "", "tag for the solution")
-	meltModelCmd.Flags().String("env-file", "./env.json", "path to the env vars json file")
+	meltModelCmd.Flags().String("tag", "", "tag for the solution (only for pseudo-isolated solutions, DEPRECATED)")
+	meltModelCmd.Flags().String("env-file", "./env.json", "path to the env vars json file (only for pseudo-isolated solutions, DEPRECATED)")
 
 	meltModelCmd.MarkFlagsMutuallyExclusive("tag", "env-file")
 
@@ -40,10 +40,10 @@ func meltModel(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Failed to get manifest: %v", err)
 	}
-	if manifest.HasIsolation() {
+	if manifest.HasPseudoIsolation() {
 
 		if !(cmd.Flags().Changed("tag") || cmd.Flags().Changed("env-file")) {
-			log.Fatal("One of the required tags (--tag or --env-file) required for isolation support is missing!")
+			log.Fatal("One of the required tags (--tag or --env-file) required for pseudo-isolation support is missing!")
 		}
 
 		tag, _ := cmd.Flags().GetString("tag")

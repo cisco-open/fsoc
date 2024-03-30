@@ -46,7 +46,6 @@ func getSolutionZapCmd() *cobra.Command {
 
 	solutionZapCmd.Flags().
 		String("tag", "", "Tag associated with the solution to zap (required)")
-
 	_ = solutionZapCmd.MarkFlagRequired("tag")
 
 	solutionZapCmd.Flags().
@@ -151,6 +150,8 @@ func zapSolution(cmd *cobra.Command, args []string) {
 	solutionZipPath = solutionArchive.Name()
 	defer os.RemoveAll(solutionZipPath)
 
+	// upload the hollowed-out solution
+	// Note that since the tag flag is REQUIRED in this command, the FSOC_SOLUTION_TAG env var and any locally present .tag file will be ignored
 	uploadSolution(cmd, true, WithSolutionName(solutionName), WithSolutionZipPath(solutionZipPath), WithSolutionInstallVersion(updatedManifestVersion))
 
 	output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s zapped\n", solutionName, solutionTag))

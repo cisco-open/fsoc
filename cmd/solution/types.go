@@ -91,7 +91,7 @@ type Solution struct {
 
 func (manifest *Manifest) GetNamespaceName() string {
 	namespaceName := manifest.Name
-	if manifest.HasIsolation() {
+	if manifest.HasPseudoIsolation() {
 		namespaceName = "${sys.solutionId}"
 	}
 	return namespaceName
@@ -99,13 +99,13 @@ func (manifest *Manifest) GetNamespaceName() string {
 
 func (manifest *Manifest) GetSolutionName() string {
 	solutionName := manifest.Name
-	if manifest.HasIsolation() {
+	if manifest.HasPseudoIsolation() {
 		solutionName = strings.Split(manifest.Name, "${")[0]
 	}
 	return solutionName
 }
 
-func (manifest *Manifest) HasIsolation() bool {
+func (manifest *Manifest) HasPseudoIsolation() bool {
 	return strings.Contains(manifest.Name, "${")
 }
 
@@ -228,7 +228,7 @@ func (manifest *Manifest) GetComponentDefs(typeName string) []ComponentDef {
 	var componentDefs []ComponentDef
 	typeConvention := strings.Split(typeName, ":")
 	depIsolation := fmt.Sprintf("${$dependency('%s')}", typeConvention[0])
-	if manifest.HasIsolation() && manifest.CheckDependencyExists(depIsolation) {
+	if manifest.HasPseudoIsolation() && manifest.CheckDependencyExists(depIsolation) {
 		typeName = fmt.Sprintf("%s:%s", depIsolation, typeConvention[1])
 	}
 
