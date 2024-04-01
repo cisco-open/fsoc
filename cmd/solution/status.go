@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -59,10 +60,10 @@ type ExtensibilitySolutionObjectData struct {
 var solutionStatusCmd = &cobra.Command{
 	Use:   "status <solution-name> [flags]",
 	Args:  cobra.MaximumNArgs(1),
-	Short: "Get the installation/upload status of a solution",
-	Long:  `This command provides the ability to see the current installation and upload status of a solution.`,
+	Short: "Get the status of a solution",
+	Long:  `This command provides the ability to see the installation and upload status of a solution.`,
 	Example: `  fsoc solution status spacefleet
-  fsoc solution status spacefleet --status-type=install`,
+  fsoc solution status spacefleet --solution-version 1.0.0`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := getSolutionStatus(cmd, args); err != nil {
 			log.Fatalf(err.Error())
@@ -84,6 +85,8 @@ func getSolutionStatusCmd() *cobra.Command {
 		String("solution-version", "", "The version of the solution for which you would like to retrieve the upload status")
 	solutionStatusCmd.Flags().
 		String("status-type", "", "The status type that you want to see.  This can be one of [upload, install, all] and will default to all if not specified")
+
+	_ = solutionStatusCmd.Flags().MarkDeprecated("status-type", "By default, full status will be displayed from now on.")
 
 	solutionStatusCmd.Flags().
 		String("tag", "", "The tag associated with the solution for which you would like to view the status for")
@@ -118,7 +121,6 @@ func getExtensibilitySolutionObject(url string, headers map[string]string) (Exte
 	}
 
 	return res.Data, nil
-
 }
 
 func checkIfSolutionDeleted(solutionName string, solutionTag string) (bool, SolutionDeletionData) {
@@ -133,32 +135,13 @@ func checkIfSolutionDeleted(solutionName string, solutionTag string) (bool, Solu
 	}
 }
 
-func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, solutionReleaseObjectQuery string, successfulSolutionInstallObjectQuery string, solutionID string, solutionName string, solutionTag string, requestHeaders map[string]string, cmd *cobra.Command) {
-	// finalize solution name (incl. the solution object name which includes the tag value)
-	var solutionInstallationMessagePrefix string
-	solutionVersion, _ := cmd.Flags().GetString("solution-version")
-
-	// ensure that the solution exists.
-	// This also ensures that the user is logged in (to avoid a race condition on login for the subsequent parallel API calls)
-	solutionStatusItem, err := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
-
-	if err != nil {
-		isSolutionDeleted, solutionDeletionData := checkIfSolutionDeleted(solutionName, solutionTag)
-		// If solution has been deleted previously, print out a helpful message to let the user know
-		// else throw an error
-		if isSolutionDeleted {
-			output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted with status: %s.  \nPlease upload and subscribe again if you want to see its status.\n", solutionName, solutionTag, solutionDeletionData.Status))
-			return
-		} else {
-			log.Fatalf("Error fetching extensibility:solution object %q: %v", getSolutionObjectUrl(solutionID), err)
-		}
-	}
-
-	// fetch the remaining solution status objects in parallel
+func fetchInstallationAndReleaseObjects(solutionReleaseObjectQuery string, solutionInstallObjectQuery string, successfulSolutionInstallObjectQuery string, requestHeaders map[string]string) (StatusItem, StatusItem, StatusItem) {
+	// Initialize channels for each type of status
 	uploadStatusChan := make(chan StatusItem)
 	installStatusChan := make(chan StatusItem)
 	successfulSolutionInstallStatusChan := make(chan StatusItem)
 
+	// Launch goroutines to fetch status objects in parallel
 	go func() {
 		uploadStatusChan <- getObjects(fmt.Sprintf(getSolutionReleaseUrl(), solutionReleaseObjectQuery), requestHeaders)
 	}()
@@ -169,12 +152,90 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		successfulSolutionInstallStatusChan <- getObjects(fmt.Sprintf(getSolutionInstallUrl(), successfulSolutionInstallObjectQuery), requestHeaders)
 	}()
 
+	// Wait for and receive the status objects from the channels
 	uploadStatusItem := <-uploadStatusChan
 	installStatusItem := <-installStatusChan
 	successfulInstallStatusItem := <-successfulSolutionInstallStatusChan
 
-	// process status & display
+	// Return the received status objects
+	return uploadStatusItem, installStatusItem, successfulInstallStatusItem
 
+}
+
+func getSolutionStatus(cmd *cobra.Command, args []string) error {
+	var solutionVersionFilter string
+	var solutionIDFilter string
+	var solutionInstallSuccessfulFilter string
+	var solutionInstallObjectFilter string
+	var solutionReleaseObjectFilter string
+	var lastSuccesfulInstallFilter string
+	var solutionID string
+	cfg := config.GetCurrentContext()
+
+	layerType := "TENANT"
+	solutionName := getSolutionNameFromArgs(cmd, args, "name")
+	solutionTag, _ := cmd.Flags().GetString("tag")
+
+	requestHeaders := map[string]string{
+		"layer-type": layerType,
+		"layer-id":   cfg.Tenant,
+	}
+	if solutionTag == "dev" || solutionTag == "stable" || solutionTag == "" {
+		solutionID = solutionName
+	} else {
+		solutionID = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
+	}
+	solutionVersion, _ := cmd.Flags().GetString("solution-version")
+	solutionInstallSuccessfulFilter = `data.isSuccessful eq "true"`
+	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
+	solutionIDFilter = fmt.Sprintf(`data.solutionID eq "%s"`, solutionID)
+
+	if solutionVersion != "" {
+		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s`, solutionVersionFilter, solutionIDFilter)
+	} else {
+		solutionInstallObjectFilter = solutionIDFilter
+	}
+
+	lastSuccesfulInstallFilter = fmt.Sprintf(`%s and %s`, solutionIDFilter, solutionInstallSuccessfulFilter)
+	solutionReleaseObjectFilter = solutionInstallObjectFilter
+
+	solutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionInstallObjectFilter))
+	successfulSolutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(lastSuccesfulInstallFilter))
+	solutionReleaseObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionReleaseObjectFilter))
+
+	// finalize solution name (incl. the solution object name which includes the tag value)
+	var solutionInstallationMessagePrefix string
+
+	// ensure that the solution exists.
+	// This also ensures that the user is logged in (to avoid a race condition on login for the subsequent parallel API calls)
+	solutionStatusItem, err := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
+
+	if err != nil {
+		isSolutionDeleted, solutionDeletionData := checkIfSolutionDeleted(solutionName, solutionTag)
+		// If solution has been deleted previously, print out a helpful message to let the user know
+		// else throw an error
+		if isSolutionDeleted {
+			if solutionDeletionData.Status == "successful" {
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted successfully.  \nA new solution with this name and tag can be uploaded.\n", solutionName, solutionTag))
+			} else if solutionDeletionData.Status == "failed" {
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted but delete was not successful.  Delete message: %s  \nPlease try again.\n", solutionName, solutionTag, solutionDeletionData.DeleteMessage))
+			} else {
+				output.PrintCmdStatus(cmd, fmt.Sprintf("Deletion for solution with name: %s and tag: %s currently in progress.  \nPlease wait until the deletion completes for an updated status.\n", solutionName, solutionTag))
+			}
+			return nil
+		} else {
+			if strings.Contains(err.Error(), "404") {
+				log.Fatalf("Solution with name: %s and tag: %s not found", solutionName, solutionTag)
+			} else {
+				log.Fatalf("Error fetching extensibility:solution object %q: %v", getSolutionObjectUrl(solutionID), err)
+			}
+
+		}
+	}
+
+	uploadStatusItem, installStatusItem, successfulInstallStatusItem := fetchInstallationAndReleaseObjects(solutionReleaseObjectQuery, solutionInstallObjectQuery, successfulSolutionInstallObjectQuery, requestHeaders)
+
+	// process status & display
 	installStatusData := installStatusItem.StatusData
 	successfulInstallStatusData := successfulInstallStatusItem.StatusData
 	uploadStatusData := uploadStatusItem.StatusData
@@ -194,89 +255,39 @@ func fetchValuesAndPrint(operation string, solutionInstallObjectQuery string, so
 		values = append(values, value)
 	}
 
+	if solutionTag != "" {
+		appendValue("Solution Tag", solutionTag)
+	} else {
+		if !strings.Contains(solutionID, ".") {
+			appendValue("Solution Tag", "stable")
+		} else {
+			appendValue("Solution Tag", strings.SplitAfter(solutionID, ".")[1])
+		}
+	}
+
 	if isTenantSubscribedToSolution {
 		appendValue("Solution Subscription Status", "Subscribed")
 	} else {
 		appendValue("Solution Subscription Status", "Not Subscribed")
 	}
 
-	if operation == "upload" {
-		appendValue(fmt.Sprintf("%s Upload Version", solutionInstallationMessagePrefix), uploadStatusData.SolutionVersion)
-		appendValue(fmt.Sprintf("%s Upload Timestamp", solutionInstallationMessagePrefix), uploadStatusTimestamp)
-	} else if operation == "install" {
-		appendValue("Last Successful Install Version", successfulInstallStatusData.SolutionVersion)
-		appendValue(fmt.Sprintf("%s Install Version", solutionInstallationMessagePrefix), installStatusData.SolutionVersion)
-		if isTenantSubscribedToSolution {
-			appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
-		} else {
-			appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), "")
-		}
-		appendValue(fmt.Sprintf("%s Install Time", solutionInstallationMessagePrefix), installStatusData.InstallTime)
-		appendValue(fmt.Sprintf("%s Install Message", solutionInstallationMessagePrefix), installStatusData.InstallMessage)
+	appendValue(fmt.Sprintf("%s Upload Version", solutionInstallationMessagePrefix), uploadStatusData.SolutionVersion)
+	appendValue(fmt.Sprintf("%s Upload Timestamp", solutionInstallationMessagePrefix), uploadStatusTimestamp)
+	appendValue("Last Successful Install Version", successfulInstallStatusData.SolutionVersion)
+	appendValue(fmt.Sprintf("%s Install Version", solutionInstallationMessagePrefix), installStatusData.SolutionVersion)
+	if isTenantSubscribedToSolution && installStatusData.SolutionVersion != "" {
+		appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
 	} else {
-		appendValue(fmt.Sprintf("%s Upload Version", solutionInstallationMessagePrefix), uploadStatusData.SolutionVersion)
-		appendValue(fmt.Sprintf("%s Upload Timestamp", solutionInstallationMessagePrefix), uploadStatusTimestamp)
-		appendValue("Last Successful Install Version", successfulInstallStatusData.SolutionVersion)
-		appendValue(fmt.Sprintf("%s Install Version", solutionInstallationMessagePrefix), installStatusData.SolutionVersion)
-		if isTenantSubscribedToSolution {
-			appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), fmt.Sprintf("%v", installStatusData.SuccessfulInstall))
-		} else {
-			appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), "")
-		}
-		appendValue(fmt.Sprintf("%s Install Time", solutionInstallationMessagePrefix), installStatusData.InstallTime)
-		appendValue(fmt.Sprintf("%s Install Message", solutionInstallationMessagePrefix), installStatusData.InstallMessage)
+		appendValue(fmt.Sprintf("%s Install Successful?", solutionInstallationMessagePrefix), "")
 	}
+	appendValue(fmt.Sprintf("%s Install Time", solutionInstallationMessagePrefix), installStatusData.InstallTime)
+	appendValue(fmt.Sprintf("%s Install Message", solutionInstallationMessagePrefix), installStatusData.InstallMessage)
 
 	output.PrintCmdOutputCustom(cmd, installStatusData, &output.Table{
 		Headers: headers,
 		Lines:   [][]string{values},
 		Detail:  true,
 	})
-}
-
-func getSolutionStatus(cmd *cobra.Command, args []string) error {
-	var solutionVersionFilter string
-	var solutionIDFilter string
-	var solutionInstallSuccessfulFilter string
-	var solutionInstallObjectFilter string
-	var solutionReleaseObjectFilter string
-	var lastSuccesfulInstallFilter string
-	var solutionID string
-	cfg := config.GetCurrentContext()
-
-	layerType := "TENANT"
-	solutionName := getSolutionNameFromArgs(cmd, args, "name")
-	solutionTag, _ := cmd.Flags().GetString("tag")
-
-	headers := map[string]string{
-		"layer-type": layerType,
-		"layer-id":   cfg.Tenant,
-	}
-	if solutionTag == "dev" || solutionTag == "stable" || solutionTag == "" {
-		solutionID = solutionName
-	} else {
-		solutionID = fmt.Sprintf(`%s.%s`, solutionName, solutionTag)
-	}
-	solutionVersion, _ := cmd.Flags().GetString("solution-version")
-	statusTypeToFetch, _ := cmd.Flags().GetString("status-type")
-	solutionInstallSuccessfulFilter = `data.isSuccessful eq "true"`
-	solutionVersionFilter = fmt.Sprintf(`data.solutionVersion eq "%s"`, solutionVersion)
-	solutionIDFilter = fmt.Sprintf(`data.solutionID eq "%s"`, solutionID)
-
-	if solutionVersion != "" {
-		solutionInstallObjectFilter = fmt.Sprintf(`%s and %s`, solutionVersionFilter, solutionIDFilter)
-	} else {
-		solutionInstallObjectFilter = solutionIDFilter
-	}
-
-	lastSuccesfulInstallFilter = fmt.Sprintf(`%s and %s`, solutionIDFilter, solutionInstallSuccessfulFilter)
-	solutionReleaseObjectFilter = solutionInstallObjectFilter
-
-	solutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionInstallObjectFilter))
-	successfulSolutionInstallObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(lastSuccesfulInstallFilter))
-	solutionReleaseObjectQuery := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(solutionReleaseObjectFilter))
-
-	fetchValuesAndPrint(statusTypeToFetch, solutionInstallObjectQuery, solutionReleaseObjectQuery, successfulSolutionInstallObjectQuery, solutionID, solutionName, solutionTag, headers, cmd)
 
 	return nil
 }
