@@ -34,7 +34,7 @@ import (
 // To perform isolation without command dependencies, use isolateSolution().
 func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, string, error) {
 	// finalize flags (regardless of isolation)
-	tag, envVarsFile := determineTagEnvFile(cmd, sourceDir)
+	tag, envVarsFile := DetermineTagEnvFile(cmd, sourceDir)
 
 	// don't try to isolate if --no-isolate is specified (ignored if flag not defined)
 	noIsolate, _ := cmd.Flags().GetBool("no-isolate")
@@ -92,7 +92,7 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, s
 	return targetDir, tag, nil
 }
 
-// determineTagEnvFile returns the tag value and the optional env file path.
+// DetermineTagEnvFile returns the tag value and the optional env file path.
 // Note that the --env-file flag has priority over the FSOC_SOLUTION_TAG env var and the .tag file, just like --tag.
 // The priority is:
 //  1. --tag value or --stable flag
@@ -101,9 +101,11 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, s
 //  4. .tag file in the solution directory
 //  5. env.json file in the solution directory (implied name)
 //
+// Deprecated:
 // This code duplicates the logic of getEmbeddedTag() to allow support for env files.
 // The function, along with the entire source file, will be removed once the pseudo-isolation support is removed.
-func determineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) {
+// This function is exported for use by `melt model` when modeling data from pseudo-isolated solutions.
+func DetermineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) {
 	// if --tag flag is specified, this overrides everything
 	if cmd.Flags().Changed("tag") {
 		tag, _ := cmd.Flags().GetString("tag")

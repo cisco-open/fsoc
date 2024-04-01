@@ -28,8 +28,7 @@ var meltModelCmd = &cobra.Command{
 
 func init() {
 	meltModelCmd.Flags().String("tag", "", "tag for the solution (only for pseudo-isolated solutions, DEPRECATED)")
-	meltModelCmd.Flags().String("env-file", "./env.json", "path to the env vars json file (only for pseudo-isolated solutions, DEPRECATED)")
-
+	meltModelCmd.Flags().String("env-file", "", "path to the env vars json file (only for pseudo-isolated solutions, DEPRECATED)")
 	meltModelCmd.MarkFlagsMutuallyExclusive("tag", "env-file")
 
 	meltCmd.AddCommand(meltModelCmd)
@@ -41,18 +40,17 @@ func meltModel(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to get manifest: %v", err)
 	}
 	if manifest.HasPseudoIsolation() {
-
-		if !(cmd.Flags().Changed("tag") || cmd.Flags().Changed("env-file")) {
-			log.Fatal("One of the required tags (--tag or --env-file) required for pseudo-isolation support is missing!")
+		// determine tag
+		tag, envFile := sol.DetermineTagEnvFile(cmd, ".") // --tag, --stable, --env-file, FSOC_SOLUTION_TAG env var, .tag file
+		if tag == "" && envFile == "" {
+			log.Fatal("A tag must be specified for modeling in pseudo-isolated solutions")
 		}
-
-		tag, _ := cmd.Flags().GetString("tag")
-		envVarsFile, _ := cmd.Flags().GetString("env-file")
 		if tag != "" {
-			envVarsFile = "" // remove default when tag is specified
+			if !sol.IsValidSolutionTag(tag) {
+				log.Fatalf("Invalid tag %q", tag)
+			}
 		}
-
-		envVars, err := sol.LoadEnvVars(cmd, tag, envVarsFile)
+		envVars, err := sol.LoadEnvVars(cmd, tag, envFile) // the tag now remains in the envVars (whether read from file or synthesized)
 		if err != nil {
 			log.Fatalf("Failed to define isolation environment: %v", err)
 		}
@@ -61,10 +59,9 @@ func meltModel(cmd *cobra.Command, args []string) {
 		if err != nil {
 			log.Fatalf("Error getting current directory: %v", err)
 		}
-
 		fileSystemRoot := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
 
-		isolateNamespace := fmt.Sprintf("%s%s", strings.Split(manifest.Name, "$")[0], sol.GetTag(envVars))
+		isolateNamespace := fmt.Sprintf("%s%s", strings.Split(manifest.Name, "$")[0], sol.GetPseudoIsolationTag(envVars))
 		fileName := fmt.Sprintf("%s-%s-melt.yaml", isolateNamespace, manifest.SolutionVersion)
 
 		fsocData := getFsocDataModel(cmd, manifest, isolateNamespace)

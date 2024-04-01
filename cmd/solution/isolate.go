@@ -186,7 +186,7 @@ func isolateSolution(cmd *cobra.Command, srcFolder, targetFolder, targetFile, ta
 
 	log.Info("Pseudo-isolation successfully completed")
 
-	return mf.Name, GetTag(envVars), nil
+	return mf.Name, GetPseudoIsolationTag(envVars), nil
 }
 
 func prepareForIsolation(srcPath, targetPath, targetFile string, envVars interface{}) error {
@@ -317,7 +317,7 @@ func LoadEnvVars(cmd *cobra.Command, tag, envVarsFile string) (interface{}, erro
 	return envVars, nil
 }
 
-func GetTag(envVars interface{}) string {
+func GetPseudoIsolationTag(envVars interface{}) string {
 	if root, ok := envVars.(map[string]any); ok {
 		if env, ok := root["env"].(map[string]any); ok {
 			if tag, ok := env["tag"].(string); ok && tag != "" {
