@@ -23,7 +23,7 @@ import (
 	"github.com/apex/log"
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
-	"github.com/mattn/go-isatty"
+	"golang.org/x/term"
 
 	"github.com/cisco-open/fsoc/config"
 )
@@ -55,7 +55,7 @@ func newCallContext(goContext context.Context, quiet bool) *callContext {
 
 	// create spinner if needed
 	var spinnerObj *spinner.Spinner
-	if !quiet && !isatty.IsTerminal(os.Stderr.Fd()) {
+	if !quiet && term.IsTerminal(int(os.Stderr.Fd())) {
 		spinnerObj = spinner.New(spinner.CharSets[21], 50*time.Millisecond, spinner.WithWriterFile(os.Stderr))
 	}
 
