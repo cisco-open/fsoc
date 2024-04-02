@@ -86,7 +86,7 @@ func getSolutionStatusCmd() *cobra.Command {
 	solutionStatusCmd.Flags().
 		String("status-type", "", "The status type that you want to see.  This can be one of [upload, install, all] and will default to all if not specified")
 
-	_ = solutionStatusCmd.Flags().MarkDeprecated("status-type", "By default, full status will be displayed from now on.")
+	_ = solutionStatusCmd.Flags().MarkDeprecated("status-type", "full status will be displayed from now on by default.")
 
 	solutionStatusCmd.Flags().
 		String("tag", "", "The tag associated with the solution for which you would like to view the status for")
