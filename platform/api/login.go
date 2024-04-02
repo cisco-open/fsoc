@@ -15,6 +15,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -51,7 +52,7 @@ var fieldToFlag = map[string]string{
 // Login respects different access profile types (when supported) to provide the correct
 // login mechanism for each.
 func Login() error {
-	callCtx := newCallContext()
+	callCtx := newCallContext(context.Background(), false)
 	defer callCtx.stopSpinner(false) // ensure not running when returning
 
 	return login(callCtx)
