@@ -117,13 +117,12 @@ For other shells, check out the completion help with `fsoc help completion`.
 Configure the default profile to your tenant of choice (replace MYTENANT with your tenant's name):
 
 ```
-fsoc config set auth=oauth url=https://MYTENANT.observe.appdynamics.com
-fsoc login  # test access
+fsoc config create auth=oauth url=https://MYTENANT.observe.appdynamics.com
 ```
 
-NOTE: The login command will pop up a browser to perform the log in and then continue executing the command. Subsequent invocations of fsoc will use cached credentials. 
+This command will create the initial `fsoc` configuration file and attempt to log in. Since this example uses OAuth authentication, the command will pop up a browser to perform the login and then continue executing the command. Subsequent invocations of fsoc will use cached credentials. You can close the browser once is shows "Logged in successfully".
 
-Use the `fsoc help config set` command to see examples of the different authentication methods that `fsoc` supports in addition to OAuth (e.g., service principal, agent principal, local). You can find additional details in the `fsoc` [config page](https://developer.cisco.com/docs/cisco-observability-platform/#!install-and-configure-fsoc/configure-access) in the platform docs.
+Use the `fsoc help config create` command to see examples of the different authentication methods that `fsoc` supports in addition to OAuth (e.g., service principal, agent principal, local). You can find additional details in the `fsoc` [config page](https://developer.cisco.com/docs/cisco-observability-platform/#!install-and-configure-fsoc/configure-access) in the platform docs.
 
 ## Assistance and Suggestions
 
