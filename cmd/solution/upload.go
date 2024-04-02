@@ -98,13 +98,13 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 	solutionVersionFromOptions := opts.solutionInstallVersion
 	solutionNameFromOptions := opts.solutionName
 
-	// prepare tag-related flags (note: these will be replaced if isolation is attempted)
-	solutionTagFlag, _ := cmd.Flags().GetString("tag")
-	pushWithStableTag, _ := cmd.Flags().GetBool("stable")
-	if pushWithStableTag {
-		solutionTagFlag = "stable"
+	// prepare tag-related values
+	solutionTag, err := getEmbeddedTag(cmd, solutionRootDirectory) // flag, env var or .tag file
+	if err != nil {
+		log.Fatalf("Failed to get solution tag: %v", err)
 	}
-	requestedSolutionTag := solutionTagFlag // mostly for display, as solutionTagFlag may be changed to comply with supported API values
+	requestedSolutionTag := solutionTag // mostly for display, as solutionTagFlag may be changed to comply with supported API values (pseudo-isolation only)
+	// TODO remove `requestedSolutionTag` when solution pseudo-isolation is removed
 
 	// prepare archive if needed
 	solutionAlreadyZipped = solutionBundlePath != ""
@@ -148,14 +148,14 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 			bumpSolutionVersionInManifest(cmd, manifest, solutionRootDirectory)
 		}
 
-		// isolate if needed (update tag values to reflect env var and/or env file settings)
+		// pseudo-isolate if needed (update tag values to reflect env var and/or env file settings)
 		solutionIsolateDirectory, tag, err := embeddedConditionalIsolate(cmd, solutionRootDirectory)
-		solutionTagFlag = tag
+		solutionTag = tag
 		requestedSolutionTag = tag
 		if err != nil {
 			log.Fatalf("Failed to isolate solution with tag: %v", err)
 		}
-		if solutionIsolateDirectory != solutionRootDirectory { // if isolated, post-process
+		if solutionIsolateDirectory != solutionRootDirectory { // if pseudo-isolated, post-process
 			// set root directory to the isolated version's root
 			solutionRootDirectory = solutionIsolateDirectory
 
@@ -166,11 +166,11 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 			}
 
 			// update tag to use supported values
-			if solutionTagFlag != "stable" {
+			if solutionTag != "stable" {
 				if cfg.EnvType != "dev" {
-					solutionTagFlag = "dev" // TODO: use tag value as-is once free-form values are supported by API
+					solutionTag = "dev" // TODO: use tag value as-is once free-form values are supported by API
 				} else {
-					solutionTagFlag = "stable" // TODO: use tag value as-is once free-form values are supported by API
+					solutionTag = "stable" // TODO: use tag value as-is once free-form values are supported by API
 				}
 			}
 		}
@@ -191,12 +191,12 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 	}
 	logFields["tag"] = requestedSolutionTag
 	logFields["isolation_tag"] = requestedSolutionTag
-	logFields["header_tag"] = solutionTagFlag
+	logFields["header_tag"] = solutionTag
 	solutionDisplayText += " with tag "
-	if solutionTagFlag == requestedSolutionTag {
-		solutionDisplayText += solutionTagFlag
+	if solutionTag == requestedSolutionTag {
+		solutionDisplayText += solutionTag
 	} else {
-		solutionDisplayText += fmt.Sprintf("%v (%v)", requestedSolutionTag, solutionTagFlag) // non-stable isolation tag uses "dev" in API header
+		solutionDisplayText += fmt.Sprintf("%v (%v)", requestedSolutionTag, solutionTag) // non-stable pseudo-isolation tag uses "dev" in API header
 	}
 	if push {
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Deploying %s\n", solutionDisplayText))
@@ -233,7 +233,7 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 		operation = "VALIDATE"
 	}
 	headers := map[string]string{
-		"tag":          solutionTagFlag,
+		"tag":          solutionTag,
 		"operation":    operation,
 		"Content-Type": writer.FormDataContentType(),
 	}
@@ -257,7 +257,7 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 
 	if subscribe, _ := cmd.Flags().GetBool("subscribe"); subscribe {
 		var solutionObjName = solutionName
-		if solutionTagFlag != "stable" && cfg.EnvType != "dev" {
+		if solutionTag != "stable" && cfg.EnvType != "dev" {
 			solutionObjName += ".dev"
 		}
 		log.WithField("solution", solutionObjName).Info("Subscribing to solution")
@@ -291,7 +291,7 @@ func uploadSolution(cmd *cobra.Command, push bool, options ...uploadOption) {
 		}
 		output.PrintCmdStatus(cmd, fmt.Sprintf("Waiting %s for %s to be installed...\n", duration, solutionDisplayText))
 
-		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s" and data.tag eq "%s"`, solutionName, solutionVersion, solutionTagFlag)
+		filter := fmt.Sprintf(`data.solutionName eq "%s" and data.solutionVersion eq "%s" and data.tag eq "%s"`, solutionName, solutionVersion, solutionTag)
 		query := fmt.Sprintf("?order=%s&filter=%s&max=1", url.QueryEscape("desc"), url.QueryEscape(filter))
 
 		headers := map[string]string{

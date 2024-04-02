@@ -49,11 +49,7 @@ var solutionValidateCmd = &cobra.Command{
 }
 
 func getSolutionValidateCmd() *cobra.Command {
-	solutionValidateCmd.Flags().
-		String("tag", "", "Tag to associate with provided solution.  Ensure tag used for validation & upload are same.")
-
-	solutionValidateCmd.Flags().
-		Bool("stable", false, "Automatically associate the 'stable' tag with solution to validate.  This should only be used for validating solutions uploaded with the 'stable' tag.")
+	addTagFlags(solutionValidateCmd) // tag, stable
 
 	solutionValidateCmd.Flags().
 		BoolP("bump", "b", false, "Increment the patch version before validation")
@@ -65,10 +61,10 @@ func getSolutionValidateCmd() *cobra.Command {
 		String("solution-bundle", "", "Path to a prepackaged solution zip")
 
 	solutionValidateCmd.Flags().
-		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+		String("env-file", "", "Path to the env vars json file with pseudo-isolation tag and, optionally, dependency tags (DEPRECATED)")
 
 	solutionValidateCmd.Flags().
-		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+		Bool("no-isolate", false, "Disable fsoc-supported solution pseudo-isolation")
 
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "directory")
 	solutionValidateCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")
