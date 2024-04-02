@@ -15,6 +15,7 @@
 package solution
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -219,17 +220,19 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 				output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted successfully.  \nA new solution with this name and tag can be uploaded.\n", solutionName, solutionTag))
 			} else if solutionDeletionData.Status == "failed" {
 				output.PrintCmdStatus(cmd, fmt.Sprintf("Solution with name: %s and tag: %s previously deleted but delete was not successful.  Delete message: %s  \nPlease try again.\n", solutionName, solutionTag, solutionDeletionData.DeleteMessage))
-			} else {
+			} else if solutionDeletionData.Status == "inProgress" {
 				output.PrintCmdStatus(cmd, fmt.Sprintf("Deletion for solution with name: %s and tag: %s currently in progress.  \nPlease wait until the deletion completes for an updated status.\n", solutionName, solutionTag))
+			} else {
+				log.Fatalf("Error fetching extensibility:solution object %q: %v", getSolutionObjectUrl(solutionID), err)
 			}
 			return nil
 		} else {
-			if strings.Contains(err.Error(), "404") {
+			var httpErr *api.HttpStatusError
+			if errors.As(err, &httpErr) && httpErr.StatusCode == 404 {
 				log.Fatalf("Solution with name: %s and tag: %s not found", solutionName, solutionTag)
 			} else {
 				log.Fatalf("Error fetching extensibility:solution object %q: %v", getSolutionObjectUrl(solutionID), err)
 			}
-
 		}
 	}
 
