@@ -23,6 +23,7 @@ import (
 	"github.com/apex/log"
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
+	"github.com/mattn/go-isatty"
 
 	"github.com/cisco-open/fsoc/config"
 )
@@ -38,7 +39,7 @@ var statusChar = map[bool]string{
 	true:  color.GreenString("\u2713"), // checkmark
 }
 
-func newCallContext() *callContext {
+func newCallContext(goContext context.Context, quiet bool) *callContext {
 	// get current config context
 	cfg := config.GetCurrentContext()
 	if cfg == nil {
@@ -47,11 +48,22 @@ func newCallContext() *callContext {
 	}
 	log.WithFields(log.Fields{"context": cfg.Name, "url": cfg.URL, "tenant": cfg.Tenant}).Info("Using context")
 
+	// use background if no context was provided
+	if goContext == nil {
+		goContext = context.Background()
+	}
+
+	// create spinner if needed
+	var spinnerObj *spinner.Spinner
+	if !quiet && !isatty.IsTerminal(os.Stderr.Fd()) {
+		spinnerObj = spinner.New(spinner.CharSets[21], 50*time.Millisecond, spinner.WithWriterFile(os.Stderr))
+	}
+
 	// prepare call context
 	callCtx := callContext{
-		context.Background(),
+		goContext,
 		cfg,
-		spinner.New(spinner.CharSets[21], 50*time.Millisecond, spinner.WithWriterFile(os.Stderr)),
+		spinnerObj,
 	}
 
 	return &callCtx

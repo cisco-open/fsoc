@@ -39,10 +39,22 @@ var FlagCurlifyRequests bool
 
 // --- Public Interface -----------------------------------------------------
 
+// Options contains extra, optional parameteres that modify the API call behavior
 type Options struct {
-	Headers         map[string]string
-	ResponseHeaders map[string][]string // headers as returned by the call
-	ExpectedErrors  []int               // log expected error status codes as Info rather than Error
+	// Headers contains additional headers to be provided in the request
+	Headers map[string]string
+
+	// ResponseHeaders will be populated with the headers returned by the call
+	ResponseHeaders map[string][]string
+
+	// ExpectedErrors is a list of status codes that are expected and should be logged as Info rather than Error
+	ExpectedErrors []int
+
+	// Quiet suppresses the interactive spinner and display of request
+	Quiet bool
+
+	// Context provides a Go context for the API call (nil is accepted and will be replaced with a default context)
+	Context context.Context
 }
 
 // JSONGet performs a GET request and parses the response as JSON
@@ -88,13 +100,15 @@ func JSONRequest(method string, path string, body any, out any, options *Options
 
 // --- Internal methods -----------------------------------------------------
 
-func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string, path string, body any, headers map[string]string) (*http.Request, error) {
+func prepareHTTPRequest(ctx *callContext, client *http.Client, method string, path string, body any, headers map[string]string) (*http.Request, error) {
 	// body will be JSONified if a body is given but no Content-Type is provided
 	// (if a content type is provided, we assume the body is in the desired format)
 	jsonify := body != nil && (headers == nil || headers["Content-Type"] == "")
 	// Due to issues with encoding the special characters used for ids generated with identifyingProperties, we
 	// need to create the fullPath for the request ourselves instead of calling uri.String()
 	var fullPath string
+
+	cfg := ctx.cfg // quick access
 
 	// prepare a body reader
 	var bodyReader io.Reader = nil
@@ -132,7 +146,7 @@ func prepareHTTPRequest(cfg *config.Context, client *http.Client, method string,
 		fullPath = fmt.Sprintf("%s?%s", joinedPath, query)
 	}
 
-	req, err := http.NewRequest(method, fullPath, bodyReader)
+	req, err := http.NewRequestWithContext(ctx.goContext, method, fullPath, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request for %q: %w", uri.String(), err)
 	}
@@ -195,22 +209,21 @@ func getCurlCommandOfRequest(req *http.Request) (string, error) {
 func httpRequest(method string, path string, body any, out any, options *Options) error {
 	log.WithFields(log.Fields{"method": method, "path": path}).Info("Calling the observability platform API")
 
-	callCtx := newCallContext()
-	cfg := callCtx.cfg               // quick access
-	defer callCtx.stopSpinner(false) // ensure the spinner is not running when returning (belt & suspenders)
-
 	// create a default options to avoid nil-checking
 	if options == nil {
 		options = &Options{}
 	}
 
+	callCtx := newCallContext(options.Context, options.Quiet)
+	defer callCtx.stopSpinner(false) // ensure the spinner is not running when returning (belt & suspenders)
+
 	// force login if no token
-	if cfg.Token == "" {
+	if callCtx.cfg.Token == "" {
 		log.Info("No auth token available, trying to log in")
 		if err := login(callCtx); err != nil {
 			return err
 		}
-		cfg = callCtx.cfg // may have changed across login
+		// note: callCtx.cfg has been updated by login()
 	}
 
 	// create http client for the request
@@ -221,7 +234,7 @@ func httpRequest(method string, path string, body any, out any, options *Options
 	}
 
 	// build HTTP request
-	req, err := prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
+	req, err := prepareHTTPRequest(callCtx, client, method, path, body, options.Headers)
 	if err != nil {
 		return err // assume error messages provide sufficient info
 	}
@@ -250,11 +263,12 @@ func httpRequest(method string, path string, body any, out any, options *Options
 		if err != nil {
 			return fmt.Errorf("failed to login: %w", err)
 		}
-		cfg = callCtx.cfg // may have changed across login
+
+		// note: callCtx.cfg has been updated by login()
 
 		// retry the request
 		log.Info("Retrying the request with the refreshed token")
-		req, err = prepareHTTPRequest(cfg, client, method, path, body, options.Headers)
+		req, err = prepareHTTPRequest(callCtx, client, method, path, body, options.Headers)
 		if err != nil {
 			return err // error should have enough context
 		}
