@@ -16,12 +16,15 @@ package solution
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/output"
@@ -48,6 +51,10 @@ type SolutionSubDirectory struct {
 	Files       []SolutionFile
 }
 
+func (s SolutionSubDirectory) String() string {
+	return fmt.Sprintf("%q (type %q, objects type %q, %v files)", s.Name, s.Type, s.ObjectsType, len(s.Files))
+}
+
 type SolutionFileEncoding string
 
 const (
@@ -62,6 +69,7 @@ const (
 	KindUnknown       SolutionFileKinds = ""
 	KindKnowledgeType SolutionFileKinds = "knowledge type"
 	KindObjectType    SolutionFileKinds = "object"
+	KindHidden        SolutionFileKinds = "hidden"
 )
 
 type SolutionFile struct {
@@ -72,15 +80,19 @@ type SolutionFile struct {
 	Contents   bytes.Buffer
 }
 
+func (s SolutionFile) String() string {
+	return fmt.Sprintf("%q (kind %q, object type %q, format %q)", s.Name, s.FileKind, s.ObjectType, s.Encoding)
+}
+
 var extensionMap = map[string]SolutionFileEncoding{
 	".json": EncodingJSON,
 	".yaml": EncodingYAML,
 	".yml":  EncodingYAML,
 }
 
-// New creates a new SolutionDirectoryContents object with a simple manifest
+// NewSolutionDirectoryContents creates a new SolutionDirectoryContents object with a simple manifest
 func NewSolutionDirectoryContents(name string, solutionType SolutionType) (*SolutionDirectoryContents, error) {
-	manifest := *createInitialSolutionManifest(name, string(solutionType))
+	manifest := *createInitialSolutionManifest(name, WithSolutionType(string(solutionType))) // TODO: streamline WithSolutionType to use SolutionType
 	return &SolutionDirectoryContents{
 		Manifest: manifest,
 	}, nil
@@ -118,11 +130,59 @@ func NewSolutionDirectoryContentsFromDisk(path string) (*SolutionDirectoryConten
 	return &s, nil
 }
 
-// Write writes the full contents of the solution directory to the specified path
-// If overwrite is true, it will overwrite the existing directory; otherwise it will
-// require that the directory is either empty or does not exist (it will create it)
-func (s *SolutionDirectoryContents) Write(path string, overwrite bool) error {
-	panic("not implemented")
+// Write writes the full contents of the solution directory to the specified filesystem.
+// Using Afero's filesystem abstraction allows for safe writing (as well as testing).
+// The directory must be empty, otherwise an error is returned.
+func (s *SolutionDirectoryContents) Write(fs afero.Fs) error {
+	// check if the directory is empty
+	empty, err := afero.IsEmpty(fs, ".")
+	if err != nil {
+		return fmt.Errorf("failed to check if the directory is empty: %w", err)
+	}
+	if !empty {
+		return fmt.Errorf("target directory is not empty; it must be empty to write the solution")
+	}
+
+	// write the root files
+	for _, file := range s.RootFiles {
+		// skip manifest, it's written separately
+		if file.Name == "manifest.json" || file.Name == "manifest.yaml" || file.Name == "manifest.yml" {
+			continue
+		}
+
+		// write the file
+		err := afero.WriteFile(fs, file.Name, file.Contents.Bytes(), os.FileMode(0666)) // +rw for all
+		if err != nil {
+			log.WithFields(log.Fields{"file": file.Name, "error": err.Error()}).Error("failed to write file")
+			return fmt.Errorf("failed to write file %q: %w", file.Name, err)
+		}
+	}
+
+	// write files in sub-directories
+	for _, dir := range s.Directories {
+		// create directory and intermediate directories (if needed)
+		err := fs.MkdirAll(dir.Name, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create directory %q: %w", dir.Name, err)
+		}
+
+		// write files
+		for _, file := range dir.Files {
+			relPath := filepath.Join(dir.Name, file.Name)
+			err := afero.WriteFile(fs, relPath, file.Contents.Bytes(), os.FileMode(0666)) // +rw for all
+			if err != nil {
+				log.WithFields(log.Fields{"file": relPath, "error": err.Error()}).Error("failed to write file")
+			}
+		}
+	}
+
+	// save manifest
+	err = saveSolutionManifestToAferoFs(fs, &s.Manifest)
+	if err != nil {
+		return fmt.Errorf("failed to save the manifest: %w", err)
+	}
+
+	return nil
 }
 
 // Dump displays the contents of the solution contents object
@@ -138,7 +198,21 @@ func (s *SolutionDirectoryContents) Dump(cmd *cobra.Command) {
 		},
 		Detail: true,
 	}
-	output.PrintCmdOutputCustom(cmd, nil, &t)
+	if cmd != nil {
+		output.PrintCmdOutputCustom(cmd, nil, &t)
+	} else {
+		for i, line := range t.Lines {
+			debugTrace("%v: %v\n", t.Headers[i], line[0])
+		}
+	}
+
+	// display directories
+	for _, dir := range s.Directories {
+		debugTrace("- Directory %v\n", dir)
+		for _, file := range dir.Files {
+			debugTrace("  File %v\n", file)
+		}
+	}
 }
 
 // --- Internal methods
@@ -148,7 +222,7 @@ func (s *SolutionDirectoryContents) readContents(rootPath string) error {
 	// read directories & files
 	err := filepath.Walk(rootPath,
 		func(path string, info os.FileInfo, err error) error {
-			fmt.Printf("Walking %q dir=%v err=%v\n", path, info.IsDir(), err)
+			debugTrace("Walking %q dir=%v err=%v\n", path, info.IsDir(), err)
 			if err != nil {
 				return err
 			}
@@ -160,11 +234,11 @@ func (s *SolutionDirectoryContents) readContents(rootPath string) error {
 			if err != nil {
 				return fmt.Errorf("found %v %q that not under the root %q: %v", entryType, path, rootPath, err)
 			}
-			if strings.HasPrefix(relPath, ".") {
+			if strings.HasPrefix(relPath, "..") {
 				return fmt.Errorf("found %v %q that not under the root %q: %q", entryType, path, rootPath, relPath)
 			}
 			if !isAllowedPath(path, info) {
-				log.Warnf("Found %v %q which cannot be bundled; it will still be included", entryType, relPath)
+				log.Warnf("Found %v %q which cannot be bundled; it will still be processed", entryType, relPath)
 			}
 
 			if info.IsDir() {
@@ -173,7 +247,7 @@ func (s *SolutionDirectoryContents) readContents(rootPath string) error {
 					Files: make([]SolutionFile, 0),
 				}
 				s.Directories = append(s.Directories, dir)
-				fmt.Printf("Appended a directory %#v\n", dir)
+				debugTrace("Appended a directory %v\n", dir)
 			} else {
 				contents, err := os.ReadFile(path)
 				if err != nil {
@@ -189,15 +263,16 @@ func (s *SolutionDirectoryContents) readContents(rootPath string) error {
 				}
 				if dirName == "" || dirName == "." {
 					s.RootFiles = append(s.RootFiles, file)
-					fmt.Printf("Appended a root file %#v\n", file)
+					debugTrace("Appended a root file %v\n", file)
 				} else {
 					// find directory
 					found := false
-					for _, dir := range s.Directories {
+					for index := 0; index < len(s.Directories); index++ {
+						dir := &s.Directories[index]
 						if dir.Name == dirName {
 							found = true
 							dir.Files = append(dir.Files, file)
-							fmt.Printf("Appended file %#v to directory %#v\n", file, dir)
+							debugTrace("Appended file %v to directory %v\n", file, dir)
 							break
 						}
 					}
@@ -225,7 +300,7 @@ func (s *SolutionDirectoryContents) annotateFiles() error {
 		}
 	}
 
-	// process objects in the manifest
+	// process objects in the manifest (files and directories explicitly listed)
 	for _, objectDef := range s.Manifest.Objects {
 		// ensure that the object definition is valid
 		nDescriptions := 0
@@ -256,6 +331,41 @@ func (s *SolutionDirectoryContents) annotateFiles() error {
 			}
 		}
 	}
+
+	// process files in object directories
+	for _, dir := range s.Directories {
+		if len(dir.Files) == 0 {
+			continue // nothing to do, don't even check them
+		}
+		objectsType := ""
+		fileKind := KindUnknown
+		if dir.Type == ObjectsDir {
+			if dir.ObjectsType == "" {
+				log.Warnf("directory %q is marked as objectsDir but has no object type; not assigning type to its files", dir.Name)
+			} else {
+				fileKind = KindObjectType
+				objectsType = dir.ObjectsType
+			}
+			for fileIndex := 0; fileIndex < len(dir.Files); fileIndex++ {
+				f := &dir.Files[fileIndex]
+				f.FileKind = fileKind
+				f.ObjectType = objectsType
+			}
+
+		}
+	}
+
+	// process files in the root directory
+	hiddenFiles := []string{"manifest.json", "manifest.yaml", "manifest.yml", ".tag"}
+	for fileIndex := 0; fileIndex < len(s.RootFiles); fileIndex++ {
+		f := &s.RootFiles[fileIndex]
+		if slices.Contains(hiddenFiles, f.Name) {
+			f.FileKind = KindHidden
+		} else {
+			f.FileKind = KindUnknown
+		}
+	}
+
 	return nil
 }
 
@@ -263,6 +373,7 @@ func (s *SolutionDirectoryContents) annotateFile(name string, kind SolutionFileK
 	var file *SolutionFile
 
 	dirName, fileName := filepath.Split(name)
+	dirName = filepath.Clean(dirName) // removes the trailing separator
 	if dirName == "" {
 		log.Warnf("File %q for %v %v is in the root directory; it should be in a subdirectory", name, kind, objectType)
 
@@ -279,9 +390,12 @@ func (s *SolutionDirectoryContents) annotateFile(name string, kind SolutionFileK
 		for _, dir := range s.Directories {
 			if dir.Name == dirName {
 				found = true
-				for _, f := range dir.Files {
+				debugTrace("found directory %q for %v %v %q: %v files\n", dirName, kind, objectType, fileName, len(dir.Files))
+				for fileIndex := 0; fileIndex < len(dir.Files); fileIndex++ {
+					f := &dir.Files[fileIndex]
 					if f.Name == fileName {
-						file = &f
+						debugTrace("found %v %v %q against %q in directory %q\n", kind, objectType, fileName, f.Name, dirName)
+						file = f
 						break
 					}
 				}
@@ -310,9 +424,10 @@ func (s *SolutionDirectoryContents) annotateDirectory(name string, kind Solution
 
 	// find the directory
 	var dir *SolutionSubDirectory
-	for _, d := range s.Directories {
+	for i := 0; i < len(s.Directories); i++ {
+		d := &s.Directories[i]
 		if d.Name == name {
-			dir = &d
+			dir = d
 			break
 		}
 	}
@@ -329,4 +444,50 @@ func (s *SolutionDirectoryContents) annotateDirectory(name string, kind Solution
 	}
 
 	return nil
+}
+
+// ErrDeleteWalkedFile is a special error that can be returned by the callback to WalkFiles
+// to cause the file to be deleted. This error will never be returned by WalkFiles.
+var ErrDeleteWalkedFile = errors.New("delete walked file")
+
+// WalkFiles goes through each file, including root files and provides a callback
+// to process each file. Each file is passed by reference, allowing the callback
+// to modify the file contents.
+// The subdirectory is passed by reference as well, but the callback should not modify it;
+// it will be nil for the root files.
+// The callback can return an error to stop the walk. It can also return the special
+// error ErrDeleteWalkedFile to delete the file from the solution.
+// TODO: when deleting a file, the file should be removed from the manifest, if referenced
+func (s *SolutionDirectoryContents) WalkFiles(callback func(*SolutionFile, *SolutionSubDirectory) error) error {
+
+	// enumerate the root directory files
+	for i := 0; i < len(s.RootFiles); i++ {
+		file := &s.RootFiles[i]
+		err := callback(file, nil)
+		if errors.Is(err, ErrDeleteWalkedFile) {
+			log.Warnf("deleting files is not supported yet; file %q retained", file.Name)
+		} else if err != nil {
+			return err
+		}
+	}
+
+	// enumerate files in subdirectories
+	for i := 0; i < len(s.Directories); i++ {
+		d := &s.Directories[i]
+		for j := 0; j < len(d.Files); j++ {
+			file := &d.Files[j]
+			err := callback(file, d)
+			if errors.Is(err, ErrDeleteWalkedFile) {
+				log.Warnf("deleting files is not supported yet; file %q retained", filepath.Join(d.Name, file.Name))
+			} else if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func debugTrace(format string, args ...interface{}) {
+	//fmt.Printf(format, args...)
 }

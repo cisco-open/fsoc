@@ -16,21 +16,26 @@ package solution
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/apex/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/zipfs"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/cisco-open/fsoc/config"
 	"github.com/cisco-open/fsoc/output"
 	"github.com/cisco-open/fsoc/platform/api"
 )
+
+const pseudoIsolationSuffix = "${$toSuffix(env.tag)}"
 
 var solutionForkCmd = &cobra.Command{
 	Use:     "fork [<solution-name>|--source-dir=<directory>] <target-name> [flags]",
@@ -57,11 +62,13 @@ func GetSolutionForkCommand() *cobra.Command {
 
 	solutionForkCmd.Flags().StringP("source-dir", "s", "", "directory with a solution to fork from disk")
 	solutionForkCmd.Flags().String("tag", "stable", "tag for the solution to download and fork")
+	solutionForkCmd.Flags().BoolP("quiet", "q", false, "suppress output")
 
 	return solutionForkCmd
 }
 
 func solutionForkCommand(cmd *cobra.Command, args []string) {
+	// get and check arguments & flags
 	sourceDir, _ := cmd.Flags().GetString("source-dir")
 	solutionName, _ := cmd.Flags().GetString("source-name")
 	forkName, _ := cmd.Flags().GetString("name")
@@ -83,17 +90,27 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	}
 	forkName = strings.ToLower(forkName)
 
+	// create a status printer function closure, based on the quiet flag
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	var statusPrint func(fmt string, args ...interface{})
+	if quiet {
+		statusPrint = func(fmt string, args ...interface{}) {}
+	} else {
+		statusPrint = func(format string, args ...interface{}) {
+			s := fmt.Sprintf(format+"\n", args...)
+			output.PrintCmdStatus(cmd, s)
+		}
+	}
+
+	// create afero filesystem for the target directory
 	currentDirectory, err := filepath.Abs(".")
 	if err != nil {
 		log.Fatalf("Error getting current directory: %v", currentDirectory)
 	}
-
 	fileSystemRoot := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory)
-
 	if solutionNameFolderInvalid(fileSystemRoot, forkName) {
 		log.Fatalf(fmt.Sprintf("A non empty directory with the name %s already exists", forkName))
 	}
-
 	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), currentDirectory+"/"+forkName)
 
 	if manifestExists(fileSystem, forkName) {
@@ -101,12 +118,11 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	}
 
 	if sourceDir != "" {
-		err := forkFromDisk(cmd, sourceDir, fileSystem, forkName)
+		err := forkFromDisk(sourceDir, fileSystem, forkName, statusPrint)
 		if err != nil {
 			log.Fatalf("Failed to fork solution from disk: %v", err)
 		}
-		message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
-		output.PrintCmdStatus(cmd, message)
+		statusPrint("Successfully forked %q into %q.", sourceDir, forkName)
 		return
 	}
 
@@ -125,8 +141,7 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to remove zip file in current directory: %v", err)
 	}
 
-	message := fmt.Sprintf("Successfully forked %s to current directory.\r\n", solutionName)
-	output.PrintCmdStatus(cmd, message)
+	statusPrint("Successfully forked %s to current directory.", solutionName)
 }
 
 func solutionNameFolderInvalid(fileSystem afero.Fs, forkName string) bool {
@@ -317,22 +332,216 @@ func ReplaceStringInFile(fileSystem afero.Fs, filePath string, searchValue strin
 	return nil
 }
 
-func forkFromDisk(cmd *cobra.Command, sourceDir string, fileSystem afero.Fs, solutionName string) error {
+// -- New style fork
+// 1. Replaces the solution name only in values but not in keys
+// 2. Replaces the solution name only on word boundaries
+// 3. Omits specical files, such as .tag, from the output solution
+// 4. Renames the namespace file if it is the same as the solution name
+// 5. Logs detailed list of changes made to the solution, with key names and old/new values
+
+func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, statusPrint func(string, ...any)) error {
 	// load solution from disk
 	solution, err := NewSolutionDirectoryContentsFromDisk(sourceDir)
 	if err != nil {
 		return fmt.Errorf("error loading solution from disk: %w", err)
 	}
 
-	// display solution contents
-	solution.Dump(cmd)
+	// get and replace solution name in the manifest, respecting pseudo-isolation
+	oldName, pseudoIsolated := strings.CutSuffix(solution.Manifest.Name, pseudoIsolationSuffix)
+	if pseudoIsolated {
+		solution.Manifest.Name = solutionName + pseudoIsolationSuffix
+	} else {
+		solution.Manifest.Name = solutionName
+	}
+	statusPrint("Forking %q to %q...", oldName, solutionName)
 
-	// replace solution name
-	//oldName := solution.Manifest.Name
-	solution.Manifest.Name = solutionName
+	// remove files that should not be carried over, e.g., a .tag file in the root directory
+	err = solution.WalkFiles(func(file *SolutionFile, dir *SolutionSubDirectory) error {
+		if dir == nil && file.Name == ".tag" {
+			log.WithField("file", file.Name).Info("Removing special file")
+			statusPrint("Removed special file %q", file.Name)
+			return ErrDeleteWalkedFile
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("(bug) Failed to remove special files from solution: %v", err)
+	}
+
+	// rename the namespace file if it uses the solution name and update the manifest
+	err = solution.WalkFiles(func(file *SolutionFile, dir *SolutionSubDirectory) error {
+		if file.FileKind != KindObjectType ||
+			file.ObjectType != "fmm:namespace" ||
+			file.Name != oldName+"."+string(file.Encoding) {
+			return nil
+		}
+		// rename file to match the new solution name
+		oldFileName := file.Name
+		file.Name = solutionName + "." + string(file.Encoding)
+
+		// log change
+		dirName := "."
+		if dir != nil {
+			dirName = dir.Name
+		}
+		oldPath := filepath.Join(dirName, oldFileName)
+		newPath := filepath.Join(dirName, file.Name)
+		statusPrint("Renamed namespace file %q to %q", oldPath, newPath)
+		log.WithFields(log.Fields{
+			"old_file": oldPath,
+			"new_file": newPath,
+		}).Info("Renamed namespace file")
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("(bug) Failed to rename namespace file: %v", err)
+	}
+
+	// prepare regexp for replacing solution name in all files
+	oldNameRe, err := regexp.Compile(`\b` + regexp.QuoteMeta(oldName) + `\b`) // \b is a word boundary
+	if err != nil {
+		log.Fatalf("(bug) Failed to compile regexp for solution name replacement: %v", err)
+		panic("") // unreachable
+	}
+
+	// modify solution name in all files
+	err = solution.WalkFiles(func(file *SolutionFile, dir *SolutionSubDirectory) error {
+		// skip hidden files
+		if file.FileKind == KindHidden {
+			return nil // nothing to do
+		}
+
+		// prepare root-relative file name
+		dirName := "."
+		if dir != nil {
+			dirName = dir.Name
+		}
+		filePath := filepath.Join(dirName, file.Name)
+
+		// replace solution name in file buffer
+		newContents, nReplacements, err := forkFileInBuffer(file.Contents, file.Encoding, oldNameRe, solutionName)
+		if err != nil {
+			dirName := "."
+			if dir != nil {
+				dirName = dir.Name
+			}
+			return fmt.Errorf("error forking file %q: %w", filepath.Join(dirName, file.Name), err)
+		}
+		if nReplacements > 0 {
+			// replace file contents
+			file.Contents = newContents
+
+			// log and print changes
+			pluralSuffix := ""
+			if nReplacements != 1 {
+				pluralSuffix = "s"
+			}
+			statusPrint("Made %v change%v in %q", nReplacements, pluralSuffix, filePath)
+			log.WithFields(log.Fields{
+				"file": filePath,
+				"repl": nReplacements,
+			}).Info("Forked file")
+		} else {
+			log.WithField("file", file.Name).Info("No changes in file")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error updating solution files: %w", err)
+	}
 
 	// write new solution to disk
-	//err = solution.Write(fileSystem)
+	statusPrint("The fsoc log file contains all changes made")
+	statusPrint("Writing solution %q...", solutionName)
+	err = solution.Write(fileSystem)
+	if err != nil {
+		return fmt.Errorf("error writing solution to disk: %w", err)
+	}
 
 	return nil
+}
+
+// forkFileInBuffer replaces oldName with newName in the contents values, respecting
+// word boundaries. The old name is specified as a regular expression.
+// The function returns the new buffer with the replacements and the number of
+// replacements made, as well as an error.
+func forkFileInBuffer(buffer bytes.Buffer, encoding SolutionFileEncoding, oldNameRe *regexp.Regexp, newName string) (bytes.Buffer, int, error) {
+	// decode buffer to map[string]interace{}
+	var contents any
+	var err error
+	switch encoding {
+	case EncodingJSON:
+		err = json.Unmarshal(buffer.Bytes(), &contents)
+	case EncodingYAML:
+		err = yaml.Unmarshal(buffer.Bytes(), &contents)
+	default:
+		return bytes.Buffer{}, 0, fmt.Errorf("unsupported encoding: %v", encoding)
+	}
+	if err != nil {
+		return bytes.Buffer{}, 0, fmt.Errorf("error decoding %v file: %w", encoding, err)
+	}
+
+	// replace solution name in values, starting from the root base key ("")
+	nReplacements := 0
+	contents = replaceValues(contents, oldNameRe, newName, "", &nReplacements)
+
+	// return original buffer if no replacements were made
+	if nReplacements == 0 {
+		return buffer, 0, nil
+	}
+
+	// encode map back to buffer
+	var newBuffer bytes.Buffer
+	switch encoding {
+	case EncodingJSON:
+		err = json.NewEncoder(&newBuffer).Encode(contents)
+	case EncodingYAML:
+		err = yaml.NewEncoder(&newBuffer).Encode(contents)
+	}
+	if err != nil {
+		return bytes.Buffer{}, nReplacements, fmt.Errorf("error re-encoding %v file with %v modifications: %w", encoding, nReplacements, err)
+	}
+
+	return newBuffer, nReplacements, nil
+}
+
+func replaceValues(contents any, oldNameRe *regexp.Regexp, newName string, base string, nReplacements *int) any {
+	switch val := contents.(type) {
+	case map[string]any:
+		for k, v := range val {
+			var key string
+			if base == "" {
+				key = k
+			} else {
+				key = base + "." + k
+			}
+			val[k] = replaceValues(v, oldNameRe, newName, key, nReplacements)
+		}
+	case []any:
+		for i, v := range val {
+			key := base + fmt.Sprintf("[%d]", i)
+			val[i] = replaceValues(v, oldNameRe, newName, key, nReplacements)
+		}
+	case string:
+		// replace old name with the new one, counting the number of replacements
+		replacements := 0
+		newVal := oldNameRe.ReplaceAllStringFunc(val, func(match string) string {
+			replacements++
+			return newName
+		})
+		if replacements > 0 {
+			*nReplacements += replacements
+			log.WithFields(log.Fields{
+				"key": base,
+				"old": val,
+				"new": newVal,
+			}).Info("Replaced solution name")
+			contents = newVal
+		}
+	default:
+		// other value types are not modified
+	}
+
+	return contents
 }

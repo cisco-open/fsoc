@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
@@ -187,6 +188,25 @@ func saveSolutionManifest(folderName string, manifest *Manifest) error {
 	err = writeSolutionManifest(manifest, manifestFile)
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
+	}
+
+	// the file is closed before returning (see defer above)
+	return nil
+}
+
+func saveSolutionManifestToAferoFs(fs afero.Fs, manifest *Manifest) error {
+	// create the manifest file, overwriting prior manifest
+	filename := fmt.Sprintf("manifest.%s", manifest.ManifestFormat)
+	manifestFile, err := fs.Create(filename) // create new or truncate existing
+	if err != nil {
+		return fmt.Errorf("failed to create manifest file %q in %q: %w", filename, fs.Name(), err)
+	}
+	defer manifestFile.Close()
+
+	// write the manifest into the file, in manifest's selected format
+	err = writeSolutionManifest(manifest, manifestFile)
+	if err != nil {
+		return fmt.Errorf("failed to write the manifest into file %q in %q: %w", filename, fs.Name(), err)
 	}
 
 	// the file is closed before returning (see defer above)
