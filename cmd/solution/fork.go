@@ -335,7 +335,7 @@ func ReplaceStringInFile(fileSystem afero.Fs, filePath string, searchValue strin
 // -- New style fork
 // 1. Replaces the solution name only in values but not in keys
 // 2. Replaces the solution name only on word boundaries
-// 3. Omits specical files, such as .tag, from the output solution
+// 3. Omits special files, such as .tag, from the output solution
 // 4. Renames the namespace file if it is the same as the solution name
 // 5. Logs detailed list of changes made to the solution, with key names and old/new values
 
