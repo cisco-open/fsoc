@@ -202,17 +202,48 @@ func (s *SolutionDirectoryContents) Dump(cmd *cobra.Command) {
 		output.PrintCmdOutputCustom(cmd, nil, &t)
 	} else {
 		for i, line := range t.Lines {
-			debugTrace("%v: %v\n", t.Headers[i], line[0])
+			fmt.Printf("%v: %v\n", t.Headers[i], line[0])
 		}
 	}
 
 	// display directories
 	for _, dir := range s.Directories {
-		debugTrace("- Directory %v\n", dir)
+		fmt.Printf("- Directory %v\n", dir)
 		for _, file := range dir.Files {
-			debugTrace("  File %v\n", file)
+			fmt.Printf("  File %v\n", file)
 		}
 	}
+}
+
+// SetComponentDefType sets the component definition type for the specified object,
+// updatinig the directory & file types as needed. It returns the number of replacements made.
+func (s *SolutionDirectoryContents) SetComponentDefType(obj *ComponentDef, objType string) {
+	// update type if this is a single file
+	if obj.ObjectsFile != "" {
+		fileObj := s.GetSolutionFile(obj.ObjectsFile)
+		if fileObj != nil {
+			fileObj.ObjectType = objType
+		} else {
+			log.Errorf("(likely bug) object file %q not found while trying to change its type to %v", obj.ObjectsFile, objType)
+		}
+		return
+	}
+
+	// if this is a directory, update the directory type and all files in it
+	if obj.ObjectsDir != "" {
+		dirObj := s.GetSolutionDirectory(obj.ObjectsDir)
+		if dirObj != nil {
+			dirObj.ObjectsType = objType
+			for i := 0; i < len(dirObj.Files); i++ {
+				dirObj.Files[i].ObjectType = objType
+			}
+		} else {
+			log.Errorf("(likely bug) object directory %q not found while trying to change its type to %v", obj.ObjectsDir, objType)
+		}
+		return
+	}
+
+	log.Errorf("(likely bug) manifest object of type %q has no objectsDir or objectsFile specified", objType)
 }
 
 // --- Internal methods
@@ -450,6 +481,10 @@ func (s *SolutionDirectoryContents) annotateDirectory(name string, kind Solution
 // to cause the file to be deleted. This error will never be returned by WalkFiles.
 var ErrDeleteWalkedFile = errors.New("delete walked file")
 
+// ErrStopWalking is a special error that can be returned by the callback to WalkFiles
+// to stop the walk. This error will never be returned by WalkFiles.
+var ErrStopWalking = errors.New("stop walking")
+
 // WalkFiles goes through each file, including root files and provides a callback
 // to process each file. Each file is passed by reference, allowing the callback
 // to modify the file contents.
@@ -466,6 +501,8 @@ func (s *SolutionDirectoryContents) WalkFiles(callback func(*SolutionFile, *Solu
 		err := callback(file, nil)
 		if errors.Is(err, ErrDeleteWalkedFile) {
 			log.Warnf("deleting files is not supported yet; file %q retained", file.Name)
+		} else if errors.Is(err, ErrStopWalking) {
+			return nil
 		} else if err != nil {
 			return err
 		}
@@ -479,12 +516,51 @@ func (s *SolutionDirectoryContents) WalkFiles(callback func(*SolutionFile, *Solu
 			err := callback(file, d)
 			if errors.Is(err, ErrDeleteWalkedFile) {
 				log.Warnf("deleting files is not supported yet; file %q retained", filepath.Join(d.Name, file.Name))
+			} else if errors.Is(err, ErrStopWalking) {
+				return nil
 			} else if err != nil {
 				return err
 			}
 		}
 	}
 
+	return nil
+}
+
+// GetSolutionFile returns a pointer to the solution file with the specified name,
+// or nil if not found
+func (s *SolutionDirectoryContents) GetSolutionFile(name string) *SolutionFile {
+	var filePtr *SolutionFile
+
+	// walk the files to find it
+	err := s.WalkFiles(func(file *SolutionFile, dir *SolutionSubDirectory) error {
+		// construct solution root-relative path to the file
+		fileName := file.Name // root file
+		if dir != nil {
+			fileName = filepath.Join(dir.Name, file.Name) // non-root file
+		}
+		if fileName == name {
+			filePtr = file
+			return ErrStopWalking
+		}
+		return nil
+	})
+	if err != nil {
+		log.Warnf("unexpected error while walking files looking for %q: %v", name, err)
+		return nil
+	}
+
+	return filePtr // nil if not found, or the pointer to the file
+}
+
+// GetSolutionDirectory returns a pointer to the solution directory with the specified name,
+// or nil if not found
+func (s *SolutionDirectoryContents) GetSolutionDirectory(name string) *SolutionSubDirectory {
+	for i := 0; i < len(s.Directories); i++ {
+		if s.Directories[i].Name == name {
+			return &s.Directories[i]
+		}
+	}
 	return nil
 }
 

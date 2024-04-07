@@ -451,6 +451,28 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 		return fmt.Errorf("error updating solution files: %w", err)
 	}
 
+	// change namespace of objects referenced in the manifest
+	for i := 0; i < len(solution.Manifest.Objects); i++ {
+		key := fmt.Sprintf("objects[%v].type", i)
+		obj := &solution.Manifest.Objects[i]
+		oldType := obj.Type
+		nReplacements := 0
+		newType := replaceValues(oldType, oldNameRe, solutionName, key, &nReplacements).(string) // should be string, bug otherwise
+		if nReplacements > 0 {
+			obj.Type = newType
+
+			statusPrint(`Updated object type %q to %q for "%v%v"`, oldType, newType, obj.ObjectsDir, obj.ObjectsFile)
+			log.WithFields(log.Fields{
+				"key": key,
+				"old": oldType,
+				"new": newType,
+			}).Info("Updated object type in manifest type reference")
+
+			// update the type in the file/dir that are being referenceds
+			solution.SetComponentDefType(obj, obj.Type)
+		}
+	}
+
 	// write new solution to disk
 	statusPrint("The fsoc log file contains all changes made")
 	statusPrint("Writing solution %q...", solutionName)
@@ -458,6 +480,8 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 	if err != nil {
 		return fmt.Errorf("error writing solution to disk: %w", err)
 	}
+
+	//solution.Dump(nil) //@@ debug
 
 	return nil
 }
