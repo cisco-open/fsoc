@@ -452,6 +452,7 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 	}
 
 	// change namespace of objects referenced in the manifest
+	nManifestReplaces := 1 // #1 is the solution name
 	for i := 0; i < len(solution.Manifest.Objects); i++ {
 		key := fmt.Sprintf("objects[%v].type", i)
 		obj := &solution.Manifest.Objects[i]
@@ -461,17 +462,16 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 		if nReplacements > 0 {
 			obj.Type = newType
 
-			statusPrint(`Updated object type %q to %q for "%v%v"`, oldType, newType, obj.ObjectsDir, obj.ObjectsFile)
-			log.WithFields(log.Fields{
-				"key": key,
-				"old": oldType,
-				"new": newType,
-			}).Info("Updated object type in manifest type reference")
-
 			// update the type in the file/dir that are being referenceds
 			solution.SetComponentDefType(obj, obj.Type)
 		}
+		nManifestReplaces += nReplacements
 	}
+	pluralSuffix := ""
+	if nManifestReplaces != 1 {
+		pluralSuffix = "s"
+	}
+	statusPrint(`Made %v change%v in "manifest.%s"`, nManifestReplaces, pluralSuffix, solution.Manifest.ManifestFormat)
 
 	// write new solution to disk
 	statusPrint("The fsoc log file contains all changes made")
@@ -479,6 +479,35 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 	err = solution.Write(fileSystem)
 	if err != nil {
 		return fmt.Errorf("error writing solution to disk: %w", err)
+	}
+
+	// mini-lint:
+	// warn about antipattern of naming files or directories as the solution name
+	nAntipatterns := 0
+	for _, object := range solution.Manifest.Objects {
+		if oldNameRe.MatchString(object.ObjectsDir) {
+			log.WithFields(log.Fields{
+				"dir":  object.ObjectsDir,
+				"type": object.Type,
+			}).Warn("Directory name contains the old solution name; unchanged")
+			nAntipatterns++
+		}
+		if oldNameRe.MatchString(object.ObjectsFile) {
+			log.WithFields(log.Fields{
+				"file": object.ObjectsFile,
+				"type": object.Type,
+			}).Warn("File name contains the old solution name; unchanged")
+			nAntipatterns++
+		}
+	}
+	for _, knowledgeType := range solution.Manifest.Types {
+		if oldNameRe.MatchString(knowledgeType) {
+			log.WithField("file", knowledgeType).Warn("Knowledge type filename contains the old solution name; unchanged")
+			nAntipatterns++
+		}
+	}
+	if nAntipatterns > 0 {
+		statusPrint("Using the solution name in directory or file name is not a good practice; it makes renaming the solution harder; consider using generic names instead")
 	}
 
 	//solution.Dump(nil) //@@ debug
