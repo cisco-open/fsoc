@@ -90,7 +90,7 @@ func IsValidSolutionTag(tag string) bool {
 	if len(tag) > 10 {
 		return false
 	}
-	match, err := regexp.Match(`^[A-Za-z][a-z0-9]*$`, []byte(tag))
+	match, err := regexp.Match(`^[a-z][a-z0-9]*$`, []byte(tag))
 	if !match || err != nil {
 		return false
 	}
