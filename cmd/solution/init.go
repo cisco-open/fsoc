@@ -61,6 +61,22 @@ func getInitSolutionCmd() *cobra.Command {
 	return solutionInitCmd
 }
 
+// IsValidSolutionName checks if the solution name is valid
+func IsValidSolutionName(name string) bool {
+	if name == "" {
+		return false
+	}
+	if len(name) > 25 {
+		return false
+	}
+
+	match, err := regexp.Match(`^[a-z][a-z0-9]*$`, []byte(name))
+	if err != nil {
+		log.Fatalf("(bug) Failed to validate solution name %q: %v", name, err)
+	}
+	return match
+}
+
 func createNewSolution(cmd *cobra.Command, args []string) {
 	solutionName := strings.ToLower(args[0])
 	solutionType, _ := cmd.Flags().GetString("solution-type") // checked when creating manifest
