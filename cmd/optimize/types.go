@@ -124,10 +124,12 @@ type Guardrails struct {
 	Mem Mem `json:"mem"`
 }
 type ErrorPercent struct {
-	Target float64 `json:"target"`
+	Target     float64 `json:"target"`
+	Discovered float64 `json:"discovered"`
 }
 type MedianResponseTime struct {
-	Target float64 `json:"target"`
+	Target     float64 `json:"target"`
+	Discovered float64 `json:"discovered"`
 }
 type Slo struct {
 	ErrorPercent       ErrorPercent       `json:"errorPercent"`
