@@ -212,6 +212,10 @@ func getSolutionStatus(cmd *cobra.Command, args []string) error {
 	solutionStatusItem, err := getExtensibilitySolutionObject(getSolutionObjectUrl(solutionID), requestHeaders)
 
 	if err != nil {
+		if solutionTag == "" {
+			log.Warn("No tag provided, defaulting to stable tag when querying for objects")
+			solutionTag = "stable"
+		}
 		isSolutionDeleted, solutionDeletionData := checkIfSolutionDeleted(solutionName, solutionTag)
 		// If solution has been deleted previously, print out a helpful message to let the user know
 		// else throw an error
