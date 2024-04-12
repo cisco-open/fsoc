@@ -212,7 +212,8 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 	} else {
 		solution.Manifest.Name = solutionName
 	}
-	statusPrint("Forking %q to %q...", oldName, solutionName)
+	solution.Manifest.SolutionVersion = "1.0.0" // reset version
+	statusPrint("Forking %q to %q (version %v)...", oldName, solutionName, solution.Manifest.SolutionVersion)
 
 	// remove files that should not be carried over, e.g., a .tag file in the root directory
 	err = solution.WalkFiles(func(file *SolutionFile, dir *SolutionSubDirectory) error {
