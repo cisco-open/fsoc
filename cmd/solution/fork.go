@@ -158,8 +158,9 @@ func solutionForkCommand(cmd *cobra.Command, args []string) {
 	log.WithField("temp_solution_dir", sourceDir).Info("Extracting downloaded solution in temp target directory")
 
 	// extract files from the archive into the source directory
+	// Note that archives have a top level directory that should be skipped at extraction)
 	sourceDirFs := afero.NewBasePathFs(afero.NewOsFs(), sourceDir)
-	if err = ExtractZipToDirectory(archivePath, sourceDirFs); err != nil {
+	if err = UnzipToAferoFs(archivePath, sourceDirFs, 1); err != nil {
 		log.Fatalf("Failed to extract downloaded solution archive: %v", err)
 	}
 

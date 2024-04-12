@@ -1,4 +1,4 @@
-// Copyright 2023 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,18 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package solution
 
 import (
-	"archive/zip"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/apex/log"
-	"github.com/spf13/afero"
-	"github.com/spf13/afero/zipfs"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
@@ -118,23 +116,4 @@ func DownloadSolutionPackage(name string, tag string, targetPath string) (string
 
 func getSolutionDownloadUrl(solutionName string) string {
 	return fmt.Sprintf("solution-manager/v1/solutions/%s", solutionName)
-}
-
-func ExtractZipToDirectory(archive string, targetFs afero.Fs) error {
-	archiveFile, err := os.OpenFile(archive, os.O_RDONLY, os.FileMode(0644))
-	if err != nil {
-		return fmt.Errorf("error opening zip file: %w", err)
-	}
-	defer archiveFile.Close()
-
-	archiveFileInfo, err := os.Stat(archive)
-	if err != nil {
-		return fmt.Errorf("error determining zip file size: %w", err)
-	}
-
-	reader, _ := zip.NewReader(archiveFile, archiveFileInfo.Size())
-	zipFileSystem := zipfs.New(reader)
-	dirInfo, _ := afero.ReadDir(zipFileSystem, "./")
-	err = copyFolderToLocal(zipFileSystem, targetFs, dirInfo[0].Name())
-	return err
 }

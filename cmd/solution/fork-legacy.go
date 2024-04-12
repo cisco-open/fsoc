@@ -160,6 +160,25 @@ func downloadSolutionZip(cmd *cobra.Command, solutionName string, solutionTag st
 	}
 }
 
+func ExtractZipToDirectory(archive string, targetFs afero.Fs) error {
+	archiveFile, err := os.OpenFile(archive, os.O_RDONLY, os.FileMode(0644))
+	if err != nil {
+		return fmt.Errorf("error opening zip file: %w", err)
+	}
+	defer archiveFile.Close()
+
+	archiveFileInfo, err := os.Stat(archive)
+	if err != nil {
+		return fmt.Errorf("error determining zip file size: %w", err)
+	}
+
+	reader, _ := zip.NewReader(archiveFile, archiveFileInfo.Size())
+	zipFileSystem := zipfs.New(reader)
+	dirInfo, _ := afero.ReadDir(zipFileSystem, "./")
+	err = copyFolderToLocal(zipFileSystem, targetFs, dirInfo[0].Name())
+	return err
+}
+
 func copyFolderToLocal(zipFileSystem afero.Fs, localFileSystem afero.Fs, subDirectory string) error {
 	dirInfo, err := afero.ReadDir(zipFileSystem, subDirectory)
 	if err != nil {
