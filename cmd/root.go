@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/user"
 	"path"
 	"strconv"
 	"time"
@@ -105,19 +106,28 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
+	userInfo, err := user.Current()
+	if err != nil {
+		panic(err) // Should never happen
+	}
+
+	// filename is fsco-<username>-<dateformat>-<pid>.log
+	logFileName := fmt.Sprintf("fsoc-%s-%s-%d.log", userInfo.Username, time.Now().Format(time.DateOnly), os.Getpid())
+	logFileName = path.Join(os.TempDir(), logFileName)
+
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is %s). May be .yaml or .json", config.DefaultConfigFile))
 	rootCmd.PersistentFlags().StringVar(&cfgProfile, "profile", "", "access profile (default is current or \"default\")")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "auto", "output format (auto, table, detail, json, yaml)")
 	rootCmd.PersistentFlags().String("fields", "", "perform specified fields transform/extract JQ expression")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable detailed output")
 	rootCmd.PersistentFlags().Bool("curl", false, "log curl equivalent for platform API calls (implies --verbose)")
-	rootCmd.PersistentFlags().String("log", path.Join(os.TempDir(), "fsoc.log"), "set a location and name for the fsoc log file")
+	rootCmd.PersistentFlags().String("log", logFileName, "set a location and name for the fsoc log file")
 	rootCmd.PersistentFlags().Bool("no-version-check", false, "skip the daily check for new versions of fsoc")
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 	rootCmd.SetIn(os.Stdin)
 
-	err := rootCmd.RegisterFlagCompletionFunc("profile",
+	err = rootCmd.RegisterFlagCompletionFunc("profile",
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return config.ListContexts(toComplete), cobra.ShellCompDirectiveDefault
 		})
