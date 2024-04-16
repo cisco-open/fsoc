@@ -18,6 +18,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	InternalSupportMessage = "To get help, please, write us to #ask-margot internal space and provide us " +
+		"tenant Id and workflow Id together with your problem description."
+)
+
 // Config defines the subsystem configuration under fsoc
 type Config struct {
 	ApiVersion *ApiVersion `mapstructure:"apiver,omitempty" fsoc-help:"API version to use for tenant provisioning. The default is \"v1beta\"."`
@@ -40,6 +45,8 @@ func NewSubCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdLookup())
-
+	cmd.AddCommand(newCmdGetProgress())
+	cmd.AddCommand(newCmdDevTenant())
+	cmd.AddCommand(newCmdApplyLicense())
 	return cmd
 }
