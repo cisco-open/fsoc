@@ -329,7 +329,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 			newComponents = append(newComponents, ecpDetails)
 
 			ecpDetailsList := &newComponent{
-				Filename:   componentFileName(cmd, manifest, entity.Name+"DetailsList.json"),
+				Filename:   componentFileName(cmd, manifest, entity.Name+"DetailsList"),
 				Type:       "dashui:template",
 				Definition: getDashuiDetailsList(entity, manifest),
 			}

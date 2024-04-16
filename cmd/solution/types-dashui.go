@@ -40,8 +40,8 @@ type DashuiWidget struct {
 }
 
 type DashuiFocusedEntity struct {
-	*DashuiWidget
-	Mode string `json:"mode" yaml:"mode"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Mode          string `json:"mode" yaml:"mode"`
 }
 
 type DashuiString struct {
@@ -64,7 +64,7 @@ type DashuiProperty struct {
 }
 
 type DashuiGrid struct {
-	*DashuiWidget
+	*DashuiWidget    `json:",inline" yaml:",inline"`
 	RowSets          interface{}         `json:"rowSets" yaml:"rowSets"`
 	Style            interface{}         `json:"style,omitempty" yaml:"style,omitempty"`
 	Mode             string              `json:"mode" yaml:"mode"`
@@ -85,15 +85,15 @@ type DashuiGridCell struct {
 }
 
 type DashuiTooltip struct {
-	*DashuiWidget
-	Truncate bool        `json:"truncate,omitempty" yaml:"truncate,omitempty"`
-	Trigger  interface{} `json:"trigger,omitempty" yaml:"trigger,omitempty"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Truncate      bool        `json:"truncate,omitempty" yaml:"truncate,omitempty"`
+	Trigger       interface{} `json:"trigger,omitempty" yaml:"trigger,omitempty"`
 }
 
 type DashuiClickable struct {
-	*DashuiWidget
-	OnClick *DashuiEvent `json:"onClick,omitempty" yaml:"onClick,omitempty"`
-	Trigger *DashuiLabel `json:"trigger,omitempty" yaml:"trigger,omitempty"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	OnClick       *DashuiEvent `json:"onClick,omitempty" yaml:"onClick,omitempty"`
+	Trigger       *DashuiLabel `json:"trigger,omitempty" yaml:"trigger,omitempty"`
 }
 
 type DashuiEvent struct {
@@ -103,8 +103,8 @@ type DashuiEvent struct {
 }
 
 type EcpLeftBar struct {
-	*DashuiWidget
-	Label string `json:"label" yaml:"label"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Label         string `json:"label" yaml:"label"`
 }
 
 type EcpRelationshipMapEntry struct {
@@ -115,8 +115,8 @@ type EcpRelationshipMapEntry struct {
 }
 
 type EcpInspectorWidget struct {
-	*DashuiWidget
-	Title string `json:"title" yaml:"title"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Title         string `json:"title" yaml:"title"`
 }
 
 type EcpHome struct {
@@ -138,13 +138,13 @@ type DashuiEcpHomeEntity struct {
 }
 
 type DashuiOcpSingle struct {
-	*DashuiWidget
+	*DashuiWidget `json:",inline" yaml:",inline"`
 	NameAttribute string `json:"nameAttribute" yaml:"nameAttribute"`
 }
 
 type DashuiCartesian struct {
-	*DashuiWidget
-	Children []*DashuiCartesianSeries `json:"children" yaml:"children"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Children      []*DashuiCartesianSeries `json:"children" yaml:"children"`
 }
 
 type DashuiCartesianSeries struct {
@@ -169,6 +169,6 @@ type DashuiLogsWidget struct {
 }
 
 type DashuiHtmlWidget struct {
-	*DashuiWidget
-	Style interface{} `json:"style,omitempty" yaml:"style,omitempty"`
+	*DashuiWidget `json:",inline" yaml:",inline"`
+	Style         interface{} `json:"style,omitempty" yaml:"style,omitempty"`
 }
