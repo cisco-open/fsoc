@@ -1,4 +1,4 @@
-// Copyright 2023 Cisco Systems, Inc.
+// Copyright 2024 Cisco Systems, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package solution
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/apex/log"
 	"github.com/spf13/cobra"
@@ -48,28 +52,68 @@ func getSolutionDownloadCmd() *cobra.Command {
 
 func downloadSolution(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
-	solutionNameWithZipExtension := getSolutionNameWithZip(solutionName)
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 
-	headers := map[string]string{
-		"stage":            "STABLE",
-		"tag":              solutionTagFlag,
-		"solutionFileName": solutionNameWithZipExtension,
-	}
-	httpOptions := api.Options{Headers: headers}
-	bufRes := make([]byte, 0)
-	if err := api.HTTPGet(getSolutionDownloadUrl(solutionName), &bufRes, &httpOptions); err != nil {
-		log.Fatalf("Solution download command failed: %v", err)
+	if _, err := DownloadSolutionPackage(solutionName, solutionTagFlag, "."); err != nil {
+		log.Fatal(err.Error())
 	}
 
 	message := fmt.Sprintf("Solution %q with tag %s downloaded successfully.\n", solutionName, solutionTagFlag)
 	output.PrintCmdStatus(cmd, message)
 }
 
-func getSolutionDownloadUrl(solutionName string) string {
-	return fmt.Sprintf("solution-manager/v1/solutions/%s", solutionName)
+// DownloadSolutionPackage downloads the solution package into the specified target path
+// targetPath may be one of the following:
+// - the empty string: download to a temporary file
+// - a directory: download to a file in that directory
+// - a file: download to that file
+// The function returns the path to the downloaded file and error.
+func DownloadSolutionPackage(name string, tag string, targetPath string) (string, error) {
+	// validate name and tag
+	if !IsValidSolutionName(name) {
+		return "", fmt.Errorf("invalid solution name %q", name)
+	}
+	if !IsValidSolutionTag(tag) {
+		return "", fmt.Errorf("invalid solution tag %q", tag)
+	}
+
+	// determine the target file path
+	if targetPath != "" {
+		// absolutize path
+		targetPath = absolutizePath(targetPath)
+
+		// if targetPath is an existing directory, place zip there; otherwise, treat as file path
+		fileInfo, err := os.Stat(targetPath)
+		if err == nil && fileInfo.IsDir() {
+			targetPath = filepath.Join(filepath.Dir(targetPath), name+".zip")
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to access target path %q: %v", targetPath, err)
+		} // else treat as file path, possibly overwriting existing file
+	} else {
+		// create unique file name in the temporary directory
+		archive, err := os.CreateTemp("", name+"*.zip") // "*" will be replaced with unique string
+		if err != nil {
+			log.Fatalf("failed to create temporary archive file: %v", err)
+		}
+		targetPath = archive.Name()
+	}
+
+	headers := map[string]string{
+		"stage":            "STABLE", // TODO: check if needed
+		"tag":              tag,
+		"solutionFileName": targetPath,
+	}
+	httpOptions := api.Options{Headers: headers}
+	bufRes := make([]byte, 0)
+	if err := api.HTTPGet(getSolutionDownloadUrl(name), &bufRes, &httpOptions); err != nil {
+		return "", fmt.Errorf("Solution download command failed: %v", err)
+	}
+
+	log.WithFields(log.Fields{"solution": name, "tag": tag, "path": targetPath}).Info("Solution archive downloaded successfully")
+
+	return targetPath, nil
 }
 
-func getSolutionNameWithZip(solutionName string) string {
-	return fmt.Sprintf("%s.zip", solutionName)
+func getSolutionDownloadUrl(solutionName string) string {
+	return fmt.Sprintf("solution-manager/v1/solutions/%s", solutionName)
 }

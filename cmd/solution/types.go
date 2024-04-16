@@ -36,6 +36,14 @@ func (f FileFormat) String() string {
 	return [...]string{"json", "yaml"}[f]
 }
 
+type SolutionType string
+
+const (
+	ComponentSolutionType SolutionType = "component"
+	ModuleSolutionType    SolutionType = "module"
+	AppSolutionType       SolutionType = "app"
+)
+
 type Manifest struct {
 	ManifestVersion string         `json:"manifestVersion,omitempty" yaml:"manifestVersion,omitempty"`
 	ManifestFormat  FileFormat     `json:"-" yaml:"-"` // not serialized, in memory
