@@ -305,8 +305,13 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 				"unable to parse profiler report_contents.optimization_configuration.slo.median_response_time.target into float64: %w", err)
 		}
 		// Use rounding for parity with UI logic
-		newOptimizerConfig.Config.Slo.ErrorPercent.Target = adaptivePrecisionRound(errorPercentTarget, 4)
-		newOptimizerConfig.Config.Slo.MedianResponseTime.Target = adaptivePrecisionRound(medianResponseTimeTarget, 3)
+		// discovered values are used after yaml ovverrides are applied
+		discoveredErrorPercent := adaptivePrecisionRound(errorPercentTarget, 4)
+		newOptimizerConfig.Config.Slo.ErrorPercent.Target = discoveredErrorPercent
+		newOptimizerConfig.Config.Slo.ErrorPercent.Discovered = discoveredErrorPercent
+		discoveredMedianResponseTime := adaptivePrecisionRound(medianResponseTimeTarget, 3)
+		newOptimizerConfig.Config.Slo.MedianResponseTime.Target = discoveredMedianResponseTime
+		newOptimizerConfig.Config.Slo.MedianResponseTime.Discovered = discoveredMedianResponseTime
 
 		// Set ignored blockers
 		prefix := "report_contents.optimization_blockers."
@@ -387,6 +392,9 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			if err != nil {
 				return fmt.Errorf("yaml.Unmarshal(configBytes, &configStruct): %w", err)
 			}
+			// restore original discovered values as they are not allowed to be overidden
+			newOptimizerConfig.Config.Slo.ErrorPercent.Discovered = discoveredErrorPercent
+			newOptimizerConfig.Config.Slo.MedianResponseTime.Discovered = discoveredMedianResponseTime
 		}
 
 		// write new config to ORION
