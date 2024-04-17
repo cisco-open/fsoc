@@ -39,7 +39,7 @@ var FlagCurlifyRequests bool
 
 // --- Public Interface -----------------------------------------------------
 
-// Options contains extra, optional parameteres that modify the API call behavior
+// Options contains extra, optional parameters that modify the API call behavior
 type Options struct {
 	// Headers contains additional headers to be provided in the request
 	Headers map[string]string
