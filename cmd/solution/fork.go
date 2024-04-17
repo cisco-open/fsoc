@@ -408,7 +408,10 @@ func forkFileInBuffer(buffer bytes.Buffer, encoding SolutionFileEncoding, oldNam
 	var newBuffer bytes.Buffer
 	switch encoding {
 	case EncodingJSON:
-		err = json.NewEncoder(&newBuffer).Encode(contents)
+		enc := json.NewEncoder(&newBuffer)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", output.JsonIndent)
+		err = enc.Encode(contents)
 	case EncodingYAML:
 		err = yaml.NewEncoder(&newBuffer).Encode(contents)
 	}
