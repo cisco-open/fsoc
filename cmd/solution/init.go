@@ -174,16 +174,7 @@ func createInitialSolutionManifest(solutionName string, options ...SolutionManif
 func writeSolutionManifest(manifest *Manifest, w io.Writer) error {
 	checkStructTags(reflect.TypeOf(manifest)) // ensure json/yaml struct tags are correct
 
-	// write the manifest into the file, in manifest's selected format
-	var err error
-	switch manifest.ManifestFormat {
-	case FileFormatJSON:
-		err = output.WriteJson(manifest, w)
-	case FileFormatYAML:
-		err = output.WriteYaml(manifest, w)
-	default:
-		err = fmt.Errorf("(bug) unknown manifest format %q", manifest.ManifestFormat)
-	}
+	err := writeComponent(manifest, w, manifest.ManifestFormat)
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest: %w", err)
 	}
@@ -281,9 +272,11 @@ func writeComponent(compDef any, w io.Writer, format FileFormat) error {
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", output.JsonIndent)
 		err = enc.Encode(compDef)
+	default:
+		err = fmt.Errorf("(bug) unknown file format %q", format)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to write the solution file with %T: %v", compDef, err)
+		return fmt.Errorf("failed to write the solution file with %T: %w", compDef, err)
 	}
 
 	return nil
