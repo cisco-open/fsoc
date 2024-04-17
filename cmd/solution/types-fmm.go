@@ -41,8 +41,8 @@ type FmmAttributeTypeDef struct {
 }
 
 type FmmRequiredAttributeDefinitionsTypeDef struct {
-	Required []string `json:"required" yaml:"required"`
-	*FmmAttributeDefinitionsTypeDef
+	Required                        []string `json:"required" yaml:"required"`
+	*FmmAttributeDefinitionsTypeDef `json:",inline" yaml:",inline"`
 }
 
 type FmmAttributeDefinitionsTypeDef struct {
@@ -60,7 +60,7 @@ type FmmAssociationTypesTypeDef struct {
 }
 
 type FmmEntity struct {
-	*FmmTypeDef
+	*FmmTypeDef           `json:",inline" yaml:",inline"`
 	AttributeDefinitions  *FmmRequiredAttributeDefinitionsTypeDef `json:"attributeDefinitions,omitempty" yaml:"attributeDefinitions,omitempty"`
 	LifecyleConfiguration *FmmLifecycleConfigTypeDef              `json:"lifecycleConfiguration" yaml:"lifecycleConfiguration"`
 	MetricTypes           []string                                `json:"metricTypes,omitempty" yaml:"metricTypes,omitempty"`
@@ -73,12 +73,12 @@ func (entity *FmmEntity) GetTypeName() string {
 }
 
 type FmmEvent struct {
-	*FmmTypeDef
+	*FmmTypeDef          `json:",inline" yaml:",inline"`
 	AttributeDefinitions *FmmAttributeDefinitionsTypeDef `json:"attributeDefinitions" yaml:"attributeDefinitions"` // required always, do not omitempty
 }
 
 type FmmResourceMapping struct {
-	*FmmTypeDef
+	*FmmTypeDef           `json:",inline" yaml:",inline"`
 	EntityType            string               `json:"entityType" yaml:"entityType"`
 	ScopeFilter           string               `json:"scopeFilter" yaml:"scopeFilter"`
 	Mappings              []FmmMapAndTransform `json:"mappings,omitempty" yaml:"mappings,omitempty"`
@@ -86,7 +86,7 @@ type FmmResourceMapping struct {
 }
 
 type FmmAssociationDeclaration struct {
-	*FmmTypeDef
+	*FmmTypeDef     `json:",inline" yaml:",inline"`
 	ScopeFilter     string `json:"scopeFilter" yaml:"scopeFilter"`
 	FromType        string `json:"fromType" yaml:"fromType"`
 	ToType          string `json:"toType" yaml:"toType"`
@@ -105,7 +105,7 @@ type FmmNamespace struct {
 }
 
 type FmmMetric struct {
-	*FmmTypeDef
+	*FmmTypeDef            `json:",inline" yaml:",inline"`
 	Category               FmmMetricCategory               `json:"category" yaml:"category"`
 	ContentType            FmmMetricContentType            `json:"contentType" yaml:"contentType"`
 	AggregationTemporality string                          `json:"aggregationTemporality" yaml:"aggregationTemporality"`
