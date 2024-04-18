@@ -772,6 +772,9 @@ func extractEventsData(dataset *uql.DataSet) ([]EventsRow, error) {
 
 	for _, row := range *resp_data {
 		attributes := row[0].(uql.ComplexData)
+		if len(attributes.Data) < 1 {
+			continue
+		}
 		attributesMap, _ := sliceToMap(attributes.Data)
 		attributesMap["appd.event.type"], _ = strings.CutPrefix(attributesMap["appd.event.type"].(string), "optimize:")
 		timestamp := row[1].(time.Time)
