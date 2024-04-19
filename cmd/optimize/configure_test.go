@@ -1,0 +1,629 @@
+// Copyright 2023 Cisco Systems, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package optimize
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/cisco-open/fsoc/test"
+)
+
+var validPaths []string = []string{
+	"/monitoring/v1/query/execute",
+	"/knowledge-store/v1/objects/:optimizer",
+	"knowledge-store/v1/objects/:optimizer?filter=data.target.k8sDeployment.workloadId+eq+%22VfJUeLlJOUyRrgi8ABDBMQ%22",
+}
+
+func TestConfigureMultipleMatches(t *testing.T) {
+	// HTTP server hit by calls made duringtest
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Log(r.Method)
+		if !slices.Contains(validPaths, r.URL.Path) {
+			t.Errorf("Unexpected path requeested: %s", r.URL.Path)
+		}
+		if r.Header.Get("Accept") != "application/json" {
+			t.Errorf("Expected Accept: application/json header, got: %s", r.Header.Get("Accept"))
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("unable to read request body: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		bodyStr := string(body)
+		w.WriteHeader(http.StatusOK)
+		if r.URL.Path == "/knowledge-store/v1/objects/:optimizer" {
+			if r.Method == "GET" {
+				w.WriteHeader(http.StatusNotFound)
+			}
+			return
+		}
+		var respErr error
+		if r.Method == "GET" {
+			_, respErr = w.Write([]byte(`{"items": [], "total": 0}`))
+		} else if strings.Contains(bodyStr, "FETCH id") {
+			_, respErr = w.Write([]byte(workloadResponse))
+		} else if strings.Contains(bodyStr, "FETCH events") {
+			_, respErr = w.Write([]byte(reportResponse))
+		} else {
+			t.Errorf("unrecognized query: %v", bodyStr)
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		if respErr != nil {
+			t.Errorf("error writing response: %v", err)
+		}
+	}))
+
+	defer test.SetActiveConfigProfileServer(testServer.URL)()
+
+	testFlags := &configureFlags{}
+	testFlags.Cluster = "optimize-c1-qe"
+	testFlags.Namespace = "bofa-24-02"
+	testFlags.WorkloadName = "frontend"
+	testFlags.create = true
+	testFlags.overrideSoftBlockers = true
+	createFunc := configureOptimizer(testFlags)
+	if err := createFunc(&cobra.Command{}, nil); err != nil {
+		t.Fatalf("failed to confiugre multimatch workload: %v", err)
+	}
+}
+
+var workloadResponse string = `
+  [
+	{
+	  "type": "model",
+	  "model": {
+		"name": "m:main",
+		"resultType": "LISTING",
+		"fields": [
+		  {
+			"alias": "id",
+			"type": "string",
+			"hints": {
+			  "kind": "entity",
+			  "field": "id",
+			  "type": "k8s:deployment"
+			},
+			"properties": {
+			  "functionType": "DIMENSION",
+			  "orderable": true,
+			  "fieldCoordinates": {
+				"from": "2:6",
+				"to": "2:7"
+			  },
+			  "querySnippet": "id"
+			}
+		  },
+		  {
+			"alias": "isActive",
+			"type": "boolean",
+			"hints": {
+			  "kind": "entity",
+			  "field": "isActive",
+			  "type": "k8s:deployment"
+			},
+			"properties": {
+			  "functionType": "DIMENSION",
+			  "orderable": true,
+			  "fieldCoordinates": {
+				"from": "2:10",
+				"to": "2:17"
+			  },
+			  "querySnippet": "isActive"
+			}
+		  }
+		]
+	  }
+	},
+	{
+	  "type": "data",
+	  "model": {
+		"$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:main')]",
+		"$model": "m:main"
+	  },
+	  "metadata": {
+		"since": "2024-04-12T19:50:15.847747259Z",
+		"until": "2024-04-19T19:50:15.847747259Z"
+	  },
+	  "main": true,
+	  "dataset": "d:main",
+	  "data": [
+		[
+		  "k8s:deployment:VfJUeLlJOUyRrgi8ABDBMQ",
+		  true
+		],
+		[
+		  "k8s:deployment:GY6sVnqLPbCtHwDpX0JARw",
+		  false
+		],
+		[
+		  "k8s:deployment:Cky9fa+OMeWBRhYR0miVeg",
+		  false
+		]
+	  ]
+	}
+  ]
+  `
+
+var reportResponse string = `
+[
+  {
+    "type": "model",
+    "model": {
+      "name": "m:main",
+      "resultType": "AGGREGATION",
+      "fields": [
+        {
+          "alias": "events",
+          "type": "timeseries",
+          "hints": {
+            "kind": "entity",
+            "field": "events",
+            "type": "k8s:deployment"
+          },
+          "properties": {
+            "functionType": "AGGREGATION",
+            "orderable": false,
+            "fieldCoordinates": {
+              "from": "2:6",
+              "to": "2:43"
+            },
+            "querySnippet": "events(k8sprofiler:report){attributes}"
+          },
+          "form": "reference",
+          "model": {
+            "name": "m:events",
+            "resultType": "LISTING",
+            "fields": [
+              {
+                "alias": "attributes",
+                "type": "complex",
+                "hints": {
+                  "kind": "event",
+                  "field": "attributes",
+                  "type": "k8sprofiler:report"
+                },
+                "properties": {
+                  "functionType": "DIMENSION",
+                  "orderable": false,
+                  "fieldCoordinates": {
+                    "from": "2:33",
+                    "to": "2:42"
+                  },
+                  "querySnippet": "attributes"
+                },
+                "form": "inline",
+                "model": {
+                  "name": "m:attributes",
+                  "resultType": "LISTING",
+                  "fields": [
+                    {
+                      "alias": "name",
+                      "type": "string",
+                      "hints": {
+                        "field": "name"
+                      },
+                      "properties": {
+                        "functionType": "DIMENSION",
+                        "orderable": false
+                      }
+                    },
+                    {
+                      "alias": "value",
+                      "type": "any",
+                      "hints": {
+                        "field": "value"
+                      },
+                      "properties": {
+                        "functionType": "DIMENSION",
+                        "orderable": false
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "data",
+    "model": {
+      "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:main')]",
+      "$model": "m:main"
+    },
+    "metadata": {
+      "since": "2024-04-12T20:14:09.431916763Z",
+      "until": "2024-04-19T20:14:09.431916763Z"
+    },
+    "main": true,
+    "dataset": "d:main",
+    "data": [
+      [
+        {
+          "$dataset": "d:events-1",
+          "$jsonPath": "$..[?(@.type == 'data' && @.dataset == 'd:events-1')]"
+        }
+      ]
+    ]
+  },
+  {
+    "type": "data",
+    "model": {
+      "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:events')]",
+      "$model": "m:events"
+    },
+    "metadata": {
+      "schema": {
+        "fields": {
+          "attributes.appd.event.type": "KEY",
+          "attributes.appd.isevent": "KEY",
+          "attributes.k8s.cluster.id": "KEY",
+          "attributes.k8s.deployment.uid": "KEY",
+          "attributes.report_contents.cautions.high_utilization.order": "DOUBLE",
+          "attributes.report_contents.cautions.idle.order": "DOUBLE",
+          "attributes.report_contents.cautions.low_replica_count.order": "DOUBLE",
+          "attributes.report_contents.cautions.pod_qos_best_effort.order": "DOUBLE",
+          "attributes.report_contents.cautions.pod_qos_burstable.order": "DOUBLE",
+          "attributes.report_contents.cautions.utilization_exceeds_allocation.order": "DOUBLE",
+          "attributes.report_contents.cautions.utilization_significantly_exceeds_allocation.order": "DOUBLE",
+          "attributes.report_contents.conclusion.excessive_cost.order": "DOUBLE",
+          "attributes.report_contents.conclusion.ok.order": "DOUBLE",
+          "attributes.report_contents.conclusion.reliability_risk.order": "DOUBLE",
+          "attributes.report_contents.efficiency_rate": "DOUBLE",
+          "attributes.report_contents.main_container_name": "KEY",
+          "attributes.report_contents.opportunities.improve_efficiency.order": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_multiple.max_multiple": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_multiple.min_multiple": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_multiple.order": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_percent.max_percent": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_percent.min_percent": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_range_percent.order": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_performance.order": "DOUBLE",
+          "attributes.report_contents.optimizability_rank": "DOUBLE",
+          "attributes.report_contents.optimizable": "KEY",
+          "attributes.report_contents.optimization_blockers.apm_metrics_deficient.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.apm_metrics_deficient.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.apm_metrics_missing.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.apm_metrics_missing.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.cpu_not_specified.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.cpu_resources_change.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.cpu_resources_change.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.error_rate_high.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.error_rate_high.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.insufficient_fixed_scaling.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.insufficient_fixed_scaling.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.insufficient_relative_scaling.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.insufficient_relative_scaling.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.k8s_metrics_deficient.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.k8s_metrics_deficient.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.mem_resources_change.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.mem_resources_change.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.no_orchestration_agent.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.no_orchestration_agent.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.no_scaling.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.no_scaling.overridable": "KEY",
+          "attributes.report_contents.optimization_blockers.no_traffic.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.resources_not_specified.order": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.guardrails.cpu.max": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.guardrails.cpu.min": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.guardrails.cpu.pinned": "KEY",
+          "attributes.report_contents.optimization_configuration.guardrails.memory.max": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.guardrails.memory.min": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.guardrails.memory.pinned": "KEY",
+          "attributes.report_contents.optimization_configuration.slo.error_percent.target": "DOUBLE",
+          "attributes.report_contents.optimization_configuration.slo.median_response_time.target": "DOUBLE",
+          "attributes.report_contents.recommendations.define_resources.order": "DOUBLE",
+          "attributes.report_contents.recommendations.optimize_efficiency.order": "DOUBLE",
+          "attributes.report_contents.recommendations.optimize_reliability.order": "DOUBLE",
+          "attributes.report_contents.reliability_risk": "KEY",
+          "attributes.report_metadata.confidence_percent": "DOUBLE",
+          "attributes.report_metadata.ended_at": "KEY",
+          "attributes.report_metadata.eval_resolution": "DOUBLE",
+          "attributes.report_metadata.started_at": "KEY",
+          "attributes.report_support_data.avg_replica_count": "DOUBLE",
+          "attributes.report_support_data.cpu_limits": "DOUBLE",
+          "attributes.report_support_data.cpu_requests": "DOUBLE",
+          "attributes.report_support_data.cpu_seconds_throttled": "DOUBLE",
+          "attributes.report_support_data.cpu_usage": "DOUBLE",
+          "attributes.report_support_data.cpu_utilization": "DOUBLE",
+          "attributes.report_support_data.many_replicas": "KEY",
+          "attributes.report_support_data.memory_limits": "DOUBLE",
+          "attributes.report_support_data.memory_requests": "DOUBLE",
+          "attributes.report_support_data.memory_usage": "DOUBLE",
+          "attributes.report_support_data.memory_utilization": "DOUBLE",
+          "attributes.report_support_data.pod_qos_class": "KEY",
+          "attributes.report_support_data.resource_burst_detected": "KEY",
+          "attributes.report_support_data.resource_spec_guaranteed": "KEY",
+          "attributes.report_support_data.resource_spec_limits_present": "KEY",
+          "attributes.report_support_data.resource_spec_present": "KEY",
+          "attributes.report_support_data.resource_utilization_detected": "KEY",
+          "attributes.report_support_data.single_replica": "KEY",
+          "attributes.resource_metadata.cluster_id": "KEY",
+          "attributes.resource_metadata.cluster_name": "KEY",
+          "attributes.resource_metadata.namespace_name": "KEY",
+          "attributes.resource_metadata.workload_name": "KEY",
+          "attributes.resource_metadata.workload_type": "KEY",
+          "attributes.telemetry.sdk.name": "KEY",
+          "entity.ids": "KEY",
+          "entity.types": "KEY",
+          "entityMetadata.id": "KEY",
+          "entityMetadata.type.name": "KEY",
+          "entityMetadata.type.namespace.name": "KEY",
+          "entityMetadata.type.namespace.version": "DOUBLE",
+          "source.name": "KEY",
+          "tags.cluster": "KEY",
+          "tags.namespace": "KEY",
+          "tags.workload.name": "KEY",
+          "type": "KEY",
+          "attributes.report_contents.optimization_blockers.unequal_load_distribution.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.unequal_load_distribution.overridable": "KEY",
+          "attributes.report_contents.opportunities.improve_efficiency_upto_percent.max_percent": "DOUBLE",
+          "attributes.report_contents.opportunities.improve_efficiency_upto_percent.order": "DOUBLE",
+          "attributes.report_contents.optimization_blockers.mem_not_specified.order": "DOUBLE"
+        }
+      },
+      "statistics": {
+        "totalDocs": 11434,
+        "numDocs": 4662,
+        "numHits": 9,
+        "numDocsProcessed": 3347,
+        "numHitsProcessed": 7
+      }
+    },
+    "dataset": "d:events-1",
+    "_links": {
+      "next": {
+        "href": "/monitoring/v1/query/continue?cursor=ewogICJ0eXBlIiA6ICJldmVudCIsCiAgImRvY3VtZW50SWQiIDogIkNOSFd4cVB2TVJJNkNqQnJPSE53Y205bWFXeGxjaTFoWW1RNU9HRmxPQzFoTlRoa0xUUTFOekl0WVRnd055MDVZV0kwWm1FNU9HWTBOalFRUGhqOTlvZXhCaGliQVNELy8vLy9Edz09IiwKICAicXVlcnkiIDogIkZFVENIIGV2ZW50cyhrOHNwcm9maWxlcjpyZXBvcnQpe2F0dHJpYnV0ZXN9IExJTUlUUyBldmVudHMuY291bnQoMSkgT1JERVIgZXZlbnRzLmRlc2MoKSBTSU5DRSAyMDI0LTA0LTEyVDIwOjE0OjA5LjQzMTkxNjc2M1ogVU5USUwgMjAyNC0wNC0xOVQyMDoxNDowOS40MzE5MTY3NjNaIEZST00gZW50aXRpZXMoazhzOmRlcGxveW1lbnQ6VmZKVWVMbEpPVXlScmdpOEFCREJNUSkiCn0%3D"
+      }
+    },
+    "data": [
+      [
+        [
+          [
+            "appd.event.type",
+            "k8sprofiler:report"
+          ],
+          [
+            "appd.isevent",
+            "true"
+          ],
+          [
+            "k8s.cluster.id",
+            "00000000-0000-0000-0000-000000000000"
+          ],
+          [
+            "k8s.deployment.uid",
+            "00000000-0000-0000-0000-000000000000"
+          ],
+          [
+            "report_contents.cautions.pod_qos_burstable.order",
+            "0.0"
+          ],
+          [
+            "report_contents.conclusion.excessive_cost.order",
+            "0.0"
+          ],
+          [
+            "report_contents.efficiency_rate",
+            "17.0"
+          ],
+          [
+            "report_contents.main_container_name",
+            "loadgenerator"
+          ],
+          [
+            "report_contents.opportunities.improve_efficiency_range_multiple.max_multiple",
+            "2.7"
+          ],
+          [
+            "report_contents.opportunities.improve_efficiency_range_multiple.min_multiple",
+            "2.0"
+          ],
+          [
+            "report_contents.opportunities.improve_efficiency_range_multiple.order",
+            "0.0"
+          ],
+          [
+            "report_contents.optimizability_rank",
+            "-100.0"
+          ],
+          [
+            "report_contents.optimizable",
+            "false"
+          ],
+          [
+            "report_contents.optimization_blockers.insufficient_fixed_scaling.order",
+            "0.0"
+          ],
+          [
+            "report_contents.optimization_blockers.insufficient_fixed_scaling.overridable",
+            "true"
+          ],
+          [
+            "report_contents.optimization_blockers.insufficient_relative_scaling.order",
+            "0.0"
+          ],
+          [
+            "report_contents.optimization_blockers.insufficient_relative_scaling.overridable",
+            "true"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.cpu.max",
+            "1.625"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.cpu.min",
+            "0.375"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.cpu.pinned",
+            "false"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.memory.max",
+            "1.5"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.memory.min",
+            "0.375"
+          ],
+          [
+            "report_contents.optimization_configuration.guardrails.memory.pinned",
+            "false"
+          ],
+          [
+            "report_contents.optimization_configuration.slo.error_percent.target",
+            "0.0"
+          ],
+          [
+            "report_contents.optimization_configuration.slo.median_response_time.target",
+            "0.0"
+          ],
+          [
+            "report_contents.recommendations.optimize_efficiency.order",
+            "0.0"
+          ],
+          [
+            "report_contents.reliability_risk",
+            "low"
+          ],
+          [
+            "report_metadata.confidence_percent",
+            "100.0"
+          ],
+          [
+            "report_metadata.ended_at",
+            "2024-04-19T03:40:48Z"
+          ],
+          [
+            "report_metadata.eval_resolution",
+            "3600.0"
+          ],
+          [
+            "report_metadata.started_at",
+            "2024-04-12T03:40:48Z"
+          ],
+          [
+            "report_support_data.avg_replica_count",
+            "1.0297619047619047"
+          ],
+          [
+            "report_support_data.cpu_limits",
+            "1.0"
+          ],
+          [
+            "report_support_data.cpu_requests",
+            "0.8"
+          ],
+          [
+            "report_support_data.cpu_seconds_throttled",
+            "0.0"
+          ],
+          [
+            "report_support_data.cpu_usage",
+            "0.08220992678125476"
+          ],
+          [
+            "report_support_data.cpu_utilization",
+            "10.0"
+          ],
+          [
+            "report_support_data.many_replicas",
+            "false"
+          ],
+          [
+            "report_support_data.memory_limits",
+            "1.073741824E9"
+          ],
+          [
+            "report_support_data.memory_requests",
+            "8.05306368E8"
+          ],
+          [
+            "report_support_data.memory_usage",
+            "2.28728946E8"
+          ],
+          [
+            "report_support_data.memory_utilization",
+            "28.000000000000004"
+          ],
+          [
+            "report_support_data.pod_qos_class",
+            "burstable"
+          ],
+          [
+            "report_support_data.resource_burst_detected",
+            "false"
+          ],
+          [
+            "report_support_data.resource_spec_guaranteed",
+            "false"
+          ],
+          [
+            "report_support_data.resource_spec_limits_present",
+            "true"
+          ],
+          [
+            "report_support_data.resource_spec_present",
+            "true"
+          ],
+          [
+            "report_support_data.resource_utilization_detected",
+            "true"
+          ],
+          [
+            "report_support_data.single_replica",
+            "false"
+          ],
+          [
+            "resource_metadata.cluster_id",
+            "9b4115a8-6ee9-4dcb-b8c6-39126a01367d"
+          ],
+          [
+            "resource_metadata.cluster_name",
+            "optimize-c1-qe"
+          ],
+          [
+            "resource_metadata.namespace_name",
+            "bofa-24-02"
+          ],
+          [
+            "resource_metadata.workload_name",
+            "frontend"
+          ],
+          [
+            "resource_metadata.workload_type",
+            "Deployment"
+          ],
+          [
+            "telemetry.sdk.name",
+            "k8sprofiler"
+          ]
+        ]
+      ]
+    ]
+  }
+]
+`

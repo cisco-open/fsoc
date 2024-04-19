@@ -188,11 +188,11 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			if workloadIdsFound < 1 {
 				return errors.New("unable to configure optimizer; no workload IDs matched the given criteria")
 			} else if workloadIdsFound > 1 {
-				log.Warnf("found %v workload IDs for the given criteria, pruning inactive results")
+				log.Warnf("found %v workload IDs for the given criteria, pruning inactive results", workloadIdsFound)
 
 				var activeIds []any
 				for _, workloadRow := range mainDataSet.Data {
-					if workloadRow[1].(string) == "true" {
+					if workloadRow[1].(bool) {
 						activeIds = append(activeIds, workloadRow[0])
 					}
 				}
