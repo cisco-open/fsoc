@@ -52,7 +52,6 @@ func JSONGetCollection[T any](path string, out *CollectionResult[T], options *Op
 			}
 			return err
 		}
-		fmt.Printf("page %v: actual %v vs. reported %v items\n", pageNo, len(page.Items), page.Total)
 
 		// handle case where out.Items is uninitialized (nil) and page.Items is an initialized but empty slice
 		// append results in a nil slice instead of an empty slice in this case
