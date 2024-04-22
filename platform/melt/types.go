@@ -80,11 +80,14 @@ type Metric struct {
 
 // DataPoint - structs for data point
 type DataPoint struct {
-	StartTime int64
-	EndTime   int64
-	Value     float64
-	Count     int64
-	Quantiles []*QuantileValue
+	StartTime       int64
+	EndTime         int64
+	Value           float64
+	Count           int64
+	Bucket_Count    []uint64               `yaml:"bucket_count,omitempty"`
+	Explicit_Bounds []float64              `yaml:"explicit_bounds,omitempty"`
+	Attributes      map[string]interface{} `yaml:"attributes,omitempty"`
+	Quantiles       []*QuantileValue
 }
 
 // Log - structs for logs“
@@ -142,7 +145,7 @@ type SpanStatus struct {
 }
 
 type QuantileValue struct {
-	Quantile float64
+	Quantile string
 	Value    float64
 }
 
@@ -320,11 +323,12 @@ func (s *Span) SetStatus(message string, code SpanStatusCode) *Span {
 }
 
 // AddDataPoint - Add a data point for sum or gauge metrics
-func (m *Metric) AddDataPoint(startTime, endTime int64, value float64) *Metric {
+func (m *Metric) AddDataPoint(startTime, endTime int64, attributes map[string]interface{}, value float64) *Metric {
 	dp := &DataPoint{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Value:     value,
+		StartTime:  startTime,
+		EndTime:    endTime,
+		Value:      value,
+		Attributes: attributes,
 	}
 	m.DataPoints = append(m.DataPoints, dp)
 	return m
@@ -338,6 +342,26 @@ func (m *Metric) AddDistributionDataPoint(startTime, endTime int64, value float6
 		Value:     value,
 		Count:     count,
 		Quantiles: quantiles,
+	}
+
+	m.DataPoints = append(m.DataPoints, dp)
+	return m
+}
+
+// AddHistogramDataPoint - Add a data point for histrogram metrics.
+func (m *Metric) AddHistogramDataPoint(startTime, endTime int64, value float64, count int64, quantile string, bucket_count []uint64, explicit_bounds []float64) *Metric {
+	quantileAttr := map[string]interface{}{
+		"statistic": quantile,
+	}
+
+	dp := &DataPoint{
+		StartTime:       startTime,
+		EndTime:         endTime,
+		Value:           value,
+		Count:           count,
+		Attributes:      quantileAttr,
+		Bucket_Count:    bucket_count,
+		Explicit_Bounds: explicit_bounds,
 	}
 
 	m.DataPoints = append(m.DataPoints, dp)

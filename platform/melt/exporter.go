@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 
 	"github.com/apex/log"
 	colllogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -344,8 +345,13 @@ func (exp *Exporter) createOtelMetric(m *Metric) *metrics.Metric {
 			}
 
 			for _, qtv := range dp.Quantiles {
+				quantile, error := strconv.ParseFloat(qtv.Quantile, 64)
+				if error != nil {
+					log.Errorf("Value conversion error: %v", error)
+				}
+
 				qtValue := &metrics.SummaryDataPoint_ValueAtQuantile{
-					Quantile: qtv.Quantile,
+					Quantile: quantile,
 					Value:    qtv.Value,
 				}
 				otdp.QuantileValues = append(otdp.QuantileValues, qtValue)
@@ -357,6 +363,30 @@ func (exp *Exporter) createOtelMetric(m *Metric) *metrics.Metric {
 		otm.Data = &metrics.Metric_Summary{Summary: smMetric}
 
 		return otm
+
+	case "histogram":
+		mAttribs := toKeyValueList(m.Attributes)
+		histoMetric := &metrics.Histogram{}
+		for _, dp := range m.DataPoints {
+			dpAttribs := toKeyValueList(dp.Attributes)
+			dpAttribs = append(dpAttribs, mAttribs...)
+			otdp := &metrics.HistogramDataPoint{
+				Attributes:        dpAttribs,
+				StartTimeUnixNano: uint64(dp.StartTime),
+				TimeUnixNano:      uint64(dp.EndTime),
+				Count:             uint64(dp.Count),
+				Sum:               &dp.Value,
+				BucketCounts:      dp.Bucket_Count,
+				ExplicitBounds:    dp.Explicit_Bounds,
+			}
+
+			histoMetric.DataPoints = append(histoMetric.DataPoints, otdp)
+		}
+
+		otm.Data = &metrics.Metric_Histogram{Histogram: histoMetric}
+
+		return otm
+
 	}
 
 	log.Errorf("unsuported metrics type: %s", m.ContentType)
