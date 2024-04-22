@@ -295,7 +295,15 @@ func getServiceComponent(serviceName string) *ServiceDef {
 func checkCreateSolutionNamespace(cmd *cobra.Command, manifest *Manifest, folderName string) {
 	componentType := "fmm:namespace"
 	namespaceName := manifest.GetNamespaceName()
-	fileName := manifest.GetSolutionName() + ".json"
+	var fileFormat string
+	switch manifest.ManifestFormat {
+	case FileFormatJSON:
+		fileFormat = "json"
+	case FileFormatYAML:
+		fileFormat = "yaml"
+	}
+	fileName := fmt.Sprintf("%s.%s", manifest.GetSolutionName(), fileFormat)
+
 	objFilePath := fmt.Sprintf("%s/%s", folderName, fileName)
 
 	componentDef := manifest.GetComponentDef(componentType)
