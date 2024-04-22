@@ -52,11 +52,6 @@ var errOptimizerConfigNotFound = errors.New("optimizer config not found")
 var errProfilerMissingData = errors.New("missing data in profiler report")
 var errProfilerInvalidData = errors.New("invalid data found in profiler report")
 
-func init() {
-	// TODO move this logic to optimize root when implementing unit tests
-	optimizeCmd.AddCommand(NewCmdConfigure())
-}
-
 func NewCmdConfigure() *cobra.Command {
 	flags := configureFlags{}
 	configureCmd := &cobra.Command{
