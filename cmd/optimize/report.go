@@ -28,6 +28,12 @@ import (
 	"github.com/cisco-open/fsoc/output"
 )
 
+type reportFlags struct {
+	commonFlags
+	workloadId string
+	eligible   bool
+}
+
 // TODO clarify blocker structure and pre-format
 type reportRow struct {
 	WorkloadId         string
@@ -41,13 +47,7 @@ type templateValues struct {
 	WorkloadFilters string
 }
 
-var (
-	tempVals     templateValues
-	cluster      string
-	namespace    string
-	workloadName string
-	eligible     bool
-)
+var tempVals templateValues
 
 var reportTemplate = template.Must(template.New("").Parse(`
 SINCE -1w
@@ -56,134 +56,135 @@ FROM entities(k8s:deployment{{with .WorkloadId}}:{{.}}{{end}}){{with .WorkloadFi
 LIMITS events.count(1)
 `))
 
-// reportCmd represents the report command
-var reportCmd = &cobra.Command{
-	Use:   "report",
-	Short: "List workloads and optimization eligibility",
-	Long: `
-List workloads and optimization eligibility
+func NewCmdReport() *cobra.Command {
+	reportFlags := &reportFlags{}
+	var reportCmd = &cobra.Command{
+		Use:   "report",
+		Short: "List workloads and optimization eligibility",
+		Long: `
+	List workloads and optimization eligibility
+	
+	If no flags are provided, all deployment workloads will be listed
+	You can optionally filter workloads to by cluster, namespace and/or name
+	You may specify also particular workloadId to fetch details for a single workload (recommended with -o detail or -o yaml)
+	`,
+		Example:          `fsoc optimize report --namespace kube-system`,
+		Args:             cobra.NoArgs,
+		RunE:             listReports(reportFlags),
+		TraverseChildren: true,
+		Annotations: map[string]string{
+			output.TableFieldsAnnotation:  "WorkloadId: .WorkloadId, Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], LastProfiled: .ProfileTimestamp",
+			output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: (.ProfileAttributes // {}) | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
+		},
+	}
+	reportCmd.Flags().StringVarP(&reportFlags.Cluster, "cluster", "c", "", "Filter reports by kubernetes cluster name")
+	reportCmd.Flags().StringVarP(&reportFlags.Namespace, "namespace", "n", "", "Filter reports by kubernetes namespace")
+	reportCmd.Flags().StringVarP(&reportFlags.WorkloadName, "workload-name", "w", "", "Filter reports by name of kubernetes workload")
 
-If no flags are provided, all deployment workloads will be listed
-You can optionally filter workloads to by cluster, namespace and/or name
-You may specify also particular workloadId to fetch details for a single workload (recommended with -o detail or -o yaml)
-`,
-	Example:          `fsoc optimize report --namespace kube-system`,
-	Args:             cobra.NoArgs,
-	RunE:             listReports,
-	TraverseChildren: true,
-	Annotations: map[string]string{
-		output.TableFieldsAnnotation:  "WorkloadId: .WorkloadId, Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], LastProfiled: .ProfileTimestamp",
-		output.DetailFieldsAnnotation: "WorkloadId: .WorkloadId, Cluster: .WorkloadAttributes[\"k8s.cluster.name\"], Namespace: .WorkloadAttributes[\"k8s.namespace.name\"], Name: .WorkloadAttributes[\"k8s.workload.name\"], Eligible: .ProfileAttributes[\"report_contents.optimizable\"], Blockers: (.ProfileAttributes // {}) | with_entries(select(.key | startswith(\"report_contents.optimization_blockers\"))), LastProfiled: .ProfileTimestamp",
-	},
-}
-
-func init() {
-	optimizeCmd.AddCommand(reportCmd)
-	reportCmd.Flags().StringVarP(&cluster, "cluster", "c", "", "Filter reports by kubernetes cluster name")
-	reportCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Filter reports by kubernetes namespace")
-	reportCmd.Flags().StringVarP(&workloadName, "workload-name", "w", "", "Filter reports by name of kubernetes workload")
-
-	reportCmd.Flags().StringVarP(&tempVals.WorkloadId, "workload-id", "i", "", "Retrieve a specific report by its workload's ID (best used with -o detail)")
+	reportCmd.Flags().StringVarP(&reportFlags.workloadId, "workload-id", "i", "", "Retrieve a specific report by its workload's ID (best used with -o detail)")
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "cluster")
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "namespace")
 	reportCmd.MarkFlagsMutuallyExclusive("workload-id", "workload-name")
 
-	reportCmd.Flags().BoolVarP(&eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
+	reportCmd.Flags().BoolVarP(&reportFlags.eligible, "eligible", "e", false, "Only list reports for eligbile workloads")
 
 	registerReportCompletion(reportCmd, profilerReportFlagCluster)
 	registerReportCompletion(reportCmd, profilerReportFlagNamespace)
 	registerReportCompletion(reportCmd, profilerReportFlagWorkloadName)
-
+	return reportCmd
 }
 
-func listReports(cmd *cobra.Command, args []string) error {
-	filtersList := make([]string, 0, 3)
-	if cluster != "" {
-		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.cluster.name\") = %q", cluster))
-	}
-	if namespace != "" {
-		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.namespace.name\") = %q", namespace))
-	}
-	if workloadName != "" {
-		filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", workloadName))
-	}
-	tempVals.WorkloadFilters = strings.Join(filtersList, " && ")
-	tempVals.WorkloadId, _ = strings.CutPrefix(tempVals.WorkloadId, "k8s:deployment:")
-
-	var query string
-	var buff bytes.Buffer
-	if err := reportTemplate.Execute(&buff, tempVals); err != nil {
-		return fmt.Errorf("reportTemplate.Execute: %w", err)
-	}
-	query = buff.String()
-
-	resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
-	if err != nil {
-		return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
-	}
-
-	if resp.HasErrors() {
-		log.Error("Execution of report query encountered errors. Returned data may not be complete!")
-		for _, e := range resp.Errors() {
-			log.Errorf("%s: %s", e.Title, e.Detail)
+func listReports(flags *reportFlags) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		filtersList := make([]string, 0, 3)
+		if flags.Cluster != "" {
+			filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.cluster.name\") = %q", flags.Cluster))
 		}
-	}
+		if flags.Namespace != "" {
+			filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.namespace.name\") = %q", flags.Namespace))
+		}
+		if flags.WorkloadName != "" {
+			filtersList = append(filtersList, fmt.Sprintf("attributes(\"k8s.workload.name\") = %q", flags.WorkloadName))
+		}
+		tempVals.WorkloadFilters = strings.Join(filtersList, " && ")
+		tempVals.WorkloadId, _ = strings.CutPrefix(flags.workloadId, "k8s:deployment:")
 
-	mainDataSet := resp.Main()
-	if mainDataSet == nil {
-		output.PrintCmdStatus(cmd, "No results found for given input\n")
-		return nil
-	}
+		var query string
+		var buff bytes.Buffer
+		if err := reportTemplate.Execute(&buff, tempVals); err != nil {
+			return fmt.Errorf("reportTemplate.Execute: %w", err)
+		}
+		query = buff.String()
 
-	reportRows, err := extractReportData(mainDataSet)
-	if err != nil {
-		return fmt.Errorf("extractReportData: %w", err)
-	}
-
-	_, next_ok := mainDataSet.Links["next"]
-	for page := 2; next_ok; page++ {
-		resp, err = uql.ClientV1.ContinueQuery(mainDataSet, "next")
+		resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
 		if err != nil {
-			return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
+			return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
 		}
 
 		if resp.HasErrors() {
-			log.Errorf("Continuation of report query (page %v) encountered errors. Returned data may not be complete!", page)
+			log.Error("Execution of report query encountered errors. Returned data may not be complete!")
 			for _, e := range resp.Errors() {
 				log.Errorf("%s: %s", e.Title, e.Detail)
 			}
 		}
 
-		mainDataSet = resp.Main()
+		mainDataSet := resp.Main()
 		if mainDataSet == nil {
-			log.Errorf("Continuation of report query (page %v) has nil main data. Returned data may not be complete!", page)
-			break
+			output.PrintCmdStatus(cmd, "No results found for given input\n")
+			return nil
 		}
 
-		newRows, err := extractReportData(mainDataSet)
+		reportRows, err := extractReportData(mainDataSet, flags.eligible)
 		if err != nil {
-			return fmt.Errorf("page %v extractReportData: %w", page, err)
+			return fmt.Errorf("extractReportData: %w", err)
 		}
 
-		reportRows = append(reportRows, newRows...)
-		_, next_ok = mainDataSet.Links["next"]
-	}
+		_, next_ok := mainDataSet.Links["next"]
+		for page := 2; next_ok; page++ {
+			resp, err = uql.ClientV1.ContinueQuery(mainDataSet, "next")
+			if err != nil {
+				return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
+			}
 
-	if len(reportRows) < 1 {
-		output.PrintCmdStatus(cmd, "No results found for given input\n")
+			if resp.HasErrors() {
+				log.Errorf("Continuation of report query (page %v) encountered errors. Returned data may not be complete!", page)
+				for _, e := range resp.Errors() {
+					log.Errorf("%s: %s", e.Title, e.Detail)
+				}
+			}
+
+			mainDataSet = resp.Main()
+			if mainDataSet == nil {
+				log.Errorf("Continuation of report query (page %v) has nil main data. Returned data may not be complete!", page)
+				break
+			}
+
+			newRows, err := extractReportData(mainDataSet, flags.eligible)
+			if err != nil {
+				return fmt.Errorf("page %v extractReportData: %w", page, err)
+			}
+
+			reportRows = append(reportRows, newRows...)
+			_, next_ok = mainDataSet.Links["next"]
+		}
+
+		if len(reportRows) < 1 {
+			output.PrintCmdStatus(cmd, "No results found for given input\n")
+			return nil
+		}
+
+		output.PrintCmdOutput(cmd, struct {
+			Items []reportRow `json:"items"`
+			Total int         `json:"total"`
+		}{Items: reportRows, Total: len(reportRows)})
+
 		return nil
 	}
-
-	output.PrintCmdOutput(cmd, struct {
-		Items []reportRow `json:"items"`
-		Total int         `json:"total"`
-	}{Items: reportRows, Total: len(reportRows)})
-
-	return nil
 }
 
-func extractReportData(dataset *uql.DataSet) ([]reportRow, error) {
+func extractReportData(dataset *uql.DataSet, eligible bool) ([]reportRow, error) {
 	resp_data := &dataset.Data
+	var err error
 	results := make([]reportRow, 0, len(*resp_data))
 	for index, row := range *resp_data {
 		if len(row) < 3 {
@@ -201,17 +202,20 @@ func extractReportData(dataset *uql.DataSet) ([]reportRow, error) {
 		if !ok {
 			return results, fmt.Errorf("workload entity attributes uql.DataSet type assertion failed (main dataset row %v): %+v", index, row)
 		}
-		var err error
-		reportRow.WorkloadAttributes, err = sliceToMap(workloadAttributeDataset.Data)
-		if err != nil {
-			return results, fmt.Errorf("(main dataset row %v) sliceToMap(workloadAttributeDataset.Data): %w", index, err)
+		if workloadAttributeDataset == nil {
+			log.Warnf("(main dataset row %v) got nil data for entity attributes on %v", index, workloadId)
+		} else {
+			reportRow.WorkloadAttributes, err = sliceToMap(workloadAttributeDataset.Data)
+			if err != nil {
+				return results, fmt.Errorf("(main dataset row %v) sliceToMap(workloadAttributeDataset.Data): %w", index, err)
+			}
 		}
 
 		profileAttributesDataSet, ok := row[2].(*uql.DataSet)
 		if !ok {
 			return results, fmt.Errorf("profile event attributes uql.DataSet type assertion failed (main dataset row %v): %+v", index, row)
 		}
-		if len(profileAttributesDataSet.Data) > 0 {
+		if profileAttributesDataSet != nil && len(profileAttributesDataSet.Data) > 0 {
 			// uql LIMITS events.count(1) means we're only interested in the first (and only) row of returned events
 			firstRow := profileAttributesDataSet.Data[0]
 			if len(firstRow) < 2 {

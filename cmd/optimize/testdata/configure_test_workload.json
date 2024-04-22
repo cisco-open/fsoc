@@ -1,0 +1,74 @@
+[
+    {
+        "type": "model",
+        "model": {
+            "name": "m:main",
+            "resultType": "LISTING",
+            "fields": [
+                {
+                    "alias": "id",
+                    "type": "string",
+                    "hints": {
+                        "kind": "entity",
+                        "field": "id",
+                        "type": "k8s:deployment"
+                    },
+                    "properties": {
+                        "functionType": "DIMENSION",
+                        "orderable": true,
+                        "fieldCoordinates": {
+                            "from": "2:6",
+                            "to": "2:7"
+                        },
+                        "querySnippet": "id"
+                    }
+                },
+                {
+                    "alias": "isActive",
+                    "type": "boolean",
+                    "hints": {
+                        "kind": "entity",
+                        "field": "isActive",
+                        "type": "k8s:deployment"
+                    },
+                    "properties": {
+                        "functionType": "DIMENSION",
+                        "orderable": true,
+                        "fieldCoordinates": {
+                            "from": "2:10",
+                            "to": "2:17"
+                        },
+                        "querySnippet": "isActive"
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "type": "data",
+        "model": {
+            "$jsonPath": "$..[?(@.type == 'model')]..[?(@.name == 'm:main')]",
+            "$model": "m:main"
+        },
+        "metadata": {
+            "since": "2024-04-12T19:50:15.847747259Z",
+            "until": "2024-04-19T19:50:15.847747259Z"
+        },
+        "main": true,
+        "dataset": "d:main",
+        "data": [
+            [
+                "k8s:deployment:VfJUeLlJOUyRrgi8ABDBMQ",
+                true
+            ],
+            [
+                "k8s:deployment:GY6sVnqLPbCtHwDpX0JARw",
+                false
+            ],
+            [
+                "k8s:deployment:Cky9fa+OMeWBRhYR0miVeg",
+                false
+            ]
+        ]
+    }
+]
