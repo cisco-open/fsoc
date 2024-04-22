@@ -304,9 +304,9 @@ func (s ExtensibilitySolutionObjectData) IsEmpty() bool {
 }
 
 func getSolutionReleaseUrl() string {
-	return "knowledge-store/v1/objects/extensibility:solutionRelease%s"
+	return "knowledge-store/v2beta/objects/extensibility:solutionRelease%s"
 }
 
 func getSolutionInstallUrl() string {
-	return "knowledge-store/v1/objects/extensibility:solutionInstall%s"
+	return "knowledge-store/v2beta/objects/extensibility:solutionInstall%s"
 }

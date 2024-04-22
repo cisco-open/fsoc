@@ -117,7 +117,7 @@ func getSolutionNameFromArgs(cmd *cobra.Command, args []string, flagName string)
 // is returned (which can then be used to query the table)
 func getSolutionObjectUrl(solutionId string) string {
 	// nb: JoinPath doesn't add '/' for empty elements; PathEscape doesn't change the empty string
-	url, err := url.JoinPath("knowledge-store/v1/objects/extensibility:solution", url.PathEscape(solutionId))
+	url, err := url.JoinPath("knowledge-store/v2beta/objects/extensibility:solution", url.PathEscape(solutionId))
 	if err != nil {
 		log.Fatalf("(bug) unexpected failure to construct path for solution ID %q", solutionId)
 	}
