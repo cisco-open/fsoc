@@ -38,6 +38,7 @@ var solutionExtendCmd = &cobra.Command{
 	Annotations:      map[string]string{config.AnnotationForConfigBypass: ""}, // this command does not require a valid context
 	TraverseChildren: true,
 }
+var metricContentType string
 
 // Planned options:
 // --add-meltworkflow - Flag to add a new melt workflow component to the current solution package
@@ -54,6 +55,8 @@ func getSolutionExtendCmd() *cobra.Command {
 		String("add-associationDeclarations", "", "Add all associationDeclaration type definitions for a given entity within this solution")
 	solutionExtendCmd.Flags().
 		String("add-metric", "", "Add a new metric type definition to this solution")
+	solutionExtendCmd.Flags().
+		StringVarP(&metricContentType, "contentType", "", "", "Optional flag to be used in conjuntion with --add-metric to support the definition of the contentType for the created metric type")
 	solutionExtendCmd.Flags().
 		String("add-resourceMapping", "", "Add a new resource mapping type definition for a given entity within this solution")
 	solutionExtendCmd.Flags().
@@ -234,10 +237,15 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 		}
 	case "fmm:metric":
 		{
+			contentType := ContentType_Gauge
+			if metricContentType != "" {
+				contentType = FmmMetricContentType(contentType)
+			}
+
 			metric := &newComponent{
 				Filename:   componentFileName(cmd, manifest, componentName),
 				Type:       componentType,
-				Definition: getMetricComponent(componentName, ContentType_Gauge, Type_Long, namespaceName),
+				Definition: getMetricComponent(componentName, contentType, Type_Long, namespaceName),
 			}
 
 			newComponents = append(newComponents, metric)

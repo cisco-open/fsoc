@@ -257,6 +257,7 @@ func getMetricComponent(metricName string, contentType FmmMetricContentType, met
 	}
 
 	switch contentType {
+
 	case ContentType_Gauge:
 		{
 			metricComponentDef.AggregationTemporality = "unspecified"
@@ -266,6 +267,16 @@ func getMetricComponent(metricName string, contentType FmmMetricContentType, met
 		{
 			metricComponentDef.AggregationTemporality = "delta"
 			metricComponentDef.Category = Category_Sum
+		}
+	case ContentType_Distribution:
+		{
+			metricComponentDef.AggregationTemporality = "delta"
+			metricComponentDef.Category = Category_Average
+		}
+	case ContentType_Histogram:
+		{
+			metricComponentDef.AggregationTemporality = "delta"
+			metricComponentDef.Category = Category_Histogram
 		}
 	}
 

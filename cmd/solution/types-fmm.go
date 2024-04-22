@@ -119,10 +119,11 @@ type FmmMetric struct {
 type FmmMetricCategory string
 
 const (
-	Category_Sum     FmmMetricCategory = "sum"
-	Category_Average FmmMetricCategory = "average"
-	Category_Rate    FmmMetricCategory = "rate"
-	Category_Current FmmMetricCategory = "current"
+	Category_Sum       FmmMetricCategory = "sum"
+	Category_Average   FmmMetricCategory = "average"
+	Category_Rate      FmmMetricCategory = "rate"
+	Category_Current   FmmMetricCategory = "current"
+	Category_Histogram FmmMetricCategory = "histogram"
 )
 
 type FmmMetricContentType string
@@ -131,6 +132,7 @@ const (
 	ContentType_Sum          FmmMetricContentType = "sum"
 	ContentType_Gauge        FmmMetricContentType = "gauge"
 	ContentType_Distribution FmmMetricContentType = "distribution"
+	ContentType_Histogram    FmmMetricContentType = "histogram"
 )
 
 type FmmMetricType string
