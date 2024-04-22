@@ -29,5 +29,7 @@ via the report subcommand.`,
 }
 
 func NewSubCmd() *cobra.Command {
+	optimizeCmd.AddCommand(NewCmdConfigure())
+
 	return optimizeCmd
 }

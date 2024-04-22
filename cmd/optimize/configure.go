@@ -52,11 +52,6 @@ var errOptimizerConfigNotFound = errors.New("optimizer config not found")
 var errProfilerMissingData = errors.New("missing data in profiler report")
 var errProfilerInvalidData = errors.New("invalid data found in profiler report")
 
-func init() {
-	// TODO move this logic to optimize root when implementing unit tests
-	optimizeCmd.AddCommand(NewCmdConfigure())
-}
-
 func NewCmdConfigure() *cobra.Command {
 	flags := configureFlags{}
 	configureCmd := &cobra.Command{
@@ -122,7 +117,7 @@ and push the configuration to the knowledge store. You may optionally override t
 func configureOptimizer(flags *configureFlags) func(cmd *cobra.Command, args []string) error {
 	var workloadTemplate = template.Must(template.New("").Parse(`
 SINCE -1w
-FETCH id
+FETCH id, isActive
 FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" && attributes("k8s.namespace.name") = "{{.Namespace}}" && attributes("k8s.workload.name") = "{{.WorkloadName}}"]
 `))
 
@@ -182,13 +177,32 @@ FROM entities(k8s:deployment)[attributes("k8s.cluster.name") = "{{.Cluster}}" &&
 			if mainDataSet == nil {
 				return errors.New("unable to configure optimizer; UQL main data set was nil for the given criteria")
 			}
-			if workloadIdsFound := len(mainDataSet.Data); workloadIdsFound != 1 {
-				return fmt.Errorf("unable to configure optimizer; found %v workload IDs for the given criteria", workloadIdsFound)
+
+			var workloadIdAny any
+			workloadIdsFound := len(mainDataSet.Data)
+			if workloadIdsFound < 1 {
+				return errors.New("unable to configure optimizer; no workload IDs matched the given criteria")
+			} else if workloadIdsFound > 1 {
+				log.Warnf("found %v workload IDs for the given criteria, pruning inactive results", workloadIdsFound)
+
+				var activeIds []any
+				for _, workloadRow := range mainDataSet.Data {
+					if workloadRow[1].(bool) {
+						activeIds = append(activeIds, workloadRow[0])
+					}
+				}
+				if activeIdsFound := len(activeIds); activeIdsFound != 1 {
+					return fmt.Errorf("unable to configure optimizer; found %v active workload IDs for the given criteria", activeIdsFound)
+				}
+
+				workloadIdAny = activeIds[0]
+			} else {
+				workloadIdAny = mainDataSet.Data[0][0]
 			}
 			var ok bool
-			workloadId, ok = mainDataSet.Data[0][0].(string)
+			workloadId, ok = workloadIdAny.(string)
 			if !ok {
-				return fmt.Errorf("unable to convert workloadId query value %q to string", mainDataSet.Data[0][0])
+				return fmt.Errorf("unable to convert workloadId query value %q to string", workloadIdAny)
 			}
 
 			profilerReport, err = getProfilerReport(workloadId)
