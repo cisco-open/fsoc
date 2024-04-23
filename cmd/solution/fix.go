@@ -42,7 +42,7 @@ var solutionFixCmd = &cobra.Command{
 
 var ErrNoEffect = errors.New("requested operation is not required as it will have no effect")
 
-var availableFixes = []string{"manifest-version", "manifest-format"}
+var availableFixes = []string{"manifest-version", "manifest-format", "isolate"}
 
 func getSolutionFixCmd() *cobra.Command {
 	solutionFixCmd.Flags().
@@ -51,6 +51,26 @@ func getSolutionFixCmd() *cobra.Command {
 		String("manifest-format", "", "Change manifest format (should be json or yaml)")
 	solutionFixCmd.Flags().
 		String("solution-type", "", "Define type for the solution (should be one of component, module, or application)")
+	solutionFixCmd.Flags().
+		Bool("isolate", false, "Isolate non-isolated or pseudo-isolated solution")
+	solutionFixCmd.Flags().
+		Bool("deisolate", false, "De-isolate a natively isolated solution")
+	solutionFixCmd.Flags().
+		Bool("formatting", false, "Automatically format YAML and JSON files to opinionated solution formatting")
+
+	solutionFixCmd.MarkFlagsMutuallyExclusive("isolate", "deisolate") // either one or the other
+	_ = solutionFixCmd.Flags().MarkHidden("deisolate")                // not yet implemented
+	_ = solutionFixCmd.Flags().MarkHidden("formatting")               // not yet implemented
+
+	// TODO: consider supporting source directory override
+	solutionFixCmd.Flags().
+		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
+	_ = solutionFixCmd.Flags().MarkHidden("directory") // not yet implemented
+
+	// TODO: consider supporting fix target-dir as alternative to overwriting the solution
+	solutionFixCmd.Flags().
+		Bool("target-dir", false, "Write fixed solution to a new directory")
+	_ = solutionFixCmd.Flags().MarkHidden("target-dir") // not yet implemented
 
 	return solutionFixCmd
 }
@@ -119,6 +139,32 @@ func solutionFix(cmd *cobra.Command, args []string) {
 			log.Warn("Manifest format is already as requested; not changed.")
 		default:
 			log.WithError(err).Fatal("Failed to change manifest format")
+		}
+	}
+
+	// TODO: properly support full solution changes
+	isolate, _ := cmd.Flags().GetBool("isolate")
+	if isolate {
+		// read solution
+		solution, err := NewSolutionDirectoryContentsFromDisk(".")
+		if err != nil {
+			log.Fatalf("Failed to load solution contents: %v", err)
+		}
+		err = fixIsolate(cmd, solution)
+		if err != nil {
+			log.Fatalf("Failed to isolate solution: %v", err)
+		}
+	}
+	deisolate, _ := cmd.Flags().GetBool("deisolate")
+	if deisolate {
+		// read solution
+		solution, err := NewSolutionDirectoryContentsFromDisk(".")
+		if err != nil {
+			log.Fatalf("Failed to load solution contents: %v", err)
+		}
+		err = fixDeisolate(cmd, solution)
+		if err != nil {
+			log.Fatalf("Failed to isolate solution: %v", err)
 		}
 	}
 

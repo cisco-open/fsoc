@@ -33,6 +33,7 @@ import (
 )
 
 const pseudoIsolationSuffix = "${$toSuffix(env.tag)}"
+const pseudoIsolationSolutionId = "${sys.solutionId}"
 
 var solutionForkCmd = &cobra.Command{
 	Use:   "fork [<solution-name>|--source-dir=<directory>] <target-name> [flags]",
@@ -374,6 +375,8 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 
 	return nil
 }
+
+// TODO: replace the following with ReplaceValuesInFileBuffer() from processor-replace.go
 
 // forkFileInBuffer replaces oldName with newName in the contents values, respecting
 // word boundaries. The old name is specified as a regular expression.
