@@ -66,7 +66,7 @@ func newGetObjectCmd() *cobra.Command {
 
 	getCmd.PersistentFlags().StringSlice("prefetch-refs", []string{}, "Paths to prefetch references in the object.  To specify multiple paths, please use multiple instances of this flag.  This is only supported for get by id at the moment; this flag will be ignored in the case of get all objects.")
 
-	getCmd.PersistentFlags().Bool("prefetch-inline", false, "Return references inline in the object.  This flag is only considered when prefetch-refs is specified.")
+	getCmd.PersistentFlags().Bool("prefetch-refs-inline", false, "Return references inline in the object.  This flag is only considered when prefetch-refs is specified.")
 
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
@@ -167,7 +167,7 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 			log.Infof("Prefetching references: %v", prefetchRefs)
 
 			// only check prefetch-inline flag if prefetch-refs is specified
-			if cmd.Flags().Changed("prefetch-inline") {
+			if cmd.Flags().Changed("prefetch-refs-inline") {
 				query := "prefetchRefsInline=true"
 				objStoreUrl = fmt.Sprintf("%s&%s", objStoreUrl, query)
 				log.Info("Prefetching references inline")

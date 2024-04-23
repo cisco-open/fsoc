@@ -159,7 +159,7 @@ func getSolutionDeleteUrl() string {
 }
 
 func getExtSolutionDeletionUrl() string {
-	return "knowledge-store/v2beta/objects/extensibility:solutionDeletion%s"
+	return "knowledge-store/v1/objects/extensibility:solutionDeletion%s"
 }
 
 func (s SolutionDeletionData) IsEmpty() bool {
