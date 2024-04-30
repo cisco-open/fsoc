@@ -56,7 +56,7 @@ func getSolutionExtendCmd() *cobra.Command {
 	solutionExtendCmd.Flags().
 		String("add-metric", "", "Add a new metric type definition to this solution")
 	solutionExtendCmd.Flags().
-		StringVarP(&metricContentType, "contentType", "", "", "Optional flag to be used in conjuntion with --add-metric to support the definition of the contentType for the created metric type")
+		StringVarP(&metricContentType, "contentType", "", "", "Optional flag to be used in conjuntion with --add-metric to support the definition of the contentType for the created metric type. Valid values are: sum, gauge, distribution, histogram")
 	solutionExtendCmd.Flags().
 		String("add-resourceMapping", "", "Add a new resource mapping type definition for a given entity within this solution")
 	solutionExtendCmd.Flags().
@@ -239,7 +239,7 @@ func addNewComponent(cmd *cobra.Command, manifest *Manifest, folderName, compone
 		{
 			contentType := ContentType_Gauge
 			if metricContentType != "" {
-				contentType = FmmMetricContentType(contentType)
+				contentType = FmmMetricContentType(metricContentType)
 			}
 
 			metric := &newComponent{
