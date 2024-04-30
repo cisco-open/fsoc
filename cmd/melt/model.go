@@ -182,15 +182,16 @@ func GetFsocEntities(fmmEntities []*sol.FmmEntity, fsocMetrics []*melt.Metric, f
 	for _, fmmE := range fmmEntities {
 		fsocEType := fmt.Sprintf("%s:%s", fmmE.Namespace.Name, fmmE.Name)
 		fsocE := melt.NewEntity(fsocEType)
-		fmmAttrs := maps.Keys(fmmE.AttributeDefinitions.Attributes)
-		for _, fmmAttr := range fmmAttrs {
-			origName := fmmAttr
-			if !strings.Contains(fmmAttr, fmmE.Namespace.Name) {
-				fmmAttr = fmt.Sprintf("%s.%s.%s", fmmE.Namespace.Name, fmmE.Name, fmmAttr)
+		if (fmmE.AttributeDefinitions != nil) && len(fmmE.AttributeDefinitions.Attributes) > 0 {
+			fmmAttrs := maps.Keys(fmmE.AttributeDefinitions.Attributes)
+			for _, fmmAttr := range fmmAttrs {
+				origName := fmmAttr
+				if !strings.Contains(fmmAttr, fmmE.Namespace.Name) {
+					fmmAttr = fmt.Sprintf("%s.%s.%s", fmmE.Namespace.Name, fmmE.Name, fmmAttr)
+				}
+				fsocE.SetAttribute(fmmAttr, getDefaultValue(fmmE.AttributeDefinitions.Attributes[origName]))
 			}
-			fsocE.SetAttribute(fmmAttr, getDefaultValue(fmmE.AttributeDefinitions.Attributes[origName]))
 		}
-
 		//adding fsoc metrics to the model
 		for _, fmmEM := range fmmE.MetricTypes {
 			fsocMetricType := fmmEM
