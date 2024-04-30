@@ -57,6 +57,7 @@ type eventsFlags struct {
 	until          string
 	count          int
 	follow         bool
+	interactive    bool
 	followInterval time.Duration
 	solutionName   string
 }
@@ -80,6 +81,12 @@ type recommendationRow struct {
 	BlockersPresent    string
 	Blockers           []string
 	Change             string
+}
+
+type ErrNoEvents struct{}
+
+func (e *ErrNoEvents) Error() string {
+	return "No events found for given input"
 }
 
 func NewCmdEvents() *cobra.Command {
@@ -118,6 +125,7 @@ func NewCmdEvents() *cobra.Command {
 	command.Flags().IntVarP(&flags.count, "count", "", -1, "Limit the number of events retrieved to the specified count")
 
 	command.Flags().BoolVarP(&flags.follow, "follow", "f", false, "Follow the events as they are produced")
+	command.Flags().BoolVarP(&flags.interactive, "interactive", "r", false, "interactive mode")
 	command.Flags().DurationVarP(&flags.followInterval, "follow-interval", "t", time.Second*60, "Duration between requests to UQL when following events")
 	command.MarkFlagsMutuallyExclusive("follow", "count")
 
@@ -200,6 +208,7 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 			}
 			tableSettings.ColumnMinWidths = append([][]int{{0, 58}}, tableSettings.ColumnMinWidths...)
 		}
+		tableSettings.DisableAutoWrapText = true
 
 		if flags.namespace != "" || flags.workloadName != "" {
 			optimizerIds, err := listOptimizations(&flags.eventsFlags)
@@ -228,118 +237,39 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 		}
 		query := buff.String()
 
-		// execute query, process results
-		resp, err := uql.ClientV1.ExecuteQuery(&uql.Query{Str: query})
-		if err != nil {
-			return fmt.Errorf("uql.ClientV1.ExecuteQuery: %w", err)
-		}
-		if resp.HasErrors() {
-			log.Error("Execution of events query encountered errors. Returned data may not be complete!")
-			for _, e := range resp.Errors() {
-				log.Errorf("%s: %s", e.Title, e.Detail)
-			}
-		}
+		eventsChan := make(chan []EventsRow)
+		errorChan := make(chan error)
+		loadChan := make(chan bool)
 
-		main_data_set := resp.Main()
-		if main_data_set == nil || len(main_data_set.Data) < 1 {
-			output.PrintCmdStatus(cmd, "No event results found for given input\n")
-			return nil
-		}
-		if len(main_data_set.Data[0]) < 1 {
-			return fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
-		}
+		go func() {
+			// Ideally this should just fetch data and leave the printing to the main thread, but the
+			// progress/spinner output gets mixed up with the event output if they are printed from different
+			// go routines
+			fetchAndPrintEvents(cmd, query, flags, eventsChan, loadChan, errorChan, tableSettings)
+		}()
 
-		data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
-		if !ok {
-			return fmt.Errorf("main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])
-		}
-		eventRows, err := extractEventsData(data_set)
-		if err != nil {
-			return fmt.Errorf("extractEventsData: %w", err)
-		}
-
-		// handle pagination
-		next_ok := false
-		if data_set != nil {
-			_, next_ok = data_set.Links["next"]
-		}
-		if flags.count != -1 {
-			// skip pagination if limits provided. Otherwise, we return the full result list (chunked into count per response)
-			// instead of constraining to count
-			next_ok = false
-		}
-		if flags.follow {
-			// skip next cursor pagination on follow since the follow cursor contains the same data
-			next_ok = false
-		}
-		for page := 2; next_ok; page++ {
-			resp, err = uql.ClientV1.ContinueQuery(data_set, "next")
-			if err != nil {
-				return fmt.Errorf("page %v uql.ClientV1.ContinueQuery: %w", page, err)
-			}
-			if resp.HasErrors() {
-				log.Errorf("Continuation of events query (page %v) encountered errors. Returned data may not be complete!", page)
-				for _, e := range resp.Errors() {
-					log.Errorf("%s: %s", e.Title, e.Detail)
-				}
-			}
-			main_data_set := resp.Main()
-			if main_data_set == nil {
-				log.Errorf("Continuation of events query (page %v) has nil main data. Returned data may not be complete!", page)
-				break
-			}
-			if len(main_data_set.Data) < 1 {
-				return fmt.Errorf("page %v main dataset %v has no rows", page, main_data_set.Name)
-			}
-			if len(main_data_set.Data[0]) < 1 {
-				return fmt.Errorf("page %v main dataset %v first row has no columns", page, main_data_set.Name)
-			}
-			data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
-			if !ok {
-				return fmt.Errorf("page %v main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", page, main_data_set.Name, main_data_set.Data[0][0])
-			}
-
-			newRows, err := extractEventsData(data_set)
-			if err != nil {
-				return fmt.Errorf("page %v extractEventsData: %w", page, err)
-			}
-			eventRows = append(eventRows, newRows...)
-			_, next_ok = data_set.Links["next"]
-		}
-
-		tableSettings.DisableAutoWrapText = true
-		output.PrintCmdOutputCustom(cmd, struct {
-			Items []EventsRow `json:"items"`
-			Total int         `json:"total"`
-		}{Items: eventRows, Total: len(eventRows)}, tableSettings)
-
-		// handle follow
-		if flags.follow && data_set != nil {
-			// setup async channels
+		if flags.interactive {
+			showOptimizerID := flags.optimizerId == ""
+			showInteractive(eventsChan, errorChan, loadChan, showOptimizerID, flags.follow)
+		} else {
+			// wait for events to be printed
 			interrupt := make(chan os.Signal, 1)
 			signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-			followChan := make(chan *followEventResult, 1)
-			followChan <- &followEventResult{data_set: data_set}
 
 			for {
 				select {
 				case <-interrupt:
 					// exit requested
 					return nil
-				case followResult := <-followChan:
-					if followResult.err != nil {
-						return followResult.err
+				case err := <-errorChan:
+					if _, ok := err.(*ErrNoEvents); ok {
+						output.PrintCmdStatus(cmd, "No event results found for given input\n")
 					}
-					// queue up next follow interval sleep and print
-					// run in background to allow interrupts
-					go func() {
-						// Return immediately available results (additional pages) right away.
-						// Don't start waiting until follow cursor returns a response smaller than the max page size.
-						if followResult.cursorExhausted {
-							time.Sleep(flags.followInterval)
-						}
-						followChan <- followDatasetAndPrint(cmd, followResult.data_set, tableSettings)
-					}()
+					return err
+				case <-loadChan:
+					// Nothing to do here
+				case <-eventsChan:
+					// Nothing to do here
 				}
 			}
 		}
@@ -348,59 +278,127 @@ func listEvents(flags *eventsCmdFlags) func(*cobra.Command, []string) error {
 	}
 }
 
-type followEventResult struct {
-	data_set        *uql.DataSet
-	err             error
-	cursorExhausted bool
-}
-
-func followDatasetAndPrint(cmd *cobra.Command, data_set *uql.DataSet, tableSettings *output.Table) *followEventResult {
-	resp, err := uql.ClientV1.ContinueQuery(data_set, "follow")
+func fetchAndPrintEvents(
+	cmd *cobra.Command,
+	query string,
+	flags *eventsCmdFlags,
+	eventsChan chan []EventsRow,
+	loadChan chan bool,
+	errorChan chan error,
+	tableSettings *output.Table,
+) {
+	// execute query, process results
+	loadChan <- true
+	data_set, eventRows, next_ok, err := parseUqlResponse(uql.ClientV1.ExecuteQuery(&uql.Query{Str: query}))
+	loadChan <- false
 	if err != nil {
-		return &followEventResult{err: fmt.Errorf("follow uql.ClientV1.ContinueQuery: %w", err)}
+		errorChan <- err
+		return
 	}
-	if resp.HasErrors() {
-		log.Error("Following of events query encountered errors. Returned data may not be complete!")
-		for _, e := range resp.Errors() {
-			log.Errorf("%s: %s", e.Title, e.Detail)
+	if flags.count != -1 {
+		// skip pagination if limits provided. Otherwise, we return the full result list (chunked into count per response)
+		// instead of constraining to count
+		next_ok = false
+	}
+	if flags.follow {
+		// skip next cursor pagination on follow since the follow cursor contains the same data
+		next_ok = false
+	}
+	for page := 2; next_ok; page++ {
+		var newRows []EventsRow
+		loadChan <- true
+		data_set, newRows, next_ok, err = parseUqlResponse(uql.ClientV1.ContinueQuery(data_set, "next"))
+		loadChan <- false
+		if err != nil {
+			errorChan <- fmt.Errorf("page %v getNextPage: %w", page, err)
+			return
 		}
-	}
-	main_data_set := resp.Main()
-	if main_data_set == nil {
-		log.Error("Following of events query has nil main data. Returned data may not be complete!")
-		return &followEventResult{data_set: data_set}
-	}
-	if len(main_data_set.Data) < 1 {
-		return &followEventResult{err: fmt.Errorf("follow main dataset %v has no rows", main_data_set.Name)}
-	}
-	if len(main_data_set.Data[0]) < 1 {
-		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row has no columns", main_data_set.Name)}
-	}
-	var ok bool
-	data_set, ok = main_data_set.Data[0][0].(*uql.DataSet)
-	if !ok {
-		return &followEventResult{err: fmt.Errorf("follow main dataset %v first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Name, main_data_set.Data[0][0])}
+		eventRows = append(eventRows, newRows...)
 	}
 
-	result := &followEventResult{data_set: data_set}
-	newRows, err := extractEventsData(data_set)
-	if err != nil {
-		result.err = fmt.Errorf("follow extractEventsData: %w", err)
-		return result
-	}
-
-	newRowsCount := len(newRows)
-	if newRowsCount > 0 {
-		tSettCopy := *tableSettings
-		tSettCopy.OmitHeaders = true
+	eventsChan <- eventRows
+	if !flags.interactive {
+		// Do the output in the same go routine as the fetch, so that the output does not get messed up
 		output.PrintCmdOutputCustom(cmd, struct {
 			Items []EventsRow `json:"items"`
 			Total int         `json:"total"`
-		}{Items: newRows, Total: newRowsCount}, &tSettCopy)
-	} else {
-		result.cursorExhausted = true
+		}{Items: eventRows, Total: len(eventRows)}, tableSettings)
 	}
-	return result
+
+	// handle follow
+	if flags.follow && data_set != nil {
+		tableSettings.OmitHeaders = true
+		// setup async channels
+
+		cursorExhausted := true
+		for {
+			if cursorExhausted {
+				time.Sleep(flags.followInterval)
+			}
+			var newRows []EventsRow
+			loadChan <- true
+			data_set, newRows, _, err = parseUqlResponse(uql.ClientV1.ContinueQuery(data_set, "follow"))
+			loadChan <- false
+			if err != nil {
+				errorChan <- fmt.Errorf("follow getNextPage: %w", err)
+				return
+			}
+
+			newRowsCount := len(newRows)
+			if newRowsCount > 0 {
+				eventsChan <- newRows
+				cursorExhausted = false
+				if !flags.interactive {
+					output.PrintCmdOutputCustom(cmd, struct {
+						Items []EventsRow `json:"items"`
+						Total int         `json:"total"`
+					}{Items: newRows, Total: len(newRows)}, tableSettings)
+				}
+
+			} else {
+				cursorExhausted = true
+			}
+		}
+	} else {
+		errorChan <- nil
+	}
+
+}
+func parseUqlResponse(resp *uql.Response, err error) (*uql.DataSet, []EventsRow, bool, error) {
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if resp.HasErrors() {
+		msg := "Encountered errors. Returned data may not be complete!"
+		for _, e := range resp.Errors() {
+			msg += fmt.Sprintf("%s: %s", e.Title, e.Detail)
+		}
+		return nil, nil, false, fmt.Errorf(msg)
+	}
+
+	main_data_set := resp.Main()
+	if main_data_set == nil {
+		return nil, nil, false, &ErrNoEvents{}
+	}
+	if len(main_data_set.Data) < 1 {
+		return nil, nil, false, &ErrNoEvents{}
+	}
+	if len(main_data_set.Data[0]) < 1 {
+		return nil, nil, false, fmt.Errorf("main dataset %v first row has no columns", main_data_set.Name)
+	}
+	data_set, ok := main_data_set.Data[0][0].(*uql.DataSet)
+	if !ok {
+		return nil, nil, false, fmt.Errorf("first row first column (type %T) could not be converted to *uql.DataSet", main_data_set.Data[0][0])
+	}
+
+	newRows, err := extractEventsData(data_set)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("Error extraing events data: %w", err)
+	}
+	_, has_next := data_set.Links["next"]
+
+	return data_set, newRows, has_next, nil
+
 }
 
 type recommendationsCmdFlags struct {

@@ -26,10 +26,15 @@ var solutionPushCmd = &cobra.Command{
 The solution manifest for the solution must be in the current directory.
 
 Important details on solution tags:
-(1) A tag must be associated with the solution being uploaded.  All subsequent solution upload requests should use this same tag
-(2) Use caution when supplying the tag value to the solution to upload as typos can result in misleading validation results
-(3) 'stable' is a reserved tag value keyword for production-ready versions and hence should be used appropriately
-(4) For more info on tags, please visit: https://developer.cisco.com/docs/cisco-observability-platform/#!tag-a-solution
+  1. A tag must be associated with the solution being uploaded.  All subsequent solution upload requests should use this same tag
+  2. Use caution when supplying the tag value to the solution to upload as typos can result in misleading validation results
+  3. "stable" is a reserved tag value keyword for production-ready versions and hence should be used appropriately
+  4. For more info on tags, please visit: https://developer.cisco.com/docs/cisco-observability-platform/#!tag-a-solution
+
+A tag may be defined in the following ways (in order of precedence):
+  1. Specified flag --tag=xyz or --stable: use this tag, ignoring .tag file or env vars
+  2. A tag is defined in the FSOC_SOLUTION_TAG environment variable (ignores .tag file)
+  3. A tag is defined in the .tag file in the solution directory (usually not version controlled)
 `,
 	Example: `
   fsoc solution push --tag=stable
@@ -42,11 +47,7 @@ Important details on solution tags:
 }
 
 func getSolutionPushCmd() *cobra.Command {
-	solutionPushCmd.Flags().
-		String("tag", "", "Free-form string tag to associate with provided solution")
-
-	solutionPushCmd.Flags().
-		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
+	addTagFlags(solutionPushCmd) // --tag and --stable
 
 	solutionPushCmd.Flags().IntP("wait", "w", -1, "Wait (in seconds) for the solution to be deployed")
 	solutionPushCmd.Flag("wait").NoOptDefVal = "300"
@@ -61,10 +62,10 @@ func getSolutionPushCmd() *cobra.Command {
 		String("solution-bundle", "", "Path to a prepackaged solution zip")
 
 	solutionPushCmd.Flags().
-		String("env-file", "", "Path to the env vars json file with isolation tag and, optionally, dependency tags")
+		String("env-file", "", "Path to the env vars json file with pseudo-isolation tag and, optionally, dependency tags (DEPRECATED)")
 
 	solutionPushCmd.Flags().
-		Bool("no-isolate", false, "Disable fsoc-supported solution isolation")
+		Bool("no-isolate", false, "Disable fsoc-supported solution pseudo-isolation")
 
 	solutionPushCmd.Flags().
 		Bool("subscribe", false, "Subscribe to the solution that you are pushing")
@@ -73,7 +74,7 @@ func getSolutionPushCmd() *cobra.Command {
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "bump")      // cannot modify prepackaged zip
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "wait")      // TODO: allow when extracting manifest data
 	solutionPushCmd.MarkFlagsMutuallyExclusive("solution-bundle", "subscribe") // TODO: allow when extracting manifest data
-	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")    // stable is an alias for --tag=stable
+	solutionPushCmd.MarkFlagsMutuallyExclusive("tag", "stable", "env-file")
 
 	return solutionPushCmd
 }

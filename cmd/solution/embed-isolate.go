@@ -34,7 +34,7 @@ import (
 // To perform isolation without command dependencies, use isolateSolution().
 func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, string, error) {
 	// finalize flags (regardless of isolation)
-	tag, envVarsFile := determineTagEnvFile(cmd, sourceDir)
+	tag, envVarsFile := DetermineTagEnvFile(cmd, sourceDir)
 
 	// don't try to isolate if --no-isolate is specified (ignored if flag not defined)
 	noIsolate, _ := cmd.Flags().GetBool("no-isolate")
@@ -92,7 +92,20 @@ func embeddedConditionalIsolate(cmd *cobra.Command, sourceDir string) (string, s
 	return targetDir, tag, nil
 }
 
-func determineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) {
+// DetermineTagEnvFile returns the tag value and the optional env file path.
+// Note that the --env-file flag has priority over the FSOC_SOLUTION_TAG env var and the .tag file, just like --tag.
+// The priority is:
+//  1. --tag value or --stable flag
+//  2. env file if specified explicitly with the --env-file flag
+//  3. FSOC_SOLUTION_TAG env var
+//  4. .tag file in the solution directory
+//  5. env.json file in the solution directory (implied name)
+//
+// Deprecated:
+// This code duplicates the logic of getEmbeddedTag() to allow support for env files.
+// The function, along with the entire source file, will be removed once the pseudo-isolation support is removed.
+// This function is exported for use by `melt model` when modeling data from pseudo-isolated solutions.
+func DetermineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) {
 	// if --tag flag is specified, this overrides everything
 	if cmd.Flags().Changed("tag") {
 		tag, _ := cmd.Flags().GetString("tag")
@@ -105,30 +118,41 @@ func determineTagEnvFile(cmd *cobra.Command, sourceDir string) (string, string) 
 		return "stable", ""
 	}
 
-	// if env var with tag is defined, it overrides env file
-	envTag, found := os.LookupEnv("FSOC_SOLUTION_TAG")
-	if found {
-		return envTag, ""
+	// prepare the env file filename, but don't read it yet
+	envFileSpecified := cmd.Flags().Changed("env-file")
+	envFilePath := ""
+	if envFileSpecified {
+		envFilePath, _ = cmd.Flags().GetString("env-file")
+	} else {
+		envFilePath = filepath.Join(sourceDir, "env.json")
 	}
 
-	// try to determine env.json file path
-	fnameSpecified := cmd.Flags().Changed("env-file")
-	fname := ""
-	if fnameSpecified {
-		fname, _ = cmd.Flags().GetString("env-file")
-	} else {
-		fname = filepath.Join(sourceDir, "env.json")
-	}
-	if fname != "" {
-		_, err := os.Stat(fname)
+	// ignore other methods if env file is explicitly specified
+	if !envFileSpecified {
+		// if env var with tag is defined, it overrides env file
+		envTag, found := os.LookupEnv("FSOC_SOLUTION_TAG")
+		if found {
+			return envTag, ""
+		}
+
+		tagFile := filepath.Join(sourceDir, TagFileName)
+		tagBytes, err := os.ReadFile(tagFile) // ok if no file or empty file
 		if err == nil {
-			return "", fname
+			return strings.TrimSpace(string(tagBytes)), ""
 		}
 	}
-	if fnameSpecified {
-		log.Fatalf("Env file %q not found", fname)
+
+	// return env file
+	if envFilePath != "" {
+		_, err := os.Stat(envFilePath)
+		if err == nil {
+			return "", envFilePath
+		}
+	}
+	if envFileSpecified {
+		log.Fatalf("Env file %q specified but not found", envFilePath)
 	}
 
-	log.Fatalf("Tag must be specified (--tag, --stable, FSOC_SOLUTION_TAG env var or env.json file)")
+	log.Fatalf("A tag for pseudo-isolation must be specified (--tag, --stable, FSOC_SOLUTION_TAG env var, .tag or env.json file)")
 	return "", "" // should never happen, keep linters happy
 }

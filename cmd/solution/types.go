@@ -15,7 +15,6 @@
 package solution
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"gopkg.in/yaml.v3"
 )
 
 type FileFormat int8
@@ -35,6 +35,14 @@ const (
 func (f FileFormat) String() string {
 	return [...]string{"json", "yaml"}[f]
 }
+
+type SolutionType string
+
+const (
+	ComponentSolutionType SolutionType = "component"
+	ModuleSolutionType    SolutionType = "module"
+	AppSolutionType       SolutionType = "app"
+)
 
 type Manifest struct {
 	ManifestVersion string         `json:"manifestVersion,omitempty" yaml:"manifestVersion,omitempty"`
@@ -91,7 +99,7 @@ type Solution struct {
 
 func (manifest *Manifest) GetNamespaceName() string {
 	namespaceName := manifest.Name
-	if manifest.HasIsolation() {
+	if manifest.HasPseudoIsolation() {
 		namespaceName = "${sys.solutionId}"
 	}
 	return namespaceName
@@ -99,13 +107,13 @@ func (manifest *Manifest) GetNamespaceName() string {
 
 func (manifest *Manifest) GetSolutionName() string {
 	solutionName := manifest.Name
-	if manifest.HasIsolation() {
+	if manifest.HasPseudoIsolation() {
 		solutionName = strings.Split(manifest.Name, "${")[0]
 	}
 	return solutionName
 }
 
-func (manifest *Manifest) HasIsolation() bool {
+func (manifest *Manifest) HasPseudoIsolation() bool {
 	return strings.Contains(manifest.Name, "${")
 }
 
@@ -124,7 +132,7 @@ func (manifest *Manifest) GetFmmEntities() []*FmmEntity {
 					if err != nil {
 						return err
 					}
-					if strings.Contains(path, ".json") {
+					if strings.Contains(path, ".json") || strings.Contains(path, ".yaml") {
 						fmmEntities = append(fmmEntities, getFmmEntitiesFromFile(path)...)
 					}
 					return nil
@@ -153,7 +161,7 @@ func (manifest *Manifest) GetFmmMetrics() []*FmmMetric {
 					if err != nil {
 						return err
 					}
-					if strings.Contains(path, ".json") {
+					if strings.Contains(path, ".json") || strings.Contains(path, ".yaml") {
 						fmmMetrics = append(fmmMetrics, getFmmMetricsFromFile(path)...)
 					}
 					return nil
@@ -182,7 +190,7 @@ func (manifest *Manifest) GetFmmEvents() []*FmmEvent {
 					if err != nil {
 						return err
 					}
-					if strings.Contains(path, ".json") {
+					if strings.Contains(path, ".json") || strings.Contains(path, ".yaml") {
 						fmmEvents = append(fmmEvents, getFmmEventsFromFile(path)...)
 					}
 					return nil
@@ -228,7 +236,7 @@ func (manifest *Manifest) GetComponentDefs(typeName string) []ComponentDef {
 	var componentDefs []ComponentDef
 	typeConvention := strings.Split(typeName, ":")
 	depIsolation := fmt.Sprintf("${$dependency('%s')}", typeConvention[0])
-	if manifest.HasIsolation() && manifest.CheckDependencyExists(depIsolation) {
+	if manifest.HasPseudoIsolation() && manifest.CheckDependencyExists(depIsolation) {
 		typeName = fmt.Sprintf("%s:%s", depIsolation, typeConvention[1])
 	}
 
@@ -255,7 +263,7 @@ func (manifest *Manifest) GetDashuiTemplates() []*DashuiTemplate {
 					if err != nil {
 						return err
 					}
-					if strings.Contains(path, ".json") {
+					if strings.Contains(path, ".json") || strings.Contains(path, ".yaml") {
 						dashuiTemplates = append(dashuiTemplates, getDashuiTemplatesFromFile(path)...)
 					}
 					return nil
@@ -278,18 +286,20 @@ func getDashuiTemplatesFromFile(filePath string) []*DashuiTemplate {
 
 	if strings.Index(objDefContent, "[") == 0 {
 		objectsArray := make([]*DashuiTemplate, 0)
-		err := json.Unmarshal(objDefBytes, &objectsArray)
+		//err := json.Unmarshal(objDefBytes, &objectsArray)
+		err := yaml.Unmarshal(objDefBytes, &objectsArray)
 		if err != nil {
 			log.Fatalf("Can't parse an array of dashui:template definition objects from the %q file:\n %v", filePath, err)
 		}
 		dashuiTemplates = append(dashuiTemplates, objectsArray...)
 	} else {
-		var event *DashuiTemplate
-		err := json.Unmarshal(objDefBytes, &event)
+		var object *DashuiTemplate
+		// err := json.Unmarshal(objDefBytes, &object)
+		err := yaml.Unmarshal(objDefBytes, &object)
 		if err != nil {
 			log.Fatalf("Can't parse dashui:template definition objects from the %q file:\n %v ", filePath, err)
 		}
-		dashuiTemplates = append(dashuiTemplates, event)
+		dashuiTemplates = append(dashuiTemplates, object)
 	}
 	return dashuiTemplates
 }
@@ -303,14 +313,16 @@ func getFmmEntitiesFromFile(filePath string) []*FmmEntity {
 
 	if strings.Index(entityDefContent, "[") == 0 {
 		entitiesArray := make([]*FmmEntity, 0)
-		err := json.Unmarshal(entityDefBytes, &entitiesArray)
+		err := yaml.Unmarshal(entityDefBytes, &entitiesArray)
 		if err != nil {
 			log.Fatalf("Can't parse an array of entity definition objects from the %q file:\n %v", filePath, err)
 		}
 		fmmEntities = append(fmmEntities, entitiesArray...)
 	} else {
-		var entity *FmmEntity
-		err := json.Unmarshal(entityDefBytes, &entity)
+		entity := &FmmEntity{
+			FmmTypeDef: &FmmTypeDef{},
+		}
+		err := yaml.Unmarshal(entityDefBytes, &entity)
 		if err != nil {
 			log.Fatalf("Can't parse an entity definition objects from the %q file:\n %v", filePath, err)
 		}
@@ -327,19 +339,24 @@ func getFmmMetricsFromFile(filePath string) []*FmmMetric {
 	metricDefContent := string(metricDefBytes)
 
 	if strings.Index(metricDefContent, "[") == 0 {
-		metricsArray := make([]*FmmMetric, 0)
-		err := json.Unmarshal(metricDefBytes, &metricsArray)
+		objectsArray := make([]*FmmMetric, 0)
+		// err := json.Unmarshal(metricDefBytes, &objectsArray)
+		err := yaml.Unmarshal(metricDefBytes, &objectsArray)
 		if err != nil {
 			log.Fatalf("Can't parse an array of metric definition objects from the %q file:\n %v", filePath, err)
 		}
-		fmmMetrics = append(fmmMetrics, metricsArray...)
+		fmmMetrics = append(fmmMetrics, objectsArray...)
 	} else {
-		var metric *FmmMetric
-		err := json.Unmarshal(metricDefBytes, &metric)
+		// err := json.Unmarshal(metricDefBytes, &object)
+		object := &FmmMetric{
+			FmmTypeDef: &FmmTypeDef{},
+		}
+
+		err := yaml.Unmarshal(metricDefBytes, &object)
 		if err != nil {
 			log.Fatalf("Can't parse a metric definition objects from the %q file:\n %v ", filePath, err)
 		}
-		fmmMetrics = append(fmmMetrics, metric)
+		fmmMetrics = append(fmmMetrics, object)
 	}
 	return fmmMetrics
 }
@@ -352,19 +369,25 @@ func getFmmEventsFromFile(filePath string) []*FmmEvent {
 	eventDefContent := string(eventDefBytes)
 
 	if strings.Index(eventDefContent, "[") == 0 {
-		eventsArray := make([]*FmmEvent, 0)
-		err := json.Unmarshal(eventDefBytes, &eventsArray)
+		objectsArray := make([]*FmmEvent, 0)
+		// err := json.Unmarshal(eventDefBytes, &objectsArray)
+		err := yaml.Unmarshal(eventDefBytes, &objectsArray)
+
 		if err != nil {
 			log.Fatalf("Can't parse an array of event definition objects from the %q file:\n %v", filePath, err)
 		}
-		fmmEvents = append(fmmEvents, eventsArray...)
+		fmmEvents = append(fmmEvents, objectsArray...)
 	} else {
-		var event *FmmEvent
-		err := json.Unmarshal(eventDefBytes, &event)
+		object := &FmmEvent{
+			FmmTypeDef: &FmmTypeDef{},
+		}
+
+		// err := json.Unmarshal(eventDefBytes, &object)
+		err := yaml.Unmarshal(eventDefBytes, &object)
 		if err != nil {
 			log.Fatalf("Can't parse a event` definition objects from the %q file:\n %v ", filePath, err)
 		}
-		fmmEvents = append(fmmEvents, event)
+		fmmEvents = append(fmmEvents, object)
 	}
 	return fmmEvents
 }

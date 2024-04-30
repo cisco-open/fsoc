@@ -41,10 +41,12 @@ var solutionPackageCmd = &cobra.Command{
 The input is a solution directory, defaulting to the current working directory.
 The output is either a directory path (in which a fsoc will create the zip file) or path to the zip flie to create.
 
-If fsoc-based solution pseudo-isolation is desired, then
-use the --tag, --stable or --env-file flags. Isolation is automatically enabled if ${} substitution 
-is present in the solution name in the manifest file. There are several ways to specify the tags, based
-on convenience and use cases. The following priority is available:
+Note that when using native solution isolation, there is no need to define a tag, as the package is not tag-specific.
+
+If fsoc-based solution pseudo-isolation is used, then use the --tag, --stable or --env-file flags. 
+Pseudo-isolation is automatically enabled if ${} substitution is present in the solution name in the
+manifest file. There are several ways to specify the tags, based on convenience and use cases. 
+The following priority is available:
 1. --tag=xyz or --stable: use this tag, ignoring env file or env vars
 2. A tag is defined in the FSOC_SOLUTION_TAG environment variable (ignores env file)
 3. An explicitly provided --env-file path
@@ -65,7 +67,7 @@ func getSolutionPackageCmd() *cobra.Command {
 		StringP("directory", "d", "", "Path to the solution root directory (defaults to current dir)")
 
 	solutionPackageCmd.Flags().
-		String("tag", "", "Isolation tag to use if using fsoc isolation; if specified, overrides env.json")
+		String("tag", "", "Isolation tag to use if using fsoc isolation; if specified, takes precedence over env vars and .tag file")
 	solutionPackageCmd.Flags().
 		Bool("stable", false, "Mark the solution as production-ready.  This is equivalent to supplying --tag=stable")
 	solutionPackageCmd.Flags().
@@ -201,7 +203,7 @@ func generateZip(cmd *cobra.Command, solutionPath string, outputPath string) *os
 
 func isAllowedPath(path string, info os.FileInfo) bool {
 	// blacklist files by adding them here.
-	excludeFiles := []string{".DS_Store"}
+	excludeFiles := []string{".DS_Store", TagFileName} // .tag files should not be included in the zip
 	// blacklist paths by adding them here.
 	excludePaths := []string{".git"}
 	allow := true

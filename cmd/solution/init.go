@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/cisco-open/fsoc/config"
@@ -58,6 +59,22 @@ func getInitSolutionCmd() *cobra.Command {
 		Bool("yaml", false, "Use YAML format instead of JSON for the solution manifest and objects.")
 
 	return solutionInitCmd
+}
+
+// IsValidSolutionName checks if the solution name is valid
+func IsValidSolutionName(name string) bool {
+	if name == "" {
+		return false
+	}
+	if len(name) > 25 {
+		return false
+	}
+
+	match, err := regexp.Match(`^[a-z][a-z0-9]*$`, []byte(name))
+	if err != nil {
+		log.Fatalf("(bug) Failed to validate solution name %q: %v", name, err)
+	}
+	return match
 }
 
 func createNewSolution(cmd *cobra.Command, args []string) {
@@ -157,16 +174,7 @@ func createInitialSolutionManifest(solutionName string, options ...SolutionManif
 func writeSolutionManifest(manifest *Manifest, w io.Writer) error {
 	checkStructTags(reflect.TypeOf(manifest)) // ensure json/yaml struct tags are correct
 
-	// write the manifest into the file, in manifest's selected format
-	var err error
-	switch manifest.ManifestFormat {
-	case FileFormatJSON:
-		err = output.WriteJson(manifest, w)
-	case FileFormatYAML:
-		err = output.WriteYaml(manifest, w)
-	default:
-		err = fmt.Errorf("(bug) unknown manifest format %q", manifest.ManifestFormat)
-	}
+	err := writeComponent(manifest, w, manifest.ManifestFormat)
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest: %w", err)
 	}
@@ -187,6 +195,25 @@ func saveSolutionManifest(folderName string, manifest *Manifest) error {
 	err = writeSolutionManifest(manifest, manifestFile)
 	if err != nil {
 		return fmt.Errorf("failed to write the manifest into file %q: %w", filepath, err)
+	}
+
+	// the file is closed before returning (see defer above)
+	return nil
+}
+
+func saveSolutionManifestToAferoFs(fs afero.Fs, manifest *Manifest) error {
+	// create the manifest file, overwriting prior manifest
+	filename := fmt.Sprintf("manifest.%s", manifest.ManifestFormat)
+	manifestFile, err := fs.Create(filename) // create new or truncate existing
+	if err != nil {
+		return fmt.Errorf("failed to create manifest file %q in %q: %w", filename, fs.Name(), err)
+	}
+	defer manifestFile.Close()
+
+	// write the manifest into the file, in manifest's selected format
+	err = writeSolutionManifest(manifest, manifestFile)
+	if err != nil {
+		return fmt.Errorf("failed to write the manifest into file %q in %q: %w", filename, fs.Name(), err)
 	}
 
 	// the file is closed before returning (see defer above)
@@ -245,9 +272,11 @@ func writeComponent(compDef any, w io.Writer, format FileFormat) error {
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", output.JsonIndent)
 		err = enc.Encode(compDef)
+	default:
+		err = fmt.Errorf("(bug) unknown file format %q", format)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to write the solution file with %T: %v", compDef, err)
+		return fmt.Errorf("failed to write the solution file with %T: %w", compDef, err)
 	}
 
 	return nil

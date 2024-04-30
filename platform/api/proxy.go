@@ -39,7 +39,7 @@ func RunProxyServer(port int, command []string, statusPrinter func(string), exit
 	}
 
 	// Create a new call context
-	callCtx := newCallContext()
+	callCtx := newCallContext(context.Background(), false)
 	cfg := callCtx.cfg // quick access to config
 
 	// force login if no token
