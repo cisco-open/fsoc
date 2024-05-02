@@ -109,6 +109,16 @@ func UnzipToAferoFs(zipFile string, targetFs afero.Fs, skipLevels int) error {
 
 		// fmt.Printf("Unzipping %q into %q\n", file.Name, filePath)
 
+		// Ensure the directory exists (normally, directories are explicitly created but MacOS zip doesn't do this for the __MACOSX directory)
+		// We want to be tolerant of this and create the directory if it doesn't exist, rather than failing here.
+		dir := filepath.Dir(filePath)
+		if dir != "." { // no directory is replaced with "." by filepath.Dir()
+			err := targetFs.MkdirAll(dir, permissions|0o100) // ensure enumerable by owner
+			if err != nil {
+				return fmt.Errorf("failed to implicitly create directory %q for file %q: %w", dir, filePath, err)
+			}
+		}
+
 		// Open the file within the zip archive
 		srcFile, err := file.Open()
 		if err != nil {
