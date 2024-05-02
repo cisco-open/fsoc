@@ -17,6 +17,7 @@ package solution
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -289,7 +290,7 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 			}
 			path := filepath.Join(dirName, file.Name)
 
-			if err == ErrUnsupportedEncoding {
+			if errors.Is(err, ErrUnsupportedEncoding) {
 				statusPrint("Made no changes in %q; not a json or yaml file", path)
 				log.WithField("file", path).Warn("Not a json or yaml file; skipping")
 				return nil
