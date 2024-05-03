@@ -14,6 +14,8 @@
 
 package provisioning
 
+import "time"
+
 const successState = "COMPLETED"
 
 type TenantProvisioningRequest struct {
@@ -74,6 +76,26 @@ type stateHistory struct {
 	Retries          int32  `json:"retries"`
 	ErrorMessage     string `json:"errorMessage,omitempty"`
 	CreatedAt        string `json:"createdAt"`
+}
+type TenantResponse struct {
+	Id               string       `json:"id"`
+	State            string       `json:"state"`
+	ProvisioningType string       `json:"provisioningType"`
+	Name             string       `json:"name"`
+	VanityUrl        string       `json:"vanityUrl"`
+	Region           string       `json:"region"`
+	CellId           string       `json:"cellId"`
+	CellHostName     string       `json:"cellHostName"`
+	Account          Account      `json:"account"`
+	Organization     Organization `json:"organization"`
+	Workflows        []struct {
+		Id               string    `json:"id"`
+		Type             string    `json:"type"`
+		State            string    `json:"state"`
+		StateDescription string    `json:"stateDescription"`
+		CreatedAt        time.Time `json:"createdAt"`
+		UpdatedAt        time.Time `json:"updatedAt"`
+	} `json:"workflows"`
 }
 
 type Account struct {

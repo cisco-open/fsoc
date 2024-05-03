@@ -45,6 +45,7 @@ func NewSubCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCmdLookup())
+	cmd.AddCommand(newCmdGetTenant())
 	cmd.AddCommand(newCmdGetProgress())
 	cmd.AddCommand(newCmdDevTenant())
 	cmd.AddCommand(newCmdApplyLicense())

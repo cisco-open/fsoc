@@ -63,18 +63,18 @@ func getBaseUrl() string {
 	return fmt.Sprintf("/provisioning/%v", version)
 }
 
-func getTenantUrl() string {
+func getTenantsUrl() string {
 	return fmt.Sprintf("%v/tenants", getBaseUrl())
 }
 
 func getLicenseUrl(tenantId string) string {
-	return fmt.Sprintf("%v/%v/license", getTenantUrl(), tenantId)
+	return fmt.Sprintf("%v/%v/license", getTenantsUrl(), tenantId)
 }
 
 func getWorkflowUrl(tenantId string, workflowId string) string {
-	return fmt.Sprintf("%v/%v/workflows/%v", getTenantUrl(), tenantId, workflowId)
+	return fmt.Sprintf("%v/%v/workflows/%v", getTenantsUrl(), tenantId, workflowId)
 }
 
 func getTenantLookupUrl(vanityUrl string) string {
-	return fmt.Sprintf("%v/lookup/vanityUrl/%v", getTenantUrl(), vanityUrl)
+	return fmt.Sprintf("%v/lookup/vanityUrl/%v", getTenantsUrl(), vanityUrl)
 }

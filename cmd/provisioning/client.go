@@ -25,11 +25,20 @@ import (
 )
 
 func postTenantProvisioningRequest(cmd *cobra.Command, request TenantProvisioningRequest, response *TenantProvisioningResponse) error {
-	return postAndPrint(cmd, getTenantUrl(), request, response)
+	return postAndPrint(cmd, getTenantsUrl(), request, response)
 }
 
 func postLicenseProvisioningRequest(cmd *cobra.Command, tenantId string, request LicenseProvisioningRequest, response *LicenseProvisioningResponse) error {
 	return postAndPrint(cmd, getLicenseUrl(tenantId), request, response)
+}
+
+func getTenantDetails(tenantId string) (TenantResponse, error) {
+	var res TenantResponse
+	err := api.JSONGet(getTenantsUrl()+"/"+tenantId, &res, nil)
+	if err == nil {
+		log.Infof("Workflow %v status: %v", res.Id, res.State)
+	}
+	return res, err
 }
 
 func getWorkflow(tenantId string, workflowId string) (WorkflowResponse, error) {
