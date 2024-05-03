@@ -17,6 +17,7 @@ package solution
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,8 @@ import (
 )
 
 const pseudoIsolationSuffix = "${$toSuffix(env.tag)}"
+
+var ErrUnsupportedEncoding = fmt.Errorf("unsupported encoding")
 
 var solutionForkCmd = &cobra.Command{
 	Use:   "fork [<solution-name>|--source-dir=<directory>] <target-name> [flags]",
@@ -285,7 +288,15 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 			if dir != nil {
 				dirName = dir.Name
 			}
-			return fmt.Errorf("error forking file %q: %w", filepath.Join(dirName, file.Name), err)
+			path := filepath.Join(dirName, file.Name)
+
+			if errors.Is(err, ErrUnsupportedEncoding) {
+				statusPrint("Made no changes in %q; not a json or yaml file", path)
+				log.WithField("file", path).Warn("Not a json or yaml file; skipping")
+				return nil
+			}
+
+			return fmt.Errorf("error forking file %q: %w", path, err)
 		}
 		if nReplacements > 0 {
 			// replace file contents
@@ -380,7 +391,7 @@ func forkFromDisk(sourceDir string, fileSystem afero.Fs, solutionName string, st
 // The function returns the new buffer with the replacements and the number of
 // replacements made, as well as an error.
 func forkFileInBuffer(buffer bytes.Buffer, encoding SolutionFileEncoding, oldNameRe *regexp.Regexp, newName string) (bytes.Buffer, int, error) {
-	// decode buffer to map[string]interace{}
+	// decode buffer to map[string]any
 	var contents any
 	var err error
 	switch encoding {
@@ -389,7 +400,7 @@ func forkFileInBuffer(buffer bytes.Buffer, encoding SolutionFileEncoding, oldNam
 	case EncodingYAML:
 		err = yaml.Unmarshal(buffer.Bytes(), &contents)
 	default:
-		return bytes.Buffer{}, 0, fmt.Errorf("unsupported encoding: %v", encoding)
+		return bytes.Buffer{}, 0, ErrUnsupportedEncoding
 	}
 	if err != nil {
 		return bytes.Buffer{}, 0, fmt.Errorf("error decoding %v file: %w", encoding, err)
