@@ -185,7 +185,7 @@ func parseObjectInfo(cmd *cobra.Command) (typeName string, objectID string, laye
 func GetBaseUrl() string {
 	ver := GlobalConfig.ApiVersion.String()
 	if ver == "" {
-		ver = "v1"
+		ver = "v2beta"
 	}
 	return "knowledge-store/" + ver
 }

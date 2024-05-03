@@ -64,6 +64,10 @@ func newGetObjectCmd() *cobra.Command {
 
 	getCmd.PersistentFlags().String("layer-id", "", "Layer ID of the related knowledge object to fetch")
 
+	getCmd.PersistentFlags().StringSlice("prefetch-refs", []string{}, "Paths to prefetch references in the object.  To specify multiple paths, please use multiple instances of this flag.  This is only supported for get by id at the moment; this flag will be ignored in the case of get all objects.")
+
+	getCmd.PersistentFlags().Bool("prefetch-refs-inline", false, "Return references inline in the object.  This flag is only considered when prefetch-refs is specified.")
+
 	getCmd.Flags().
 		Var(&ltFlag, "layer-type", fmt.Sprintf("Layer type at which the knowledge object exists.  Valid values: %q, %q, %q, %q, %q", solution, account, globalUser, tenant, localUser))
 	_ = getCmd.RegisterFlagCompletionFunc("layer-type", layerTypeCompletionFunc)
@@ -133,15 +137,41 @@ func getObject(cmd *cobra.Command, args []string, ltFlag layerType) error {
 	var objStoreUrl string
 	var isCollection bool = true
 	var filterSpecified bool = false
+	var isFieldsSpecified bool = false
 	if objID != "" {
 		objStoreUrl = getObjectUrl(fqtn, objID)
 		if cmd.Flags().Changed("fields") {
+			isFieldsSpecified = true
 			fieldsToFetch, err := cmd.Flags().GetString("fields")
 			if err != nil {
 				return fmt.Errorf("error trying to get %q flag value: %w", "fields", err)
 			}
 			query := fmt.Sprintf("fields=%s", url.QueryEscape(fieldsToFetch))
 			objStoreUrl = fmt.Sprintf("%s?%s", objStoreUrl, query)
+		}
+		// parse prefetch-refs flag and build the query to handle prefetching
+		if cmd.Flags().Changed("prefetch-refs") {
+			prefetchRefs, err := cmd.Flags().GetStringSlice("prefetch-refs")
+			if err != nil {
+				return fmt.Errorf("error trying to get %q flag value: %w", "prefetch-refs", err)
+			}
+			for index, ref := range prefetchRefs {
+				query := fmt.Sprintf("prefetchRefs=%s", url.QueryEscape(ref))
+				// use the ? separator instead of & for first query parameter
+				if index == 0 && !isFieldsSpecified {
+					objStoreUrl = fmt.Sprintf("%s?%s", objStoreUrl, query)
+				} else {
+					objStoreUrl = fmt.Sprintf("%s&%s", objStoreUrl, query)
+				}
+			}
+			log.Infof("Prefetching references: %v", prefetchRefs)
+
+			// only check prefetch-inline flag if prefetch-refs is specified
+			if cmd.Flags().Changed("prefetch-refs-inline") {
+				query := "prefetchRefsInline=true"
+				objStoreUrl = fmt.Sprintf("%s&%s", objStoreUrl, query)
+				log.Info("Prefetching references inline")
+			}
 		}
 		isCollection = false
 	} else {
