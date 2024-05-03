@@ -17,6 +17,7 @@ import (
 	metrics "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resource "go.opentelemetry.io/proto/otlp/resource/v1"
 	spans "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -538,11 +539,12 @@ func dumpPayload(m proto.Message, format string, writer func(string)) {
 	case DumpFormatHuman:
 		s = prototext.Format(m)
 	case DumpFormatText:
-		b, err = prototext.Marshal(m)
+		b, err = prototext.Marshal(m) // untagged field names will go to lowerCamelCase
 	case DumpFormatJson:
-		b, err = json.MarshalIndent(m, "", output.JsonIndent)
+		// nb: protojson is required for marshalling proto3 messages; it also defaults to lowerCamelCase field name encoding
+		b, err = protojson.MarshalOptions{Multiline: true, Indent: output.JsonIndent}.Marshal(m)
 	case DumpFormatYaml:
-		b, err = yaml.Marshal(m)
+		b, err = yaml.Marshal(m) // untagged field names will go to lowerCamelCase
 	case DumpFormatHex:
 		b, err = proto.Marshal(m)
 		if err == nil {
