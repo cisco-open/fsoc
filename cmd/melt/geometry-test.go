@@ -94,18 +94,18 @@ func exportMetrics() error {
 
 	// add a gauge metric to the entity
 	m1 := melt.NewMetric("geometry:gauge", "count", "gauge", "double")
-	m1.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*5)
+	m1.AddDataPoint(st.UnixNano(), et.UnixNano(), map[string]interface{}{}, rand.Float64()*5)
 	e1.AddMetric(m1)
 
 	// add a sum delta metric to the entity
 	m2 := melt.NewMetric("geometry:sum_delta", "sum", "sum", "double")
-	m2.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*5)
+	m2.AddDataPoint(st.UnixNano(), et.UnixNano(), map[string]interface{}{}, rand.Float64()*5)
 	m2.AggregationTemporality = melt.AggregationTemporalityDelta
 	e1.AddMetric(m2)
 
 	// add a sum cumulative metric to the entity
 	m3 := melt.NewMetric("geometry:sum_cumulative", "sum", "sum", "double")
-	m3.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*5)
+	m3.AddDataPoint(st.UnixNano(), et.UnixNano(), map[string]interface{}{}, rand.Float64()*5)
 	m3.IsMonotonic = true
 	m3.AggregationTemporality = melt.AggregationTemporalityCumulative
 	e1.AddMetric(m3)
@@ -238,7 +238,7 @@ func exportRelationships() error {
 		m := melt.NewMetric("geometry:dummy", "count", "gauge", "double")
 		et := time.Now()
 		st := et.Add(time.Minute * -1)
-		m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*5)
+		m.AddDataPoint(st.UnixNano(), et.UnixNano(), map[string]interface{}{}, rand.Float64()*5)
 		edgeEntity.AddMetric(m)
 
 		el = append(el, edgeEntity)
@@ -255,7 +255,7 @@ func exportRelationships() error {
 	m := melt.NewMetric("geometry:dummy", "count", "gauge", "double")
 	et := time.Now()
 	st := et.Add(time.Minute * -1)
-	m.AddDataPoint(st.UnixNano(), et.UnixNano(), rand.Float64()*5)
+	m.AddDataPoint(st.UnixNano(), et.UnixNano(), map[string]interface{}{}, rand.Float64()*5)
 	e1.AddMetric(m)
 
 	// add relationship to edges

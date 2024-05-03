@@ -161,10 +161,13 @@ func sendDataFromFile(cmd *cobra.Command, dataFileName string) {
 					}
 
 					if m.ContentType == "distribution" {
-						quantiles := []*melt.QuantileValue{{Quantile: 0.0, Value: dp}, {Quantile: 1.0, Value: dp}}
+						quantiles := []*melt.QuantileValue{{Quantile: "0.0", Value: dp}, {Quantile: "1.0", Value: dp}}
 						m.AddDistributionDataPoint(st.UnixNano(), et.UnixNano(), dp, 1, quantiles)
+					} else if m.ContentType == "histogram" {
+						m.AddHistogramDataPoint(st.UnixNano(), et.UnixNano(), dp, 1, "p0", []uint64{1}, []float64{dp})
+						m.AddHistogramDataPoint(st.UnixNano(), et.UnixNano(), dp, 1, "p100", []uint64{1}, []float64{dp})
 					} else {
-						m.AddDataPoint(st.UnixNano(), et.UnixNano(), dp)
+						m.AddDataPoint(st.UnixNano(), et.UnixNano(), nil, dp)
 					}
 
 					st = et
