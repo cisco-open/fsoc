@@ -54,11 +54,12 @@ func downloadSolution(cmd *cobra.Command, args []string) {
 	solutionName := getSolutionNameFromArgs(cmd, args, "name")
 	solutionTagFlag, _ := cmd.Flags().GetString("tag")
 
-	if _, err := DownloadSolutionPackage(solutionName, solutionTagFlag, "."); err != nil {
+	zipPath, err := DownloadSolutionPackage(solutionName, solutionTagFlag, ".")
+	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	message := fmt.Sprintf("Solution %q with tag %s downloaded successfully.\n", solutionName, solutionTagFlag)
+	message := fmt.Sprintf("Solution %q with tag %s downloaded successfully to %v.\n", solutionName, solutionTagFlag, zipPath)
 	output.PrintCmdStatus(cmd, message)
 }
 
@@ -85,7 +86,7 @@ func DownloadSolutionPackage(name string, tag string, targetPath string) (string
 		// if targetPath is an existing directory, place zip there; otherwise, treat as file path
 		fileInfo, err := os.Stat(targetPath)
 		if err == nil && fileInfo.IsDir() {
-			targetPath = filepath.Join(filepath.Dir(targetPath), name+".zip")
+			targetPath = filepath.Join(targetPath, name+".zip")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("failed to access target path %q: %v", targetPath, err)
 		} // else treat as file path, possibly overwriting existing file
